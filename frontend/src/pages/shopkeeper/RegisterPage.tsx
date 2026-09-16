@@ -8,22 +8,31 @@ import {
   Loader2,
   LockKeyhole,
   Mail,
+  Store,
   User,
+  UserRound,
 } from "lucide-react";
 
 const API_URL =
   import.meta.env.VITE_API_URL ?? "http://localhost:5001/api";
 
+type UserRole = "shopkeeper" | "customer";
+
 export default function RegisterPage() {
   const navigate = useNavigate();
+
+  const [role, setRole] = useState<UserRole>("shopkeeper");
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] =
+    useState("");
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPassword, setShowPassword] =
+    useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -39,7 +48,9 @@ export default function RegisterPage() {
   const passwordIsStrong =
     Object.values(passwordChecks).every(Boolean);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
 
     setError("");
@@ -72,21 +83,26 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/auth/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${API_URL}/auth/register`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            name: normalizedName,
+            email: normalizedEmail,
+            password,
+            role,
+          }),
         },
-        credentials: "include",
-        body: JSON.stringify({
-          name: normalizedName,
-          email: normalizedEmail,
-          password,
-          role: "shopkeeper",
-        }),
-      });
+      );
 
-      const result = await response.json().catch(() => null);
+      const result = await response
+        .json()
+        .catch(() => null);
 
       if (!response.ok) {
         throw new Error(
@@ -95,15 +111,12 @@ export default function RegisterPage() {
         );
       }
 
-      /*
-       * The current backend registration endpoint creates the user.
-       * Once registration is successful, send the user to login.
-       */
       navigate("/login", {
         replace: true,
         state: {
           registered: true,
           email: normalizedEmail,
+          role,
         },
       });
     } catch (err) {
@@ -141,12 +154,14 @@ export default function RegisterPage() {
             </p>
 
             <h1 className="text-4xl font-bold leading-tight xl:text-5xl">
-              Bring your billing, customers and warranties together.
+              Bring your billing, customers and warranties
+              together.
             </h1>
 
             <p className="mt-6 max-w-md text-base leading-7 text-primary-foreground/75">
-              Create your BillNest account and build a more organized
-              way to manage your business.
+              Whether you run a business or track your
+              purchases, BillNest keeps everything organized
+              in one place.
             </p>
 
             <div className="mt-8 space-y-3 text-sm text-primary-foreground/80">
@@ -170,7 +185,8 @@ export default function RegisterPage() {
           </div>
 
           <p className="text-sm text-primary-foreground/60">
-            © {new Date().getFullYear()} BillNest. All rights reserved.
+            © {new Date().getFullYear()} BillNest. All
+            rights reserved.
           </p>
         </section>
 
@@ -197,7 +213,7 @@ export default function RegisterPage() {
               </h2>
 
               <p className="mt-2 text-muted-foreground">
-                Get started with BillNest in a few seconds.
+                Choose how you want to use BillNest.
               </p>
             </div>
 
@@ -214,6 +230,99 @@ export default function RegisterPage() {
               onSubmit={handleSubmit}
               className="space-y-5"
             >
+              {/* Account type */}
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium">
+                    Account type
+                  </label>
+
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Select how you will use BillNest.
+                  </p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {/* Shopkeeper */}
+                  <button
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => setRole("shopkeeper")}
+                    className={`rounded-2xl border p-4 text-left transition-all ${
+                      role === "shopkeeper"
+                        ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+                        : "border-input bg-background hover:bg-muted/50"
+                    } disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    <div
+                      className={`mb-3 flex size-10 items-center justify-center rounded-xl ${
+                        role === "shopkeeper"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      <Store className="size-5" />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold">
+                        Shopkeeper
+                      </span>
+
+                      {role === "shopkeeper" && (
+                        <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                          <Check className="size-3" />
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Manage your business, customers,
+                      invoices and warranties.
+                    </p>
+                  </button>
+
+                  {/* Customer */}
+                  <button
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => setRole("customer")}
+                    className={`rounded-2xl border p-4 text-left transition-all ${
+                      role === "customer"
+                        ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+                        : "border-input bg-background hover:bg-muted/50"
+                    } disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    <div
+                      className={`mb-3 flex size-10 items-center justify-center rounded-xl ${
+                        role === "customer"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      <UserRound className="size-5" />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold">
+                        Customer
+                      </span>
+
+                      {role === "customer" && (
+                        <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                          <Check className="size-3" />
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Track your purchases, invoices and
+                      product warranties.
+                    </p>
+                  </button>
+                </div>
+              </div>
+
               {/* Name */}
               <div className="space-y-2">
                 <label
@@ -294,7 +403,11 @@ export default function RegisterPage() {
                   <input
                     id="password"
                     name="password"
-                    type={showPassword ? "text" : "password"}
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
                     autoComplete="new-password"
                     placeholder="Create a strong password"
                     value={password}
@@ -313,7 +426,9 @@ export default function RegisterPage() {
                         : "Show password"
                     }
                     onClick={() =>
-                      setShowPassword((value) => !value)
+                      setShowPassword(
+                        (value) => !value,
+                      )
                     }
                     disabled={isLoading}
                     className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:pointer-events-none"
@@ -332,18 +447,22 @@ export default function RegisterPage() {
                     valid={passwordChecks.length}
                     text="8+ characters"
                   />
+
                   <PasswordRequirement
                     valid={passwordChecks.uppercase}
                     text="Uppercase"
                   />
+
                   <PasswordRequirement
                     valid={passwordChecks.lowercase}
                     text="Lowercase"
                   />
+
                   <PasswordRequirement
                     valid={passwordChecks.number}
                     text="Number"
                   />
+
                   <PasswordRequirement
                     valid={passwordChecks.special}
                     text="Special character"
@@ -378,7 +497,9 @@ export default function RegisterPage() {
                     placeholder="Re-enter your password"
                     value={confirmPassword}
                     onChange={(event) =>
-                      setConfirmPassword(event.target.value)
+                      setConfirmPassword(
+                        event.target.value,
+                      )
                     }
                     disabled={isLoading}
                     className="h-11 w-full rounded-xl border border-input bg-background pl-10 pr-11 text-sm outline-none transition placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-60"
@@ -420,7 +541,11 @@ export default function RegisterPage() {
                     Creating account...
                   </>
                 ) : (
-                  "Create account"
+                  `Create ${
+                    role === "shopkeeper"
+                      ? "Shopkeeper"
+                      : "Customer"
+                  } Account`
                 )}
               </button>
             </form>

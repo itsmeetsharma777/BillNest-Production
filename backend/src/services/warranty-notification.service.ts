@@ -19,7 +19,8 @@ function addDays(
   date: Date,
   days: number,
 ): Date {
-  const result = new Date(date);
+  const result =
+    new Date(date);
 
   result.setDate(
     result.getDate() + days,
@@ -31,19 +32,26 @@ function addDays(
 function formatExpiryDate(
   date: Date,
 ): string {
-  return date.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return date.toLocaleDateString(
+    "en-IN",
+    {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    },
+  );
 }
 
 async function getActiveShopOwner(
   shopId: string,
 ): Promise<string | null> {
-  const shop = await findShopById(shopId);
+  const shop =
+    await findShopById(shopId);
 
-  if (!shop || !shop.isActive) {
+  if (
+    !shop ||
+    !shop.isActive
+  ) {
     return null;
   }
 
@@ -53,10 +61,11 @@ async function getActiveShopOwner(
 async function processExpiringWarranties(
   now: Date,
 ): Promise<number> {
-  const endDate = addDays(
-    now,
-    EXPIRING_WINDOW_DAYS,
-  );
+  const endDate =
+    addDays(
+      now,
+      EXPIRING_WINDOW_DAYS,
+    );
 
   const warranties =
     await findAllWarrantiesExpiringBetween(
@@ -66,7 +75,9 @@ async function processExpiringWarranties(
 
   let created = 0;
 
-  for (const warranty of warranties) {
+  for (
+    const warranty of warranties
+  ) {
     const warrantyId =
       warranty._id.toString();
 
@@ -74,7 +85,9 @@ async function processExpiringWarranties(
       warranty.shopId.toString();
 
     const ownerId =
-      await getActiveShopOwner(shopId);
+      await getActiveShopOwner(
+        shopId,
+      );
 
     if (!ownerId) {
       continue;
@@ -92,34 +105,51 @@ async function processExpiringWarranties(
       continue;
     }
 
-    const daysRemaining = Math.max(
-      0,
-      Math.ceil(
-        (warranty.expiryDate.getTime() -
-          now.getTime()) /
-          MILLISECONDS_PER_DAY,
-      ),
-    );
+    const daysRemaining =
+      Math.max(
+        0,
+        Math.ceil(
+          (
+            warranty.expiryDate.getTime() -
+            now.getTime()
+          ) /
+            MILLISECONDS_PER_DAY,
+        ),
+      );
 
     await createNotification({
       userId: ownerId,
+
       shopId,
+
       type: "warranty_expiring",
-      title: "Warranty expiring soon",
+
+      title:
+        "Warranty expiring soon",
+
       message:
-        `${warranty.productName} warranty expires in ` +
-        `${daysRemaining} day${
-          daysRemaining === 1 ? "" : "s"
+        `${warranty.productName} warranty ` +
+        `expires in ${daysRemaining} ` +
+        `day${
+          daysRemaining === 1
+            ? ""
+            : "s"
         } on ${formatExpiryDate(
           warranty.expiryDate,
         )}.`,
+
       link:
         `/shopkeeper/warranties/${warrantyId}`,
+
       metadata: {
         warrantyId,
-        productName: warranty.productName,
+
+        productName:
+          warranty.productName,
+
         expiryDate:
           warranty.expiryDate.toISOString(),
+
         daysRemaining,
       },
     });
@@ -134,11 +164,15 @@ async function processExpiredWarranties(
   now: Date,
 ): Promise<number> {
   const warranties =
-    await findAllExpiredWarranties(now);
+    await findAllExpiredWarranties(
+      now,
+    );
 
   let created = 0;
 
-  for (const warranty of warranties) {
+  for (
+    const warranty of warranties
+  ) {
     const warrantyId =
       warranty._id.toString();
 
@@ -146,7 +180,9 @@ async function processExpiredWarranties(
       warranty.shopId.toString();
 
     const ownerId =
-      await getActiveShopOwner(shopId);
+      await getActiveShopOwner(
+        shopId,
+      );
 
     if (!ownerId) {
       continue;
@@ -166,19 +202,29 @@ async function processExpiredWarranties(
 
     await createNotification({
       userId: ownerId,
+
       shopId,
+
       type: "warranty_expired",
-      title: "Warranty expired",
+
+      title:
+        "Warranty expired",
+
       message:
-        `${warranty.productName} warranty expired on ` +
-        `${formatExpiryDate(
+        `${warranty.productName} warranty ` +
+        `expired on ${formatExpiryDate(
           warranty.expiryDate,
         )}.`,
+
       link:
         `/shopkeeper/warranties/${warrantyId}`,
+
       metadata: {
         warrantyId,
-        productName: warranty.productName,
+
+        productName:
+          warranty.productName,
+
         expiryDate:
           warranty.expiryDate.toISOString(),
       },
@@ -191,24 +237,31 @@ async function processExpiredWarranties(
 }
 
 /**
- * Run the complete warranty notification scan.
+ * Runs the complete warranty notification scan.
  *
- * Safe to execute repeatedly because each
+ * Safe to execute repeatedly because every
  * warranty/event combination is checked before
  * creating a notification.
  */
 export async function runWarrantyNotificationCheck() {
-  const now = new Date();
+  const now =
+    new Date();
 
   const expiringCreated =
-    await processExpiringWarranties(now);
+    await processExpiringWarranties(
+      now,
+    );
 
   const expiredCreated =
-    await processExpiredWarranties(now);
+    await processExpiredWarranties(
+      now,
+    );
 
   return {
     expiringCreated,
+
     expiredCreated,
+
     checkedAt: now,
   };
 }

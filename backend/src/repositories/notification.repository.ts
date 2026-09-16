@@ -5,6 +5,34 @@ import {
   type NotificationType,
 } from "../models/notification.model";
 
+type NotificationStatus = {
+  userId: Types.ObjectId;
+  shopId?: Types.ObjectId;
+  isRead?: boolean;
+};
+
+function buildUserNotificationFilter(
+  userId: string,
+  options?: {
+    unreadOnly?: boolean;
+    shopId?: string;
+  },
+): NotificationStatus {
+  const filter: NotificationStatus = {
+    userId: new Types.ObjectId(userId),
+  };
+
+  if (options?.shopId) {
+    filter.shopId = new Types.ObjectId(options.shopId);
+  }
+
+  if (options?.unreadOnly) {
+    filter.isRead = false;
+  }
+
+  return filter;
+}
+
 export async function findNotificationsByUserId(
   userId: string,
   options?: {
@@ -17,23 +45,7 @@ export async function findNotificationsByUserId(
   const skip = options?.skip ?? 0;
   const limit = options?.limit ?? 20;
 
-  const filter: {
-    userId: Types.ObjectId;
-    shopId?: Types.ObjectId;
-    isRead?: boolean;
-  } = {
-    userId: new Types.ObjectId(userId),
-  };
-
-  if (options?.shopId) {
-    filter.shopId = new Types.ObjectId(
-      options.shopId,
-    );
-  }
-
-  if (options?.unreadOnly) {
-    filter.isRead = false;
-  }
+  const filter = buildUserNotificationFilter(userId, options);
 
   return NotificationModel.find(filter)
     .sort({ createdAt: -1 })
@@ -49,23 +61,7 @@ export async function countNotificationsByUserId(
     shopId?: string;
   },
 ) {
-  const filter: {
-    userId: Types.ObjectId;
-    shopId?: Types.ObjectId;
-    isRead?: boolean;
-  } = {
-    userId: new Types.ObjectId(userId),
-  };
-
-  if (options?.shopId) {
-    filter.shopId = new Types.ObjectId(
-      options.shopId,
-    );
-  }
-
-  if (options?.unreadOnly) {
-    filter.isRead = false;
-  }
+  const filter = buildUserNotificationFilter(userId, options);
 
   return NotificationModel.countDocuments(filter);
 }
@@ -117,9 +113,7 @@ export async function findNotificationByWarrantyEvent(
   userId: string,
   shopId: string,
   warrantyId: string,
-  type:
-    | "warranty_expiring"
-    | "warranty_expired",
+  type: "warranty_expiring" | "warranty_expired",
 ) {
   return NotificationModel.findOne({
     userId: new Types.ObjectId(userId),
@@ -172,6 +166,7 @@ export async function markNotificationAsRead(
     },
     {
       new: true,
+      runValidators: true,
     },
   );
 }

@@ -1,4 +1,7 @@
 import type { Response } from "express";
+import mongoose from "mongoose";
+import { z } from "zod";
+
 import {
   createInvoiceForOwner,
   getInvoiceForOwner,
@@ -7,20 +10,47 @@ import {
   markInvoiceAsPaidForOwner,
   cancelInvoiceForOwner,
 } from "../services/invoice.service";
+
 import {
   createInvoiceSchema,
   updateInvoiceSchema,
   invoiceListQuerySchema,
 } from "../validators/invoice.validator";
-import type { AuthenticatedRequest } from "../middleware/auth.middleware";
+
+import type {
+  AuthenticatedRequest,
+} from "../middleware/auth.middleware";
+
+import { ApiError } from "../utils/api-error";
+
+const markInvoicePaidSchema =
+  z.object({
+    paymentMethod: z
+      .enum([
+        "cash",
+        "upi",
+        "card",
+        "bank_transfer",
+        "credit",
+      ])
+      .optional(),
+  });
 
 function getInvoiceId(
   req: AuthenticatedRequest,
 ): string {
-  const invoiceId = req.params.invoiceId;
+  const invoiceId =
+    req.params.invoiceId;
 
-  if (typeof invoiceId !== "string") {
-    throw new Error("Invalid invoice ID.");
+  if (
+    typeof invoiceId !== "string" ||
+    !mongoose.isValidObjectId(invoiceId)
+  ) {
+    throw new ApiError(
+      400,
+      "Invalid invoice ID.",
+      "INVALID_INVOICE_ID",
+    );
   }
 
   return invoiceId;
@@ -30,16 +60,21 @@ export async function createInvoice(
   req: AuthenticatedRequest,
   res: Response,
 ) {
-  const input = createInvoiceSchema.parse(req.body);
+  const input =
+    createInvoiceSchema.parse(
+      req.body,
+    );
 
-  const result = await createInvoiceForOwner(
-    req.user.id,
-    input,
-  );
+  const result =
+    await createInvoiceForOwner(
+      req.user.id,
+      input,
+    );
 
   res.status(201).json({
     success: true,
-    message: "Invoice created successfully.",
+    message:
+      "Invoice created successfully.",
     data: result,
   });
 }
@@ -48,19 +83,22 @@ export async function getInvoices(
   req: AuthenticatedRequest,
   res: Response,
 ) {
-  const query = invoiceListQuerySchema.parse(
-    req.query,
-  );
+  const query =
+    invoiceListQuerySchema.parse(
+      req.query,
+    );
 
-  const result = await getInvoicesForOwner(
-    req.user.id,
-    {
-      page: query.page,
-      limit: query.limit,
-      status: query.status,
-      customerId: query.customerId,
-    },
-  );
+  const result =
+    await getInvoicesForOwner(
+      req.user.id,
+      {
+        page: query.page,
+        limit: query.limit,
+        status: query.status,
+        customerId:
+          query.customerId,
+      },
+    );
 
   res.status(200).json({
     success: true,
@@ -72,10 +110,11 @@ export async function getInvoice(
   req: AuthenticatedRequest,
   res: Response,
 ) {
-  const result = await getInvoiceForOwner(
-    req.user.id,
-    getInvoiceId(req),
-  );
+  const result =
+    await getInvoiceForOwner(
+      req.user.id,
+      getInvoiceId(req),
+    );
 
   res.status(200).json({
     success: true,
@@ -87,17 +126,22 @@ export async function updateInvoice(
   req: AuthenticatedRequest,
   res: Response,
 ) {
-  const input = updateInvoiceSchema.parse(req.body);
+  const input =
+    updateInvoiceSchema.parse(
+      req.body,
+    );
 
-  const invoice = await updateInvoiceForOwner(
-    req.user.id,
-    getInvoiceId(req),
-    input,
-  );
+  const invoice =
+    await updateInvoiceForOwner(
+      req.user.id,
+      getInvoiceId(req),
+      input,
+    );
 
   res.status(200).json({
     success: true,
-    message: "Invoice updated successfully.",
+    message:
+      "Invoice updated successfully.",
     data: {
       invoice,
     },
@@ -108,15 +152,22 @@ export async function markInvoiceAsPaid(
   req: AuthenticatedRequest,
   res: Response,
 ) {
-  const invoice = await markInvoiceAsPaidForOwner(
-    req.user.id,
-    getInvoiceId(req),
-    req.body.paymentMethod,
-  );
+  const input =
+    markInvoicePaidSchema.parse(
+      req.body ?? {},
+    );
+
+  const invoice =
+    await markInvoiceAsPaidForOwner(
+      req.user.id,
+      getInvoiceId(req),
+      input.paymentMethod,
+    );
 
   res.status(200).json({
     success: true,
-    message: "Invoice marked as paid.",
+    message:
+      "Invoice marked as paid.",
     data: {
       invoice,
     },
@@ -127,14 +178,16 @@ export async function cancelInvoice(
   req: AuthenticatedRequest,
   res: Response,
 ) {
-  const invoice = await cancelInvoiceForOwner(
-    req.user.id,
-    getInvoiceId(req),
-  );
+  const invoice =
+    await cancelInvoiceForOwner(
+      req.user.id,
+      getInvoiceId(req),
+    );
 
   res.status(200).json({
     success: true,
-    message: "Invoice cancelled successfully.",
+    message:
+      "Invoice cancelled successfully.",
     data: {
       invoice,
     },

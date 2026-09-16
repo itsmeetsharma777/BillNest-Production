@@ -3,19 +3,23 @@ import {
   findShopByOwnerId,
   updateShopById,
 } from "../repositories/shop.repository";
+
 import { ApiError } from "../utils/api-error";
+
+interface ShopAddressInput {
+  line1?: string;
+  line2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+}
 
 interface CreateShopInput {
   name: string;
   phone?: string;
   email?: string;
-  address?: {
-    street?: string;
-    city?: string;
-    state?: string;
-    postalCode?: string;
-    country?: string;
-  };
+  address?: ShopAddressInput;
   taxId?: string;
   logoUrl?: string;
 }
@@ -24,13 +28,7 @@ interface UpdateShopInput {
   name?: string;
   phone?: string;
   email?: string;
-  address?: {
-    street?: string;
-    city?: string;
-    state?: string;
-    postalCode?: string;
-    country?: string;
-  };
+  address?: ShopAddressInput;
   taxId?: string;
   logoUrl?: string;
 }
@@ -62,18 +60,47 @@ export async function createShopForOwner(
   const shop = await createShop({
     ownerId,
     name,
+
     ...(input.phone?.trim() && {
       phone: input.phone.trim(),
     }),
+
     ...(input.email?.trim() && {
       email: input.email.trim().toLowerCase(),
     }),
+
     ...(input.address && {
-      address: input.address,
+      address: {
+        ...(input.address.line1?.trim() && {
+          line1: input.address.line1.trim(),
+        }),
+
+        ...(input.address.line2?.trim() && {
+          line2: input.address.line2.trim(),
+        }),
+
+        ...(input.address.city?.trim() && {
+          city: input.address.city.trim(),
+        }),
+
+        ...(input.address.state?.trim() && {
+          state: input.address.state.trim(),
+        }),
+
+        ...(input.address.postalCode?.trim() && {
+          postalCode: input.address.postalCode.trim(),
+        }),
+
+        ...(input.address.country?.trim() && {
+          country: input.address.country.trim(),
+        }),
+      },
     }),
+
     ...(input.taxId?.trim() && {
       taxId: input.taxId.trim(),
     }),
+
     ...(input.logoUrl?.trim() && {
       logoUrl: input.logoUrl.trim(),
     }),
@@ -90,6 +117,14 @@ export async function getShopForOwner(ownerId: string) {
       404,
       "Shop not found.",
       "SHOP_NOT_FOUND",
+    );
+  }
+
+  if (!shop.isActive) {
+    throw new ApiError(
+      403,
+      "This shop is inactive.",
+      "SHOP_INACTIVE",
     );
   }
 
@@ -110,6 +145,14 @@ export async function updateShopForOwner(
     );
   }
 
+  if (!shop.isActive) {
+    throw new ApiError(
+      403,
+      "This shop is inactive.",
+      "SHOP_INACTIVE",
+    );
+  }
+
   if (
     input.name !== undefined &&
     !input.name.trim()
@@ -121,7 +164,14 @@ export async function updateShopForOwner(
     );
   }
 
-  const updateData: UpdateShopInput = {};
+  const updateData: {
+    name?: string;
+    phone?: string;
+    email?: string;
+    address?: ShopAddressInput;
+    taxId?: string;
+    logoUrl?: string;
+  } = {};
 
   if (input.name !== undefined) {
     updateData.name = input.name.trim();
@@ -136,7 +186,31 @@ export async function updateShopForOwner(
   }
 
   if (input.address !== undefined) {
-    updateData.address = input.address;
+    updateData.address = {
+      ...(input.address.line1 !== undefined && {
+        line1: input.address.line1.trim(),
+      }),
+
+      ...(input.address.line2 !== undefined && {
+        line2: input.address.line2.trim(),
+      }),
+
+      ...(input.address.city !== undefined && {
+        city: input.address.city.trim(),
+      }),
+
+      ...(input.address.state !== undefined && {
+        state: input.address.state.trim(),
+      }),
+
+      ...(input.address.postalCode !== undefined && {
+        postalCode: input.address.postalCode.trim(),
+      }),
+
+      ...(input.address.country !== undefined && {
+        country: input.address.country.trim(),
+      }),
+    };
   }
 
   if (input.taxId !== undefined) {

@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import mongoose from "mongoose";
 
 import {
   getNotificationsForOwner,
@@ -7,50 +8,60 @@ import {
   deleteNotificationForOwner,
 } from "../services/notification.service";
 
+import {
+  notificationListQuerySchema,
+  notificationIdParamSchema,
+} from "../validators/notification.validator";
+
 import type { AuthenticatedRequest } from "../middleware/auth.middleware";
+
+import { ApiError } from "../utils/api-error";
+
+function getAuthenticatedUserId(
+  req: AuthenticatedRequest,
+): string {
+  const userId = req.user?.id;
+
+  if (
+    typeof userId !== "string" ||
+    !mongoose.isValidObjectId(userId)
+  ) {
+    throw new ApiError(
+      401,
+      "Invalid authenticated user.",
+      "INVALID_AUTHENTICATED_USER",
+    );
+  }
+
+  return userId;
+}
 
 function getNotificationId(
   req: AuthenticatedRequest,
 ): string {
-  const notificationId =
-    req.params.notificationId;
+  const parsed = notificationIdParamSchema.parse(
+    req.params,
+  );
 
-  if (typeof notificationId !== "string") {
-    throw new Error("Invalid notification ID.");
-  }
-
-  return notificationId;
+  return parsed.notificationId;
 }
 
 export async function getNotifications(
   req: AuthenticatedRequest,
   res: Response,
 ) {
-  const page = Math.max(
-    1,
-    Number(req.query.page) || 1,
+  const query = notificationListQuerySchema.parse(
+    req.query,
   );
 
-  const limit = Math.min(
-    100,
-    Math.max(
-      1,
-      Number(req.query.limit) || 20,
-    ),
+  const result = await getNotificationsForOwner(
+    getAuthenticatedUserId(req),
+    {
+      page: query.page,
+      limit: query.limit,
+      unreadOnly: query.unreadOnly,
+    },
   );
-
-  const unreadOnly =
-    req.query.unreadOnly === "true";
-
-  const result =
-    await getNotificationsForOwner(
-      req.user.id,
-      {
-        page,
-        limit,
-        unreadOnly,
-      },
-    );
 
   res.status(200).json({
     success: true,
@@ -62,13 +73,10 @@ export async function markNotificationAsRead(
   req: AuthenticatedRequest,
   res: Response,
 ) {
-  const notificationId =
-    getNotificationId(req);
-
   const notification =
     await markNotificationAsReadForOwner(
-      req.user.id,
-      notificationId,
+      getAuthenticatedUserId(req),
+      getNotificationId(req),
     );
 
   res.status(200).json({
@@ -86,7 +94,7 @@ export async function markAllNotificationsAsRead(
 ) {
   const result =
     await markAllNotificationsAsReadForOwner(
-      req.user.id,
+      getAuthenticatedUserId(req),
     );
 
   res.status(200).json({
@@ -100,12 +108,9 @@ export async function deleteNotification(
   req: AuthenticatedRequest,
   res: Response,
 ) {
-  const notificationId =
-    getNotificationId(req);
-
   await deleteNotificationForOwner(
-    req.user.id,
-    notificationId,
+    getAuthenticatedUserId(req),
+    getNotificationId(req),
   );
 
   res.status(200).json({

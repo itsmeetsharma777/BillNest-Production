@@ -1,4 +1,5 @@
 import { Router } from "express";
+
 import {
   createInvoice,
   getInvoices,
@@ -7,8 +8,12 @@ import {
   markInvoiceAsPaid,
   cancelInvoice,
 } from "../controllers/invoice.controller";
+
+import { downloadInvoicePdf } from "../controllers/invoice-pdf.controller";
+
 import { requireAuth } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
+
 import { asyncHandler } from "../utils/async-handler";
 
 const router = Router();
@@ -29,6 +34,11 @@ router.get(
 router.get(
   "/:invoiceId",
   asyncHandler(getInvoice),
+);
+
+router.get(
+  "/:invoiceId/pdf",
+  asyncHandler(downloadInvoicePdf),
 );
 
 router.patch(

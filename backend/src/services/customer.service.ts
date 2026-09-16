@@ -1,15 +1,23 @@
 import {
   createCustomer,
   findCustomerByIdForShop,
+  findCustomerByUserId,
   findCustomersByShopId,
   updateCustomerByIdForShop,
   deleteCustomerByIdForShop,
 } from "../repositories/customer.repository";
+
+import {
+  findUserByEmail,
+} from "../repositories/user.repository";
+
 import { getShopForOwner } from "./shop.service";
+
 import { ApiError } from "../utils/api-error";
 
 interface CustomerAddress {
-  street?: string;
+  line1?: string;
+  line2?: string;
   city?: string;
   state?: string;
   postalCode?: string;
@@ -48,18 +56,105 @@ export async function createCustomerForOwner(
     );
   }
 
+  const email = input.email?.trim().toLowerCase();
+
+  let linkedUserId: string | undefined;
+
+  if (email) {
+    const existingUser = await findUserByEmail(email);
+
+    if (existingUser) {
+      if (existingUser.role !== "customer") {
+        throw new ApiError(
+          400,
+          "This email belongs to a shopkeeper account and cannot be linked as a customer.",
+          "INVALID_CUSTOMER_ACCOUNT",
+        );
+      }
+
+      if (!existingUser.isActive) {
+        throw new ApiError(
+          400,
+          "This customer account is inactive.",
+          "CUSTOMER_ACCOUNT_INACTIVE",
+        );
+      }
+
+      const existingCustomer = await findCustomerByUserId(
+        existingUser._id.toString(),
+      );
+
+      if (
+        existingCustomer &&
+        existingCustomer.shopId.toString() !== shop._id.toString()
+      ) {
+        throw new ApiError(
+          409,
+          "This customer account is already linked to another shop.",
+          "CUSTOMER_ALREADY_LINKED",
+        );
+      }
+
+      if (
+        existingCustomer &&
+        existingCustomer.shopId.toString() === shop._id.toString()
+      ) {
+        throw new ApiError(
+          409,
+          "A customer with this account already exists in your shop.",
+          "CUSTOMER_ALREADY_EXISTS",
+        );
+      }
+
+      linkedUserId = existingUser._id.toString();
+    }
+  }
+
   const customer = await createCustomer({
     shopId: shop._id.toString(),
-    name,
-    ...(input.email?.trim() && {
-      email: input.email.trim().toLowerCase(),
+
+    ...(linkedUserId && {
+      userId: linkedUserId,
     }),
+
+    name,
+
+    ...(email && {
+      email,
+    }),
+
     ...(input.phone?.trim() && {
       phone: input.phone.trim(),
     }),
+
     ...(input.address && {
-      address: input.address,
+      address: {
+        ...(input.address.line1?.trim() && {
+          line1: input.address.line1.trim(),
+        }),
+
+        ...(input.address.line2?.trim() && {
+          line2: input.address.line2.trim(),
+        }),
+
+        ...(input.address.city?.trim() && {
+          city: input.address.city.trim(),
+        }),
+
+        ...(input.address.state?.trim() && {
+          state: input.address.state.trim(),
+        }),
+
+        ...(input.address.postalCode?.trim() && {
+          postalCode: input.address.postalCode.trim(),
+        }),
+
+        ...(input.address.country?.trim() && {
+          country: input.address.country.trim(),
+        }),
+      },
     }),
+
     ...(input.notes?.trim() && {
       notes: input.notes.trim(),
     }),
@@ -77,7 +172,11 @@ export async function getCustomersForOwner(
 ) {
   const shop = await getShopForOwner(ownerId);
 
-  const page = Math.max(options?.page ?? 1, 1);
+  const page = Math.max(
+    options?.page ?? 1,
+    1,
+  );
+
   const limit = Math.min(
     Math.max(options?.limit ?? 20, 1),
     100,
@@ -89,16 +188,22 @@ export async function getCustomersForOwner(
     shop._id.toString(),
     {
       skip,
-      limit,
+      limit: limit + 1,
     },
   );
+
+  const hasMore = customers.length > limit;
+
+  if (hasMore) {
+    customers.pop();
+  }
 
   return {
     customers,
     pagination: {
       page,
       limit,
-      hasMore: customers.length === limit,
+      hasMore,
     },
   };
 }
@@ -114,7 +219,7 @@ export async function getCustomerForOwner(
     shop._id.toString(),
   );
 
-  if (!customer) {
+  if (!customer || !customer.isActive) {
     throw new ApiError(
       404,
       "Customer not found.",
@@ -138,7 +243,10 @@ export async function updateCustomerForOwner(
       shop._id.toString(),
     );
 
-  if (!existingCustomer) {
+  if (
+    !existingCustomer ||
+    !existingCustomer.isActive
+  ) {
     throw new ApiError(
       404,
       "Customer not found.",
@@ -164,19 +272,48 @@ export async function updateCustomerForOwner(
   }
 
   if (input.email !== undefined) {
-    updateData.email = input.email.trim().toLowerCase();
+    updateData.email =
+      input.email.trim().toLowerCase();
   }
 
   if (input.phone !== undefined) {
-    updateData.phone = input.phone.trim();
+    updateData.phone =
+      input.phone.trim();
   }
 
   if (input.address !== undefined) {
-    updateData.address = input.address;
+    updateData.address = {
+      ...(input.address.line1 !== undefined && {
+        line1: input.address.line1.trim(),
+      }),
+
+      ...(input.address.line2 !== undefined && {
+        line2: input.address.line2.trim(),
+      }),
+
+      ...(input.address.city !== undefined && {
+        city: input.address.city.trim(),
+      }),
+
+      ...(input.address.state !== undefined && {
+        state: input.address.state.trim(),
+      }),
+
+      ...(input.address.postalCode !== undefined && {
+        postalCode:
+          input.address.postalCode.trim(),
+      }),
+
+      ...(input.address.country !== undefined && {
+        country:
+          input.address.country.trim(),
+      }),
+    };
   }
 
   if (input.notes !== undefined) {
-    updateData.notes = input.notes.trim();
+    updateData.notes =
+      input.notes.trim();
   }
 
   const updatedCustomer =
@@ -209,7 +346,10 @@ export async function deactivateCustomerForOwner(
       shop._id.toString(),
     );
 
-  if (!customer) {
+  if (
+    !customer ||
+    !customer.isActive
+  ) {
     throw new ApiError(
       404,
       "Customer not found.",

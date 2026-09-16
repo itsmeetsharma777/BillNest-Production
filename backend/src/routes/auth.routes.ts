@@ -9,17 +9,24 @@ import {
 
 import { requireAuth } from "../middleware/auth.middleware";
 
+import {
+  loginRateLimit,
+  registerRateLimit,
+} from "../middleware/rate-limit.middleware";
+
 import { asyncHandler } from "../utils/async-handler";
 
 const router = Router();
 
 router.post(
   "/register",
+  registerRateLimit,
   asyncHandler(register),
 );
 
 router.post(
   "/login",
+  loginRateLimit,
   asyncHandler(login),
 );
 

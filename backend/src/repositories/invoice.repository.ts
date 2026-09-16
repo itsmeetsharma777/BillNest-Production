@@ -1,4 +1,8 @@
-import { Types, type ClientSession } from "mongoose";
+import {
+  Types,
+  type ClientSession,
+} from "mongoose";
+
 import { InvoiceModel } from "../models/invoice.model";
 import { InvoiceItemModel } from "../models/invoice-item.model";
 
@@ -18,7 +22,11 @@ export async function findInvoicesByShopId(
     skip?: number;
     limit?: number;
     customerId?: string;
-    status?: "draft" | "paid" | "partially_paid" | "cancelled";
+    status?:
+      | "draft"
+      | "paid"
+      | "partially_paid"
+      | "cancelled";
   },
 ) {
   const skip = options?.skip ?? 0;
@@ -27,13 +35,20 @@ export async function findInvoicesByShopId(
   const filter: {
     shopId: Types.ObjectId;
     customerId?: Types.ObjectId;
-    status?: "draft" | "paid" | "partially_paid" | "cancelled";
+    status?:
+      | "draft"
+      | "paid"
+      | "partially_paid"
+      | "cancelled";
   } = {
     shopId: new Types.ObjectId(shopId),
   };
 
   if (options?.customerId) {
-    filter.customerId = new Types.ObjectId(options.customerId);
+    filter.customerId =
+      new Types.ObjectId(
+        options.customerId,
+      );
   }
 
   if (options?.status) {
@@ -41,7 +56,10 @@ export async function findInvoicesByShopId(
   }
 
   return InvoiceModel.find(filter)
-    .sort({ issueDate: -1 })
+    .sort({
+      issueDate: -1,
+      createdAt: -1,
+    })
     .skip(skip)
     .limit(limit);
 }
@@ -53,7 +71,11 @@ export async function createInvoice(
     invoiceNumber: string;
     issueDate: Date;
     dueDate?: Date;
-    status?: "draft" | "paid" | "partially_paid" | "cancelled";
+    status?:
+      | "draft"
+      | "paid"
+      | "partially_paid"
+      | "cancelled";
     paymentMethod?:
       | "cash"
       | "upi"
@@ -70,10 +92,11 @@ export async function createInvoice(
   },
   session?: ClientSession,
 ) {
-  const [invoice] = await InvoiceModel.create(
-    [data],
-    { session },
-  );
+  const [invoice] =
+    await InvoiceModel.create(
+      [data],
+      { session },
+    );
 
   return invoice;
 }
@@ -93,30 +116,47 @@ export async function createInvoiceItems(
   }>,
   session?: ClientSession,
 ) {
-  return InvoiceItemModel.insertMany(items, {
-    session,
-  });
+  return InvoiceItemModel.insertMany(
+    items,
+    {
+      session,
+    },
+  );
 }
 
-export async function findInvoiceItems(invoiceId: string) {
-  return InvoiceItemModel.find({ invoiceId })
-    .sort({ createdAt: 1 });
+export async function findInvoiceItems(
+  invoiceId: string,
+) {
+  return InvoiceItemModel.find({
+    invoiceId,
+  }).sort({
+    createdAt: 1,
+  });
 }
 
 export async function updateInvoiceByIdForShop(
   invoiceId: string,
   shopId: string,
   data: Partial<{
-    status: "draft" | "paid" | "partially_paid" | "cancelled";
+    status:
+      | "draft"
+      | "paid"
+      | "partially_paid"
+      | "cancelled";
+
     paymentMethod:
       | "cash"
       | "upi"
       | "card"
       | "bank_transfer"
       | "credit";
+
     dueDate: Date;
+
     amountPaid: number;
+
     amountDue: number;
+
     notes: string;
   }>,
 ) {
@@ -135,7 +175,9 @@ export async function updateInvoiceByIdForShop(
   );
 }
 
-export async function deleteInvoiceItems(invoiceId: string) {
+export async function deleteInvoiceItems(
+  invoiceId: string,
+) {
   return InvoiceItemModel.deleteMany({
     invoiceId,
   });

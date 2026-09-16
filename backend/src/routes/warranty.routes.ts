@@ -9,49 +9,75 @@ import {
   getExpiringWarranties,
 } from "../controllers/warranty.controller";
 
-import { requireAuth } from "../middleware/auth.middleware";
-import { requireRole } from "../middleware/role.middleware";
-import { asyncHandler } from "../utils/async-handler";
+import {
+  requireAuth,
+} from "../middleware/auth.middleware";
 
-const router = Router();
+import {
+  requireRole,
+} from "../middleware/role.middleware";
 
-router.use(requireAuth);
-router.use(requireRole("shopkeeper"));
+import {
+  asyncHandler,
+} from "../utils/async-handler";
+
+const router =
+  Router();
+
+router.use(
+  requireAuth,
+);
+
+router.use(
+  requireRole("shopkeeper"),
+);
 
 /*
- * GET /api/warranties/expiring
+ * Keep /expiring before /:warrantyId.
  *
- * Keep this route BEFORE /:warrantyId
- * so "expiring" is not interpreted as a warranty ID.
+ * Otherwise Express could interpret
+ * "expiring" as a warranty ID.
  */
 router.get(
   "/expiring",
-  asyncHandler(getExpiringWarranties),
+  asyncHandler(
+    getExpiringWarranties,
+  ),
 );
 
 router.post(
   "/",
-  asyncHandler(createWarranty),
+  asyncHandler(
+    createWarranty,
+  ),
 );
 
 router.get(
   "/",
-  asyncHandler(getWarranties),
+  asyncHandler(
+    getWarranties,
+  ),
 );
 
 router.get(
   "/:warrantyId",
-  asyncHandler(getWarranty),
+  asyncHandler(
+    getWarranty,
+  ),
 );
 
 router.patch(
   "/:warrantyId",
-  asyncHandler(updateWarranty),
+  asyncHandler(
+    updateWarranty,
+  ),
 );
 
 router.post(
   "/:warrantyId/deactivate",
-  asyncHandler(deactivateWarranty),
+  asyncHandler(
+    deactivateWarranty,
+  ),
 );
 
 export default router;

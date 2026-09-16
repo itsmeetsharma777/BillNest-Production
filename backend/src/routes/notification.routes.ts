@@ -22,13 +22,13 @@ router.get(
 );
 
 router.patch(
-  "/:notificationId/read",
-  asyncHandler(markNotificationAsRead),
+  "/read-all",
+  asyncHandler(markAllNotificationsAsRead),
 );
 
 router.patch(
-  "/read-all",
-  asyncHandler(markAllNotificationsAsRead),
+  "/:notificationId/read",
+  asyncHandler(markNotificationAsRead),
 );
 
 router.delete(

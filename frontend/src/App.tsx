@@ -5,6 +5,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,8 @@ import { Separator } from "@/components/ui/separator";
 import { ThemeSelector } from "@/components/common/theme-selector";
 
 function App() {
+  const navigate = useNavigate();
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -55,7 +58,10 @@ function App() {
 
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
               Billing and warranty management,
-              <span className="text-primary"> beautifully simple.</span>
+              <span className="text-primary">
+                {" "}
+                beautifully simple.
+              </span>
             </h1>
 
             <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
@@ -65,11 +71,20 @@ function App() {
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button size="lg">
+              <Button
+                size="lg"
+                type="button"
+                onClick={() => navigate("/register")}
+              >
                 Get started
               </Button>
 
-              <Button size="lg" variant="outline">
+              <Button
+                size="lg"
+                variant="outline"
+                type="button"
+                onClick={() => navigate("/login")}
+              >
                 Explore BillNest
               </Button>
             </div>

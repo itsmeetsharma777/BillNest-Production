@@ -2,11 +2,41 @@ import { z } from "zod";
 
 const addressSchema = z
   .object({
-    street: z.string().trim().max(200).optional(),
-    city: z.string().trim().max(100).optional(),
-    state: z.string().trim().max(100).optional(),
-    postalCode: z.string().trim().max(20).optional(),
-    country: z.string().trim().max(100).optional(),
+    line1: z
+      .string()
+      .trim()
+      .max(200, "Address line 1 cannot exceed 200 characters.")
+      .optional(),
+
+    line2: z
+      .string()
+      .trim()
+      .max(200, "Address line 2 cannot exceed 200 characters.")
+      .optional(),
+
+    city: z
+      .string()
+      .trim()
+      .max(100, "City cannot exceed 100 characters.")
+      .optional(),
+
+    state: z
+      .string()
+      .trim()
+      .max(100, "State cannot exceed 100 characters.")
+      .optional(),
+
+    postalCode: z
+      .string()
+      .trim()
+      .max(20, "Postal code cannot exceed 20 characters.")
+      .optional(),
+
+    country: z
+      .string()
+      .trim()
+      .max(100, "Country cannot exceed 100 characters.")
+      .optional(),
   })
   .optional();
 
@@ -34,7 +64,7 @@ export const createCustomerSchema = z.object({
   notes: z
     .string()
     .trim()
-    .max(1000, "Notes cannot exceed 1000 characters.")
+    .max(2000, "Notes cannot exceed 2000 characters.")
     .optional(),
 });
 

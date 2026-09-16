@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+const objectIdSchema = z
+  .string()
+  .trim()
+  .regex(/^[a-f\d]{24}$/i, "Invalid ID.");
+
 export const notificationListQuerySchema = z.object({
   page: z.coerce
     .number()
@@ -21,5 +26,5 @@ export const notificationListQuerySchema = z.object({
 });
 
 export const notificationIdParamSchema = z.object({
-  notificationId: z.string().min(1),
+  notificationId: objectIdSchema,
 });

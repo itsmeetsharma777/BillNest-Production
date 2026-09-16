@@ -6,9 +6,14 @@ import {
   updateWarrantyByIdForShop,
 } from "../repositories/warranty.repository";
 
-import { findCustomerByIdForShop } from "../repositories/customer.repository";
+import {
+  findCustomerByIdForShop,
+} from "../repositories/customer.repository";
 
-import { findInvoiceByIdForShop } from "../repositories/invoice.repository";
+import {
+  findInvoiceByIdForShop,
+  findInvoiceItems,
+} from "../repositories/invoice.repository";
 
 import { getShopForOwner } from "./shop.service";
 
@@ -22,8 +27,8 @@ type WarrantyStatus =
 
 interface CreateWarrantyInput {
   customerId: string;
-  invoiceId?: string;
-  invoiceItemId?: string;
+  invoiceId: string;
+  invoiceItemId: string;
   productName: string;
   serialNumber?: string;
   warrantyPeriodMonths: number;
@@ -42,43 +47,82 @@ interface UpdateWarrantyInput {
   isActive?: boolean;
 }
 
-/**
- * Calculate warranty expiry date from start date
- * and warranty duration in months.
- */
 export function calculateWarrantyExpiryDate(
   startDate: Date,
   warrantyPeriodMonths: number,
 ): Date {
-  const expiryDate = new Date(startDate);
+  if (
+    Number.isNaN(startDate.getTime())
+  ) {
+    throw new ApiError(
+      400,
+      "Invalid warranty start date.",
+      "INVALID_START_DATE",
+    );
+  }
 
+  if (
+    !Number.isFinite(
+      warrantyPeriodMonths,
+    ) ||
+    warrantyPeriodMonths < 0
+  ) {
+    throw new ApiError(
+      400,
+      "Warranty period must be a valid non-negative number.",
+      "INVALID_WARRANTY_PERIOD",
+    );
+  }
+
+  const expiryDate =
+    new Date(startDate);
+
+  /*
+   * Using setMonth() preserves the existing
+   * business rule of adding calendar months.
+   */
   expiryDate.setMonth(
-    expiryDate.getMonth() + warrantyPeriodMonths,
+    expiryDate.getMonth() +
+      warrantyPeriodMonths,
   );
 
   return expiryDate;
 }
 
-/**
- * Determine the current warranty status.
- *
- * Rules:
- * - Expired: expiry date has passed
- * - Expiring soon: expires within 30 days
- * - Active: more than 30 days remaining
- */
 export function getWarrantyStatus(
   expiryDate: Date,
   now = new Date(),
 ): WarrantyStatus {
+  if (
+    Number.isNaN(expiryDate.getTime())
+  ) {
+    throw new ApiError(
+      400,
+      "Invalid warranty expiry date.",
+      "INVALID_EXPIRY_DATE",
+    );
+  }
+
+  if (
+    Number.isNaN(now.getTime())
+  ) {
+    throw new ApiError(
+      400,
+      "Invalid current date.",
+      "INVALID_DATE",
+    );
+  }
+
   if (expiryDate <= now) {
     return "expired";
   }
 
-  const millisecondsPerDay = 1000 * 60 * 60 * 24;
+  const millisecondsPerDay =
+    1000 * 60 * 60 * 24;
 
   const daysRemaining =
-    (expiryDate.getTime() - now.getTime()) /
+    (expiryDate.getTime() -
+      now.getTime()) /
     millisecondsPerDay;
 
   if (daysRemaining <= 30) {
@@ -88,19 +132,66 @@ export function getWarrantyStatus(
   return "active";
 }
 
-/**
- * Create a warranty for a shop owner.
- */
+function validateText(
+  value: string,
+  fieldName: string,
+): string {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    throw new ApiError(
+      400,
+      `${fieldName} cannot be empty.`,
+      "INVALID_WARRANTY_DATA",
+    );
+  }
+
+  return trimmed;
+}
+
+function validateWarrantyPeriod(
+  warrantyPeriodMonths: number,
+): void {
+  if (
+    !Number.isFinite(
+      warrantyPeriodMonths,
+    ) ||
+    warrantyPeriodMonths < 0
+  ) {
+    throw new ApiError(
+      400,
+      "Warranty period must be a valid non-negative number.",
+      "INVALID_WARRANTY_PERIOD",
+    );
+  }
+}
+
+function validateStartDate(
+  startDate: Date,
+): void {
+  if (
+    Number.isNaN(startDate.getTime())
+  ) {
+    throw new ApiError(
+      400,
+      "Invalid warranty start date.",
+      "INVALID_START_DATE",
+    );
+  }
+}
+
 export async function createWarrantyForOwner(
   ownerId: string,
   input: CreateWarrantyInput,
 ) {
-  const shop = await getShopForOwner(ownerId);
+  const shop =
+    await getShopForOwner(ownerId);
 
-  const customer = await findCustomerByIdForShop(
-    input.customerId,
-    shop._id.toString(),
-  );
+  const customer =
+    await findCustomerByIdForShop(
+      input.customerId,
+      shop._id.toString(),
+    );
 
   if (!customer) {
     throw new ApiError(
@@ -110,54 +201,90 @@ export async function createWarrantyForOwner(
     );
   }
 
-  if (input.warrantyPeriodMonths < 0) {
+  if (!customer.isActive) {
     throw new ApiError(
       400,
-      "Warranty period cannot be negative.",
-      "INVALID_WARRANTY_PERIOD",
+      "Cannot create a warranty for an inactive customer.",
+      "CUSTOMER_INACTIVE",
     );
   }
 
-  if (
-    Number.isNaN(input.startDate.getTime())
-  ) {
-    throw new ApiError(
-      400,
-      "Invalid warranty start date.",
-      "INVALID_START_DATE",
-    );
-  }
+  validateWarrantyPeriod(
+    input.warrantyPeriodMonths,
+  );
 
-  /**
-   * If an invoice is supplied, make sure:
-   * 1. It exists.
-   * 2. It belongs to the same shop.
-   * 3. It belongs to the selected customer.
-   */
-  if (input.invoiceId) {
-    const invoice = await findInvoiceByIdForShop(
+  validateStartDate(
+    input.startDate,
+  );
+
+  const productName =
+    validateText(
+      input.productName,
+      "Product name",
+    );
+
+  const invoice =
+    await findInvoiceByIdForShop(
       input.invoiceId,
       shop._id.toString(),
     );
 
-    if (!invoice) {
-      throw new ApiError(
-        404,
-        "Invoice not found.",
-        "INVOICE_NOT_FOUND",
-      );
-    }
+  if (!invoice) {
+    throw new ApiError(
+      404,
+      "Invoice not found.",
+      "INVOICE_NOT_FOUND",
+    );
+  }
 
-    if (
-      invoice.customerId.toString() !==
-      customer._id.toString()
-    ) {
-      throw new ApiError(
-        400,
-        "Invoice does not belong to this customer.",
-        "CUSTOMER_INVOICE_MISMATCH",
-      );
-    }
+  if (
+    invoice.customerId.toString() !==
+    customer._id.toString()
+  ) {
+    throw new ApiError(
+      400,
+      "Invoice does not belong to this customer.",
+      "CUSTOMER_INVOICE_MISMATCH",
+    );
+  }
+
+  const invoiceItems =
+    await findInvoiceItems(
+      invoice._id.toString(),
+    );
+
+  const invoiceItem =
+    invoiceItems.find(
+      (item) =>
+        item._id.toString() ===
+        input.invoiceItemId,
+    );
+
+  if (!invoiceItem) {
+    throw new ApiError(
+      404,
+      "Invoice item not found for this invoice.",
+      "INVOICE_ITEM_NOT_FOUND",
+    );
+  }
+
+  /*
+   * Use the actual product name from the
+   * invoice item when possible.
+   *
+   * This prevents a warranty from being
+   * accidentally attached to a different
+   * product name than the purchased item.
+   */
+  if (
+    productName !==
+    invoiceItem.productName.trim()
+  ) {
+    throw new ApiError(
+      400,
+      "Warranty product name must match the invoice item.",
+      "PRODUCT_NAME_MISMATCH",
+    );
   }
 
   const expiryDate =
@@ -169,46 +296,70 @@ export async function createWarrantyForOwner(
   const status: WarrantyStatus =
     input.warrantyPeriodMonths === 0
       ? "no_warranty"
-      : getWarrantyStatus(expiryDate);
+      : getWarrantyStatus(
+          expiryDate,
+        );
 
-  return createWarranty({
-    shopId: shop._id.toString(),
-    customerId: customer._id.toString(),
+  try {
+    return await createWarranty({
+      shopId:
+        shop._id.toString(),
 
-    ...(input.invoiceId && {
-      invoiceId: input.invoiceId,
-    }),
+      customerId:
+        customer._id.toString(),
 
-    ...(input.invoiceItemId && {
-      invoiceItemId: input.invoiceItemId,
-    }),
+      invoiceId:
+        input.invoiceId,
 
-    productName: input.productName,
+      invoiceItemId:
+        input.invoiceItemId,
 
-    ...(input.serialNumber && {
-      serialNumber: input.serialNumber,
-    }),
+      productName,
 
-    warrantyPeriodMonths:
-      input.warrantyPeriodMonths,
+      ...(input.serialNumber?.trim() && {
+        serialNumber:
+          input.serialNumber.trim(),
+      }),
 
-    startDate: input.startDate,
-    expiryDate,
-    status,
+      warrantyPeriodMonths:
+        input.warrantyPeriodMonths,
 
-    ...(input.terms && {
-      terms: input.terms,
-    }),
+      startDate:
+        input.startDate,
 
-    ...(input.notes && {
-      notes: input.notes,
-    }),
-  });
+      expiryDate,
+
+      status,
+
+      ...(input.terms?.trim() && {
+        terms:
+          input.terms.trim(),
+      }),
+
+      ...(input.notes?.trim() && {
+        notes:
+          input.notes.trim(),
+      }),
+    });
+  } catch (error: unknown) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: unknown }).code ===
+        11000
+    ) {
+      throw new ApiError(
+        409,
+        "A warranty already exists for this invoice item.",
+        "WARRANTY_ALREADY_EXISTS",
+      );
+    }
+
+    throw error;
+  }
 }
 
-/**
- * Get warranties belonging to the owner's shop.
- */
 export async function getWarrantiesForOwner(
   ownerId: string,
   options?: {
@@ -218,7 +369,8 @@ export async function getWarrantiesForOwner(
     status?: WarrantyStatus;
   },
 ) {
-  const shop = await getShopForOwner(ownerId);
+  const shop =
+    await getShopForOwner(ownerId);
 
   const page = Math.max(
     options?.page ?? 1,
@@ -233,37 +385,56 @@ export async function getWarrantiesForOwner(
     100,
   );
 
-  const skip = (page - 1) * limit;
+  const skip =
+    (page - 1) * limit;
 
+  /*
+   * Fetch one extra record to determine
+   * whether another page exists.
+   */
   const warranties =
     await findWarrantiesByShopId(
       shop._id.toString(),
       {
         skip,
-        limit,
-        customerId: options?.customerId,
-        status: options?.status,
+        limit: limit + 1,
+
+        ...(options?.customerId && {
+          customerId:
+            options.customerId,
+        }),
+
+        ...(options?.status && {
+          status:
+            options.status,
+        }),
       },
     );
 
+  const hasMore =
+    warranties.length > limit;
+
+  if (hasMore) {
+    warranties.pop();
+  }
+
   return {
     warranties,
+
     pagination: {
       page,
       limit,
-      hasMore: warranties.length === limit,
+      hasMore,
     },
   };
 }
 
-/**
- * Get one warranty belonging to the owner's shop.
- */
 export async function getWarrantyForOwner(
   ownerId: string,
   warrantyId: string,
 ) {
-  const shop = await getShopForOwner(ownerId);
+  const shop =
+    await getShopForOwner(ownerId);
 
   const warranty =
     await findWarrantyByIdForShop(
@@ -282,15 +453,13 @@ export async function getWarrantyForOwner(
   return warranty;
 }
 
-/**
- * Update a warranty belonging to the owner's shop.
- */
 export async function updateWarrantyForOwner(
   ownerId: string,
   warrantyId: string,
   input: UpdateWarrantyInput,
 ) {
-  const shop = await getShopForOwner(ownerId);
+  const shop =
+    await getShopForOwner(ownerId);
 
   const existingWarranty =
     await findWarrantyByIdForShop(
@@ -307,26 +476,28 @@ export async function updateWarrantyForOwner(
   }
 
   if (
-    input.warrantyPeriodMonths !== undefined &&
-    input.warrantyPeriodMonths < 0
+    input.warrantyPeriodMonths !==
+    undefined
   ) {
-    throw new ApiError(
-      400,
-      "Warranty period cannot be negative.",
-      "INVALID_WARRANTY_PERIOD",
+    validateWarrantyPeriod(
+      input.warrantyPeriodMonths,
     );
   }
 
   if (
-    input.startDate &&
-    Number.isNaN(
-      input.startDate.getTime(),
-    )
+    input.startDate !== undefined
   ) {
-    throw new ApiError(
-      400,
-      "Invalid warranty start date.",
-      "INVALID_START_DATE",
+    validateStartDate(
+      input.startDate,
+    );
+  }
+
+  if (
+    input.productName !== undefined
+  ) {
+    validateText(
+      input.productName,
+      "Product name",
     );
   }
 
@@ -347,36 +518,51 @@ export async function updateWarrantyForOwner(
   const status: WarrantyStatus =
     warrantyPeriodMonths === 0
       ? "no_warranty"
-      : getWarrantyStatus(expiryDate);
+      : getWarrantyStatus(
+          expiryDate,
+        );
 
   const updatedWarranty =
     await updateWarrantyByIdForShop(
       warrantyId,
       shop._id.toString(),
       {
-        ...(input.productName !== undefined && {
-          productName: input.productName,
+        ...(input.productName !==
+          undefined && {
+          productName:
+            input.productName.trim(),
         }),
 
-        ...(input.serialNumber !== undefined && {
-          serialNumber: input.serialNumber,
+        ...(input.serialNumber !==
+          undefined && {
+          serialNumber:
+            input.serialNumber.trim(),
         }),
 
         warrantyPeriodMonths,
+
         startDate,
+
         expiryDate,
+
         status,
 
-        ...(input.terms !== undefined && {
-          terms: input.terms,
+        ...(input.terms !==
+          undefined && {
+          terms:
+            input.terms.trim(),
         }),
 
-        ...(input.notes !== undefined && {
-          notes: input.notes,
+        ...(input.notes !==
+          undefined && {
+          notes:
+            input.notes.trim(),
         }),
 
-        ...(input.isActive !== undefined && {
-          isActive: input.isActive,
+        ...(input.isActive !==
+          undefined && {
+          isActive:
+            input.isActive,
         }),
       },
     );
@@ -392,14 +578,12 @@ export async function updateWarrantyForOwner(
   return updatedWarranty;
 }
 
-/**
- * Deactivate a warranty.
- */
 export async function deactivateWarrantyForOwner(
   ownerId: string,
   warrantyId: string,
 ) {
-  const shop = await getShopForOwner(ownerId);
+  const shop =
+    await getShopForOwner(ownerId);
 
   const warranty =
     await findWarrantyByIdForShop(
@@ -412,6 +596,14 @@ export async function deactivateWarrantyForOwner(
       404,
       "Warranty not found.",
       "WARRANTY_NOT_FOUND",
+    );
+  }
+
+  if (!warranty.isActive) {
+    throw new ApiError(
+      400,
+      "Warranty is already deactivated.",
+      "WARRANTY_ALREADY_DEACTIVATED",
     );
   }
 
@@ -435,27 +627,38 @@ export async function deactivateWarrantyForOwner(
   return updatedWarranty;
 }
 
-/**
- * Get warranties that are going to expire
- * within the requested number of days.
- */
 export async function getExpiringWarrantiesForOwner(
   ownerId: string,
   days = 30,
 ) {
-  const shop = await getShopForOwner(ownerId);
+  const shop =
+    await getShopForOwner(ownerId);
+
+  if (
+    !Number.isFinite(days) ||
+    days < 1
+  ) {
+    throw new ApiError(
+      400,
+      "Days must be a positive number.",
+      "INVALID_DAYS",
+    );
+  }
 
   const safeDays = Math.min(
-    Math.max(days, 1),
+    Math.floor(days),
     365,
   );
 
-  const startDate = new Date();
+  const startDate =
+    new Date();
 
-  const endDate = new Date(startDate);
+  const endDate =
+    new Date(startDate);
 
   endDate.setDate(
-    endDate.getDate() + safeDays,
+    endDate.getDate() +
+      safeDays,
   );
 
   return findWarrantiesExpiringSoon(

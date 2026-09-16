@@ -137,7 +137,9 @@ function normalizeWarranty(
 }
 
 function formatDate(value?: string) {
-  if (!value) return "—";
+  if (!value) {
+    return "—";
+  }
 
   const date = new Date(value);
 
@@ -175,12 +177,10 @@ export default function WarrantiesPage() {
   const [warranties, setWarranties] = useState<Warranty[]>(
     [],
   );
-
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
-
   const [statusFilter, setStatusFilter] = useState<
     "all" | WarrantyStatus
   >("all");
@@ -188,67 +188,89 @@ export default function WarrantiesPage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
 
-  async function loadWarranties(
-    requestedPage = page,
-  ) {
-    try {
-      setIsLoading(true);
-      setError("");
+  useEffect(() => {
+    const controller = new AbortController();
 
-      const params = new URLSearchParams({
-        page: String(requestedPage),
-        limit: "20",
-      });
+    async function loadWarranties() {
+      try {
+        setIsLoading(true);
+        setError("");
 
-      if (statusFilter !== "all") {
-        params.set("status", statusFilter);
-      }
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: "20",
+        });
 
-      const response = await fetch(
-        `${API_URL}/warranties?${params.toString()}`,
-        {
-          method: "GET",
-          credentials: "include",
-        },
-      );
+        if (statusFilter !== "all") {
+          params.set("status", statusFilter);
+        }
 
-      const result =
-        (await response.json()) as WarrantiesResponse;
-
-      if (!response.ok || !result.success) {
-        throw new Error(
-          result.message ??
-            "Failed to load warranties.",
+        const response = await fetch(
+          `${API_URL}/warranties?${params.toString()}`,
+          {
+            method: "GET",
+            credentials: "include",
+            signal: controller.signal,
+          },
         );
-      }
 
-      const normalized =
-        (result.data?.warranties ?? [])
+        let result: WarrantiesResponse;
+
+        try {
+          result =
+            (await response.json()) as WarrantiesResponse;
+        } catch {
+          throw new Error(
+            "The server returned an invalid response.",
+          );
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(
+            result.message ??
+              "Failed to load warranties.",
+          );
+        }
+
+        const normalized = (
+          result.data?.warranties ?? []
+        )
           .map(normalizeWarranty)
           .filter(
             (warranty): warranty is Warranty =>
               warranty !== null,
           );
 
-      setWarranties(normalized);
+        setWarranties(normalized);
 
-      setHasMore(
-        result.data?.pagination?.hasMore ?? false,
-      );
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Failed to load warranties.",
-      );
-    } finally {
-      setIsLoading(false);
+        setHasMore(
+          result.data?.pagination?.hasMore ?? false,
+        );
+      } catch (requestError) {
+        if (
+          requestError instanceof DOMException &&
+          requestError.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setError(
+          requestError instanceof Error
+            ? requestError.message
+            : "Failed to load warranties.",
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
     }
-  }
 
-  useEffect(() => {
-    void loadWarranties(page);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void loadWarranties();
+
+    return () => {
+      controller.abort();
+    };
   }, [page, statusFilter]);
 
   const filteredWarranties = useMemo(() => {
@@ -259,18 +281,24 @@ export default function WarrantiesPage() {
     }
 
     return warranties.filter((warranty) => {
+      const productMatches = warranty.productName
+        .toLowerCase()
+        .includes(query);
+
+      const serialMatches = Boolean(
+        warranty.serialNumber
+          ?.toLowerCase()
+          .includes(query),
+      );
+
+      const customerMatches = getCustomerName(warranty)
+        .toLowerCase()
+        .includes(query);
+
       return (
-        warranty.productName
-          .toLowerCase()
-          .includes(query) ||
-        Boolean(
-          warranty.serialNumber
-            ?.toLowerCase()
-            .includes(query),
-        ) ||
-        getCustomerName(warranty)
-          .toLowerCase()
-          .includes(query)
+        productMatches ||
+        serialMatches ||
+        customerMatches
       );
     });
   }, [search, warranties]);
@@ -304,6 +332,18 @@ export default function WarrantiesPage() {
     );
   }
 
+  function handleStatusChange(
+    nextStatus: "all" | WarrantyStatus,
+  ) {
+    setPage(1);
+    setStatusFilter(nextStatus);
+  }
+
+  function handleRetry() {
+    setError("");
+    setPage((current) => current);
+  }
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
       {/* Header */}
@@ -328,7 +368,7 @@ export default function WarrantiesPage() {
           onClick={() =>
             navigate("/shopkeeper/warranties/new")
           }
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           <Plus className="size-4" />
           New Warranty
@@ -338,7 +378,7 @@ export default function WarrantiesPage() {
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Total"
+          label="Total on Page"
           value={stats.total}
           icon={ShieldCheck}
         />
@@ -375,21 +415,21 @@ export default function WarrantiesPage() {
                 setSearch(event.target.value)
               }
               placeholder="Search product, serial number or customer..."
+              aria-label="Search warranties"
               className="h-10 w-full rounded-xl border bg-background pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
           </div>
 
           <select
             value={statusFilter}
-            onChange={(event) => {
-              setPage(1);
-
-              setStatusFilter(
+            onChange={(event) =>
+              handleStatusChange(
                 event.target.value as
                   | "all"
                   | WarrantyStatus,
-              );
-            }}
+              )
+            }
+            aria-label="Filter warranties by status"
             className="h-10 rounded-xl border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           >
             <option value="all">All statuses</option>
@@ -409,16 +449,20 @@ export default function WarrantiesPage() {
       {error && (
         <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-destructive">
-              {error}
-            </p>
+            <div>
+              <p className="text-sm font-medium text-destructive">
+                Unable to load warranties
+              </p>
+
+              <p className="mt-1 text-sm text-destructive/80">
+                {error}
+              </p>
+            </div>
 
             <button
               type="button"
-              onClick={() =>
-                void loadWarranties(page)
-              }
-              className="w-fit rounded-lg border px-3 py-2 text-sm font-medium transition hover:bg-muted"
+              onClick={handleRetry}
+              className="w-fit rounded-lg border px-3 py-2 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Try again
             </button>
@@ -463,7 +507,7 @@ export default function WarrantiesPage() {
                   "/shopkeeper/warranties/new",
                 )
               }
-              className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90"
+              className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               <Plus className="size-4" />
               Create Warranty
@@ -525,17 +569,13 @@ export default function WarrantiesPage() {
 
                               <div className="min-w-0">
                                 <p className="truncate font-medium">
-                                  {
-                                    warranty.productName
-                                  }
+                                  {warranty.productName}
                                 </p>
 
                                 {warranty.serialNumber && (
                                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
                                     S/N:{" "}
-                                    {
-                                      warranty.serialNumber
-                                    }
+                                    {warranty.serialNumber}
                                   </p>
                                 )}
                               </div>
@@ -606,7 +646,7 @@ export default function WarrantiesPage() {
                                   `/shopkeeper/warranties/${warranty.id}`,
                                 )
                               }
-                              className="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition hover:bg-muted"
+                              className="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                             >
                               <Eye className="size-4" />
                               View
@@ -697,7 +737,7 @@ export default function WarrantiesPage() {
                         `/shopkeeper/warranties/${warranty.id}`,
                       )
                     }
-                    className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl border text-sm font-medium transition hover:bg-muted"
+                    className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl border text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <Eye className="size-4" />
                     View Warranty
@@ -709,9 +749,20 @@ export default function WarrantiesPage() {
 
           {/* Pagination */}
           <div className="flex items-center justify-between rounded-2xl border bg-card px-4 py-3 shadow-sm">
-            <p className="text-sm text-muted-foreground">
-              Page {page}
-            </p>
+            <div>
+              <p className="text-sm font-medium">
+                Page {page}
+              </p>
+
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Showing {filteredWarranties.length}{" "}
+                warranty
+                {filteredWarranties.length === 1
+                  ? ""
+                  : "ies"}{" "}
+                on this page
+              </p>
+            </div>
 
             <div className="flex items-center gap-2">
               <button
@@ -722,7 +773,8 @@ export default function WarrantiesPage() {
                     Math.max(1, current - 1),
                   )
                 }
-                className="inline-flex size-9 items-center justify-center rounded-lg border transition hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                aria-label="Previous page"
+                className="inline-flex size-9 items-center justify-center rounded-lg border transition hover:bg-muted disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <ChevronLeft className="size-4" />
               </button>
@@ -733,7 +785,8 @@ export default function WarrantiesPage() {
                 onClick={() =>
                   setPage((current) => current + 1)
                 }
-                className="inline-flex size-9 items-center justify-center rounded-lg border transition hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                aria-label="Next page"
+                className="inline-flex size-9 items-center justify-center rounded-lg border transition hover:bg-muted disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <ChevronRight className="size-4" />
               </button>

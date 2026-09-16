@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Eye,
   EyeOff,
@@ -9,20 +9,58 @@ import {
   Mail,
 } from "lucide-react";
 
+import { useAuth } from "@/context/AuthContext";
+
 const API_URL =
   import.meta.env.VITE_API_URL ?? "http://localhost:5001/api";
 
+type UserRole = "shopkeeper" | "customer";
+
+interface LoginResponse {
+  success?: boolean;
+  message?: string;
+  data?: {
+    user?: {
+      id?: string;
+      name?: string;
+      email?: string;
+      role?: UserRole;
+      isActive?: boolean;
+      emailVerified?: boolean;
+    };
+  };
+}
+
+interface LocationState {
+  from?: {
+    pathname?: string;
+  };
+  registered?: boolean;
+  email?: string;
+  role?: UserRole;
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { refreshUser } = useAuth();
 
-  const [email, setEmail] = useState("");
+  const locationState =
+    (location.state as LocationState | null) ?? null;
+
+  const [email, setEmail] = useState(
+    locationState?.email ?? "",
+  );
   const [password, setPassword] = useState("");
 
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] =
+    useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
 
     setError("");
@@ -42,27 +80,66 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${API_URL}/auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            email: normalizedEmail,
+            password,
+          }),
         },
-        credentials: "include",
-        body: JSON.stringify({
-          email: normalizedEmail,
-          password,
-        }),
-      });
+      );
 
-      const result = await response.json().catch(() => null);
+      const result =
+        (await response.json().catch(
+          () => null,
+        )) as LoginResponse | null;
 
-      if (!response.ok) {
+      if (!response.ok || !result?.success) {
         throw new Error(
-          result?.message ?? "Unable to sign in. Please try again.",
+          result?.message ??
+            "Unable to sign in. Please try again.",
         );
       }
 
-      navigate("/shopkeeper", { replace: true });
+      const loggedInUser = result.data?.user;
+
+      if (
+        !loggedInUser?.role ||
+        !["shopkeeper", "customer"].includes(
+          loggedInUser.role,
+        )
+      ) {
+        throw new Error(
+          "Your account role could not be determined. Please contact support.",
+        );
+      }
+
+      /*
+       * The login endpoint creates the HTTP-only session cookie.
+       * Refresh AuthContext so ProtectedRoute immediately knows
+       * which user is authenticated.
+       */
+      await refreshUser();
+
+      if (loggedInUser.role === "shopkeeper") {
+        navigate("/shopkeeper", {
+          replace: true,
+        });
+        return;
+      }
+
+      if (loggedInUser.role === "customer") {
+        navigate("/customer", {
+          replace: true,
+        });
+        return;
+      }
     } catch (err) {
       setError(
         err instanceof Error
@@ -98,17 +175,20 @@ export default function LoginPage() {
             </p>
 
             <h1 className="text-4xl font-bold leading-tight xl:text-5xl">
-              Everything your business needs to manage bills and warranties.
+              Everything your business needs to manage
+              bills and warranties.
             </h1>
 
             <p className="mt-6 max-w-md text-base leading-7 text-primary-foreground/75">
-              Create invoices, manage customers, track warranties, and keep
-              your business records organized in one place.
+              Create invoices, manage customers, track
+              warranties, and keep your business records
+              organized in one place.
             </p>
           </div>
 
           <p className="text-sm text-primary-foreground/60">
-            © {new Date().getFullYear()} BillNest. All rights reserved.
+            © {new Date().getFullYear()} BillNest. All
+            rights reserved.
           </p>
         </section>
 
@@ -136,9 +216,18 @@ export default function LoginPage() {
               </h2>
 
               <p className="mt-2 text-muted-foreground">
-                Sign in to your BillNest account to continue.
+                Sign in to your BillNest account to
+                continue.
               </p>
             </div>
+
+            {/* Registration success */}
+            {locationState?.registered && (
+              <div className="mb-6 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
+                Account created successfully. Sign in
+                to continue.
+              </div>
+            )}
 
             {/* Error */}
             {error && (
@@ -151,7 +240,10 @@ export default function LoginPage() {
             )}
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form
+              onSubmit={handleSubmit}
+              className="space-y-5"
+            >
               {/* Email */}
               <div className="space-y-2">
                 <label
@@ -210,7 +302,11 @@ export default function LoginPage() {
                   <input
                     id="password"
                     name="password"
-                    type={showPassword ? "text" : "password"}
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
                     autoComplete="current-password"
                     placeholder="Enter your password"
                     value={password}
@@ -229,7 +325,9 @@ export default function LoginPage() {
                         : "Show password"
                     }
                     onClick={() =>
-                      setShowPassword((value) => !value)
+                      setShowPassword(
+                        (value) => !value,
+                      )
                     }
                     disabled={isLoading}
                     className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:pointer-events-none"

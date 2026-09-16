@@ -1,28 +1,44 @@
-import express from "express";
-import cookieParser from "cookie-parser";
-import cors from "cors";
-import helmet from "helmet";
+import "dotenv/config";
 
-import { errorMiddleware } from "./middleware/error.middleware";
+import express from "express";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+
 import { env } from "./config/env";
 import { connectDatabase } from "./config/database";
 
 import authRoutes from "./routes/auth.routes";
+import passwordResetRoutes from "./routes/password-reset.routes";
 import shopRoutes from "./routes/shop.routes";
 import customerRoutes from "./routes/customer.routes";
+import customerPortalRoutes from "./routes/customer-portal.routes";
+import customerNotificationRoutes from "./routes/customer-notification.routes";
 import invoiceRoutes from "./routes/invoice.routes";
-import passwordResetRoutes from "./routes/password-reset.routes";
 import warrantyRoutes from "./routes/warranty.routes";
 import reportRoutes from "./routes/report.routes";
 import notificationRoutes from "./routes/notification.routes";
+import dashboardRoutes from "./routes/dashboard.routes";
+import documentRoutes from "./routes/document.routes";
 
-import { runWarrantyNotificationCheck } from "./services/warranty-notification.service";
+import { errorMiddleware } from "./middleware/error.middleware";
+
+import {
+  runWarrantyNotificationCheck,
+} from "./services/warranty-notification.service";
 
 const app = express();
 
-/*
- * Security & request middleware
- */
+app.set("trust proxy", 1);
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: {
+      policy: "cross-origin",
+    },
+  }),
+);
 
 app.use(
   cors({
@@ -32,51 +48,65 @@ app.use(
 );
 
 app.use(
-  helmet({
-    contentSecurityPolicy:
-      process.env.NODE_ENV === "production"
-        ? undefined
-        : false,
+  express.json({
+    limit: "1mb",
   }),
 );
-
-app.use(express.json({ limit: "1mb" }));
 
 app.use(
   express.urlencoded({
     extended: true,
+    limit: "1mb",
   }),
 );
 
 app.use(cookieParser());
 
-/*
- * Health check
- */
+const generalRateLimiter =
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 200,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+  });
 
-app.get("/health", (_request, response) => {
-  response.status(200).json({
+app.use(generalRateLimiter);
+
+app.get("/health", (_req, res) => {
+  res.status(200).json({
     success: true,
-    message: "BillNest API is running",
+    message: "BillNest API is healthy.",
   });
 });
 
-/*
- * API routes
- */
-
-app.use("/api/auth", authRoutes);
+app.use(
+  "/api/auth",
+  authRoutes,
+);
 
 app.use(
   "/api/auth",
   passwordResetRoutes,
 );
 
-app.use("/api/shops", shopRoutes);
+app.use(
+  "/api/shops",
+  shopRoutes,
+);
 
 app.use(
   "/api/customers",
   customerRoutes,
+);
+
+app.use(
+  "/api/customer",
+  customerPortalRoutes,
+);
+
+app.use(
+  "/api/customer/notifications",
+  customerNotificationRoutes,
 );
 
 app.use(
@@ -99,21 +129,17 @@ app.use(
   notificationRoutes,
 );
 
-/*
- * Error handler must remain last.
- */
+app.use(
+  "/api/dashboard",
+  dashboardRoutes,
+);
+
+app.use(
+  "/api/documents",
+  documentRoutes,
+);
 
 app.use(errorMiddleware);
-
-/*
- * Warranty notification scheduler
- *
- * The check runs once every hour.
- *
- * Running hourly gives us enough frequency to catch
- * warranties entering the 30-day expiration window
- * without requiring a separate cron dependency.
- */
 
 const WARRANTY_NOTIFICATION_INTERVAL_MS =
   60 * 60 * 1000;
@@ -143,26 +169,12 @@ function startWarrantyNotificationScheduler() {
     }
   };
 
-  /*
-   * Run once when the server starts so we don't
-   * have to wait one hour for the first check.
-   */
   void runCheck();
 
-  /*
-   * Continue checking every hour.
-   */
-  return setInterval(
-    () => {
-      void runCheck();
-    },
-    WARRANTY_NOTIFICATION_INTERVAL_MS,
-  );
+  return setInterval(() => {
+    void runCheck();
+  }, WARRANTY_NOTIFICATION_INTERVAL_MS);
 }
-
-/*
- * Start server
- */
 
 async function startServer() {
   await connectDatabase();

@@ -5,7 +5,7 @@ import {
   createPasswordResetToken,
   deletePasswordResetTokensForUser,
   findPasswordResetTokenByHash,
-  markPasswordResetTokenUsed,
+  consumePasswordResetToken,
 } from "../repositories/password-reset-token.repository";
 
 import {
@@ -14,28 +14,47 @@ import {
   updateUserById,
 } from "../repositories/user.repository";
 
-import { deleteAllSessionsForUser } from "../repositories/session.repository";
+import {
+  deleteAllSessionsForUser,
+} from "../repositories/session.repository";
 
-import { sendPasswordResetEmail } from "./email.service";
+import {
+  sendPasswordResetEmail,
+} from "./email.service";
+
 import { ApiError } from "../utils/api-error";
 
 const RESET_TOKEN_EXPIRY_MINUTES = 30;
 
 function hashResetToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
+  return createHash("sha256")
+    .update(token)
+    .digest("hex");
 }
 
 function generateResetToken() {
   return randomBytes(32).toString("hex");
 }
 
-export async function requestPasswordReset(email: string) {
-  const normalizedEmail = email.trim().toLowerCase();
+const invalidResetTokenError = () =>
+  new ApiError(
+    400,
+    "This password reset link is invalid or has expired.",
+    "INVALID_RESET_TOKEN",
+  );
 
-  const user = await findUserByEmail(normalizedEmail);
+export async function requestPasswordReset(
+  email: string,
+) {
+  const normalizedEmail =
+    email.trim().toLowerCase();
+
+  const user =
+    await findUserByEmail(normalizedEmail);
 
   /**
-   * Never reveal whether an email belongs to a BillNest account.
+   * Never reveal whether an email belongs
+   * to a BillNest account.
    */
   const safeResponse = {
     success: true,
@@ -50,13 +69,16 @@ export async function requestPasswordReset(email: string) {
   /**
    * Only the newest reset token remains valid.
    */
-  await deletePasswordResetTokensForUser(user.id);
+  await deletePasswordResetTokensForUser(
+    user.id,
+  );
 
   const rawToken = generateResetToken();
   const tokenHash = hashResetToken(rawToken);
 
   const expiresAt = new Date(
-    Date.now() + RESET_TOKEN_EXPIRY_MINUTES * 60 * 1000,
+    Date.now() +
+      RESET_TOKEN_EXPIRY_MINUTES * 60 * 1000,
   );
 
   await createPasswordResetToken({
@@ -90,14 +112,12 @@ export async function validatePasswordResetToken(
   const tokenHash = hashResetToken(token);
 
   const resetToken =
-    await findPasswordResetTokenByHash(tokenHash);
+    await findPasswordResetTokenByHash(
+      tokenHash,
+    );
 
   if (!resetToken) {
-    throw new ApiError(
-      400,
-      "This password reset link is invalid or has expired.",
-      "INVALID_RESET_TOKEN",
-    );
+    throw invalidResetTokenError();
   }
 
   const user = await findUserById(
@@ -105,11 +125,7 @@ export async function validatePasswordResetToken(
   );
 
   if (!user || !user.isActive) {
-    throw new ApiError(
-      400,
-      "This password reset link is invalid or has expired.",
-      "INVALID_RESET_TOKEN",
-    );
+    throw invalidResetTokenError();
   }
 
   return {
@@ -134,15 +150,19 @@ export async function resetPassword(
 
   const tokenHash = hashResetToken(token);
 
+  /**
+   * Atomically consume the token.
+   *
+   * If another request has already consumed it,
+   * this returns null.
+   */
   const resetToken =
-    await findPasswordResetTokenByHash(tokenHash);
+    await consumePasswordResetToken(
+      tokenHash,
+    );
 
   if (!resetToken) {
-    throw new ApiError(
-      400,
-      "This password reset link is invalid or has expired.",
-      "INVALID_RESET_TOKEN",
-    );
+    throw invalidResetTokenError();
   }
 
   const user = await findUserById(
@@ -150,25 +170,21 @@ export async function resetPassword(
   );
 
   if (!user || !user.isActive) {
-    throw new ApiError(
-      400,
-      "This password reset link is invalid or has expired.",
-      "INVALID_RESET_TOKEN",
-    );
+    throw invalidResetTokenError();
   }
 
-  const passwordHash = await argon2.hash(newPassword);
+  const passwordHash =
+    await argon2.hash(newPassword);
 
-  // Update the user's password.
   await updateUserById(user.id, {
     passwordHash,
   });
 
-  // Invalidate every existing login session.
+  /**
+   * Invalidate every existing login session
+   * after a successful password reset.
+   */
   await deleteAllSessionsForUser(user.id);
-
-  // Prevent the reset token from being reused.
-  await markPasswordResetTokenUsed(resetToken.id);
 
   return {
     success: true,

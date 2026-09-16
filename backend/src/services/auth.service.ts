@@ -10,6 +10,10 @@ import {
 } from "../repositories/session.repository";
 
 import {
+  createShop,
+} from "../repositories/shop.repository";
+
+import {
   generateSessionToken,
   hashSessionToken,
   SESSION_DURATION_MS,
@@ -53,6 +57,20 @@ export async function registerUser(input: RegisterInput) {
     passwordHash,
     role: input.role,
   });
+
+  /*
+   * Every shopkeeper must have exactly one shop.
+   *
+   * The registration form currently does not collect shop
+   * information, so create a sensible default name that the
+   * shopkeeper can change later from Settings.
+   */
+  if (input.role === "shopkeeper") {
+    await createShop({
+      ownerId: user._id.toString(),
+      name: `${input.name.trim()}'s Store`,
+    });
+  }
 
   return user;
 }

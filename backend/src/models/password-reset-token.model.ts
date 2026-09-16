@@ -1,4 +1,8 @@
-import { Schema, model, type InferSchemaType } from "mongoose";
+import {
+  Schema,
+  model,
+  type InferSchemaType,
+} from "mongoose";
 
 const passwordResetTokenSchema = new Schema(
   {
@@ -30,21 +34,23 @@ const passwordResetTokenSchema = new Schema(
   },
 );
 
+/*
+ * TTL index:
+ * MongoDB automatically removes expired
+ * password-reset tokens.
+ */
 passwordResetTokenSchema.index(
   { expiresAt: 1 },
   { expireAfterSeconds: 0 },
 );
 
-export type PasswordResetToken = InferSchemaType<
-  typeof passwordResetTokenSchema
->;
+export type PasswordResetToken =
+  InferSchemaType<
+    typeof passwordResetTokenSchema
+  >;
 
-export const PasswordResetTokenModel = model(
-  "PasswordResetToken",
-  passwordResetTokenSchema,
-);
-
-passwordResetTokenSchema.index(
-  { expiresAt: 1 },
-  { expireAfterSeconds: 0 },
-);
+export const PasswordResetTokenModel =
+  model(
+    "PasswordResetToken",
+    passwordResetTokenSchema,
+  );
