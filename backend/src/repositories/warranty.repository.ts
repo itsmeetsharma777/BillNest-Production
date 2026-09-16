@@ -72,6 +72,51 @@ export async function findWarrantiesExpiringSoon(
   });
 }
 
+/**
+ * Find active warranties across all shops whose
+ * expiry date falls inside the supplied range.
+ *
+ * Used by the background warranty notification job.
+ */
+export async function findAllWarrantiesExpiringBetween(
+  startDate: Date,
+  endDate: Date,
+) {
+  return WarrantyModel.find({
+    expiryDate: {
+      $gt: startDate,
+      $lte: endDate,
+    },
+    isActive: true,
+    warrantyPeriodMonths: {
+      $gt: 0,
+    },
+  }).sort({
+    expiryDate: 1,
+  });
+}
+
+/**
+ * Find active warranties that have already expired.
+ *
+ * Used by the background warranty notification job.
+ */
+export async function findAllExpiredWarranties(
+  now = new Date(),
+) {
+  return WarrantyModel.find({
+    expiryDate: {
+      $lte: now,
+    },
+    isActive: true,
+    warrantyPeriodMonths: {
+      $gt: 0,
+    },
+  }).sort({
+    expiryDate: 1,
+  });
+}
+
 export async function createWarranty(data: {
   shopId: string;
   customerId: string;

@@ -1,5 +1,9 @@
 import { Types } from "mongoose";
-import { NotificationModel } from "../models/notification.model";
+
+import {
+  NotificationModel,
+  type NotificationType,
+} from "../models/notification.model";
 
 export async function findNotificationsByUserId(
   userId: string,
@@ -7,6 +11,7 @@ export async function findNotificationsByUserId(
     skip?: number;
     limit?: number;
     unreadOnly?: boolean;
+    shopId?: string;
   },
 ) {
   const skip = options?.skip ?? 0;
@@ -14,10 +19,17 @@ export async function findNotificationsByUserId(
 
   const filter: {
     userId: Types.ObjectId;
+    shopId?: Types.ObjectId;
     isRead?: boolean;
   } = {
     userId: new Types.ObjectId(userId),
   };
+
+  if (options?.shopId) {
+    filter.shopId = new Types.ObjectId(
+      options.shopId,
+    );
+  }
 
   if (options?.unreadOnly) {
     filter.isRead = false;
@@ -26,35 +38,130 @@ export async function findNotificationsByUserId(
   return NotificationModel.find(filter)
     .sort({ createdAt: -1 })
     .skip(skip)
-    .limit(limit);
+    .limit(limit)
+    .lean();
+}
+
+export async function countNotificationsByUserId(
+  userId: string,
+  options?: {
+    unreadOnly?: boolean;
+    shopId?: string;
+  },
+) {
+  const filter: {
+    userId: Types.ObjectId;
+    shopId?: Types.ObjectId;
+    isRead?: boolean;
+  } = {
+    userId: new Types.ObjectId(userId),
+  };
+
+  if (options?.shopId) {
+    filter.shopId = new Types.ObjectId(
+      options.shopId,
+    );
+  }
+
+  if (options?.unreadOnly) {
+    filter.isRead = false;
+  }
+
+  return NotificationModel.countDocuments(filter);
 }
 
 export async function createNotification(data: {
   userId: string;
   shopId?: string;
-  type:
-    | "invoice_created"
-    | "invoice_paid"
-    | "warranty_expiring"
-    | "warranty_expired"
-    | "document_uploaded"
-    | "system";
+  type: NotificationType;
   title: string;
   message: string;
   link?: string;
   metadata?: Record<string, unknown>;
 }) {
-  return NotificationModel.create(data);
+  return NotificationModel.create({
+    userId: new Types.ObjectId(data.userId),
+
+    ...(data.shopId
+      ? {
+          shopId: new Types.ObjectId(data.shopId),
+        }
+      : {}),
+
+    type: data.type,
+    title: data.title,
+    message: data.message,
+
+    ...(data.link
+      ? {
+          link: data.link,
+        }
+      : {}),
+
+    ...(data.metadata
+      ? {
+          metadata: data.metadata,
+        }
+      : {}),
+  });
+}
+
+/**
+ * Find an existing notification generated for
+ * a particular warranty event.
+ *
+ * This prevents the background scheduler from
+ * creating the same notification repeatedly.
+ */
+export async function findNotificationByWarrantyEvent(
+  userId: string,
+  shopId: string,
+  warrantyId: string,
+  type:
+    | "warranty_expiring"
+    | "warranty_expired",
+) {
+  return NotificationModel.findOne({
+    userId: new Types.ObjectId(userId),
+    shopId: new Types.ObjectId(shopId),
+    type,
+    "metadata.warrantyId": warrantyId,
+  }).lean();
+}
+
+export async function findNotificationByIdForUser(
+  notificationId: string,
+  userId: string,
+  shopId?: string,
+) {
+  return NotificationModel.findOne({
+    _id: notificationId,
+    userId: new Types.ObjectId(userId),
+
+    ...(shopId
+      ? {
+          shopId: new Types.ObjectId(shopId),
+        }
+      : {}),
+  });
 }
 
 export async function markNotificationAsRead(
   notificationId: string,
   userId: string,
+  shopId?: string,
 ) {
   return NotificationModel.findOneAndUpdate(
     {
       _id: notificationId,
-      userId,
+      userId: new Types.ObjectId(userId),
+
+      ...(shopId
+        ? {
+            shopId: new Types.ObjectId(shopId),
+          }
+        : {}),
+
       isRead: false,
     },
     {
@@ -69,10 +176,20 @@ export async function markNotificationAsRead(
   );
 }
 
-export async function markAllNotificationsAsRead(userId: string) {
+export async function markAllNotificationsAsRead(
+  userId: string,
+  shopId?: string,
+) {
   return NotificationModel.updateMany(
     {
-      userId,
+      userId: new Types.ObjectId(userId),
+
+      ...(shopId
+        ? {
+            shopId: new Types.ObjectId(shopId),
+          }
+        : {}),
+
       isRead: false,
     },
     {
@@ -82,4 +199,21 @@ export async function markAllNotificationsAsRead(userId: string) {
       },
     },
   );
+}
+
+export async function deleteNotification(
+  notificationId: string,
+  userId: string,
+  shopId?: string,
+) {
+  return NotificationModel.findOneAndDelete({
+    _id: notificationId,
+    userId: new Types.ObjectId(userId),
+
+    ...(shopId
+      ? {
+          shopId: new Types.ObjectId(shopId),
+        }
+      : {}),
+  });
 }

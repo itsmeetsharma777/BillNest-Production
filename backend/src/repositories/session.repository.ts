@@ -1,3 +1,5 @@
+import { Types } from "mongoose";
+
 import { SessionModel } from "../models/session.model";
 
 export async function createSession(data: {
@@ -5,7 +7,11 @@ export async function createSession(data: {
   tokenHash: string;
   expiresAt: Date;
 }) {
-  return SessionModel.create(data);
+  return SessionModel.create({
+    userId: new Types.ObjectId(data.userId),
+    tokenHash: data.tokenHash,
+    expiresAt: data.expiresAt,
+  });
 }
 
 export async function findSessionByTokenHash(tokenHash: string) {
@@ -20,7 +26,9 @@ export async function deleteSessionByTokenHash(tokenHash: string) {
 }
 
 export async function deleteAllSessionsForUser(userId: string) {
-  return SessionModel.deleteMany({ userId });
+  return SessionModel.deleteMany({
+    userId: new Types.ObjectId(userId),
+  });
 }
 
 export async function deleteExpiredSessions() {

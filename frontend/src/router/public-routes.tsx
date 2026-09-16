@@ -1,8 +1,10 @@
 import { Navigate, Route } from "react-router-dom";
 
 import App from "@/App";
+import ForgotPasswordPage from "@/pages/shopkeeper/ForgotPasswordPage";
 import LoginPage from "@/pages/shopkeeper/LoginPage";
 import RegisterPage from "@/pages/shopkeeper/RegisterPage";
+import ResetPasswordPage from "@/pages/shopkeeper/ResetPasswordPage";
 
 export function PublicRoutes() {
   return (
@@ -21,25 +23,13 @@ export function PublicRoutes() {
 
       <Route
         path="/forgot-password"
-        element={
-          <div className="flex min-h-screen items-center justify-center">
-            <p className="text-muted-foreground">
-              Forgot password page coming next.
-            </p>
-          </div>
-        }
+        element={<ForgotPasswordPage />}
       />
 
-      <Route
-        path="/reset-password"
-        element={
-          <div className="flex min-h-screen items-center justify-center">
-            <p className="text-muted-foreground">
-              Reset password page coming next.
-            </p>
-          </div>
-        }
-      />
+<Route
+  path="/reset-password"
+  element={<ResetPasswordPage />}
+/>
 
       <Route
         path="*"

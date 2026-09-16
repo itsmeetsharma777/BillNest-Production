@@ -9,6 +9,7 @@ import {
 import { getNextSequence } from "../repositories/counter.repository";
 import { findCustomerByIdForShop } from "../repositories/customer.repository";
 import { getShopForOwner } from "./shop.service";
+import { createNotificationForOwner } from "./notification.service";
 import { ApiError } from "../utils/api-error";
 
 type InvoiceStatus =
@@ -228,6 +229,44 @@ export async function createInvoiceForOwner(
     })),
   );
 
+  /*
+   * Create the real notification after the invoice
+   * and invoice items have been successfully persisted.
+   */
+  await createNotificationForOwner(ownerId, {
+    type: "invoice_created",
+    title: "New invoice created",
+    message: `Invoice ${invoice.invoiceNumber} was created for ${customer.name}.`,
+    link: `/shopkeeper/invoices/${invoice._id.toString()}`,
+    metadata: {
+      invoiceId: invoice._id.toString(),
+      invoiceNumber: invoice.invoiceNumber,
+      customerId: customer._id.toString(),
+      total: invoice.total,
+      status: invoice.status,
+    },
+  });
+
+  /*
+   * If an invoice is created directly as paid,
+   * also create the payment notification.
+   */
+  if (invoice.status === "paid") {
+    await createNotificationForOwner(ownerId, {
+      type: "invoice_paid",
+      title: "Invoice paid",
+      message: `Invoice ${invoice.invoiceNumber} from ${customer.name} has been marked as paid.`,
+      link: `/shopkeeper/invoices/${invoice._id.toString()}`,
+      metadata: {
+        invoiceId: invoice._id.toString(),
+        invoiceNumber: invoice.invoiceNumber,
+        customerId: customer._id.toString(),
+        amountPaid: invoice.amountPaid,
+        paymentMethod: invoice.paymentMethod,
+      },
+    });
+  }
+
   return {
     invoice,
     items,
@@ -415,6 +454,35 @@ export async function updateInvoiceForOwner(
     );
   }
 
+  /*
+   * Only create an invoice_paid notification when
+   * the invoice actually transitions into paid state.
+   */
+  if (
+    invoice.status !== "paid" &&
+    updatedInvoice.status === "paid"
+  ) {
+    const customer = await findCustomerByIdForShop(
+      invoice.customerId.toString(),
+      shop._id.toString(),
+    );
+
+    await createNotificationForOwner(ownerId, {
+      type: "invoice_paid",
+      title: "Invoice paid",
+      message: `Invoice ${updatedInvoice.invoiceNumber} has been marked as paid.`,
+      link: `/shopkeeper/invoices/${updatedInvoice._id.toString()}`,
+      metadata: {
+        invoiceId: updatedInvoice._id.toString(),
+        invoiceNumber: updatedInvoice.invoiceNumber,
+        customerId: updatedInvoice.customerId.toString(),
+        customerName: customer?.name,
+        amountPaid: updatedInvoice.amountPaid,
+        paymentMethod: updatedInvoice.paymentMethod,
+      },
+    });
+  }
+
   return updatedInvoice;
 }
 
@@ -423,16 +491,81 @@ export async function markInvoiceAsPaidForOwner(
   invoiceId: string,
   paymentMethod?: PaymentMethod,
 ) {
-  return updateInvoiceForOwner(
-    ownerId,
+  const shop = await getShopForOwner(ownerId);
+
+  const invoice = await findInvoiceByIdForShop(
     invoiceId,
-    {
-      status: "paid",
-      ...(paymentMethod && {
-        paymentMethod,
-      }),
-    },
+    shop._id.toString(),
   );
+
+  if (!invoice) {
+    throw new ApiError(
+      404,
+      "Invoice not found.",
+      "INVOICE_NOT_FOUND",
+    );
+  }
+
+  if (invoice.status === "cancelled") {
+    throw new ApiError(
+      400,
+      "Cancelled invoices cannot be marked as paid.",
+      "INVOICE_CANCELLED",
+    );
+  }
+
+  /*
+   * Don't create another payment notification if
+   * the invoice was already fully paid.
+   */
+  const wasAlreadyPaid =
+    invoice.status === "paid";
+
+  const updatedInvoice =
+    await updateInvoiceByIdForShop(
+      invoiceId,
+      shop._id.toString(),
+      {
+        status: "paid",
+        amountPaid: roundMoney(invoice.total),
+        amountDue: 0,
+        ...(paymentMethod && {
+          paymentMethod,
+        }),
+      },
+    );
+
+  if (!updatedInvoice) {
+    throw new ApiError(
+      404,
+      "Invoice not found.",
+      "INVOICE_NOT_FOUND",
+    );
+  }
+
+  if (!wasAlreadyPaid) {
+    const customer = await findCustomerByIdForShop(
+      invoice.customerId.toString(),
+      shop._id.toString(),
+    );
+
+    await createNotificationForOwner(ownerId, {
+      type: "invoice_paid",
+      title: "Invoice paid",
+      message: `Invoice ${updatedInvoice.invoiceNumber} has been marked as paid.`,
+      link: `/shopkeeper/invoices/${updatedInvoice._id.toString()}`,
+      metadata: {
+        invoiceId: updatedInvoice._id.toString(),
+        invoiceNumber: updatedInvoice.invoiceNumber,
+        customerId: updatedInvoice.customerId.toString(),
+        customerName: customer?.name,
+        amountPaid: updatedInvoice.amountPaid,
+        paymentMethod: updatedInvoice.paymentMethod,
+      },
+    });
+  }
+
+  return updatedInvoice;
 }
 
 export async function cancelInvoiceForOwner(

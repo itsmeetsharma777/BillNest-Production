@@ -7,11 +7,15 @@ import {
   findPasswordResetTokenByHash,
   markPasswordResetTokenUsed,
 } from "../repositories/password-reset-token.repository";
+
 import {
   findUserByEmail,
   findUserById,
   updateUserById,
 } from "../repositories/user.repository";
+
+import { deleteAllSessionsForUser } from "../repositories/session.repository";
+
 import { sendPasswordResetEmail } from "./email.service";
 import { ApiError } from "../utils/api-error";
 
@@ -30,7 +34,7 @@ export async function requestPasswordReset(email: string) {
 
   const user = await findUserByEmail(normalizedEmail);
 
-  /*
+  /**
    * Never reveal whether an email belongs to a BillNest account.
    */
   const safeResponse = {
@@ -43,7 +47,7 @@ export async function requestPasswordReset(email: string) {
     return safeResponse;
   }
 
-  /*
+  /**
    * Only the newest reset token remains valid.
    */
   await deletePasswordResetTokensForUser(user.id);
@@ -155,10 +159,15 @@ export async function resetPassword(
 
   const passwordHash = await argon2.hash(newPassword);
 
+  // Update the user's password.
   await updateUserById(user.id, {
     passwordHash,
   });
 
+  // Invalidate every existing login session.
+  await deleteAllSessionsForUser(user.id);
+
+  // Prevent the reset token from being reused.
   await markPasswordResetTokenUsed(resetToken.id);
 
   return {
