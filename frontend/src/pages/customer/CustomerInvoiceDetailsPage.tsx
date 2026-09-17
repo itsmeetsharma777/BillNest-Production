@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   CreditCard,
+  Download,
   FileText,
   Loader2,
   UserRound,
@@ -234,6 +235,12 @@ export default function CustomerInvoiceDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [isDownloading, setIsDownloading] =
+    useState(false);
+
+  const [downloadError, setDownloadError] =
+    useState("");
+
   useEffect(() => {
     let mounted = true;
 
@@ -290,6 +297,89 @@ export default function CustomerInvoiceDetailsPage() {
       mounted = false;
     };
   }, [invoiceId]);
+
+  async function handleDownloadPdf() {
+    if (!invoiceId || isDownloading) {
+      return;
+    }
+
+    try {
+      setIsDownloading(true);
+      setDownloadError("");
+
+      const response = await fetch(
+        `${API_URL}/customer/invoices/${invoiceId}/pdf`,
+        {
+          method: "GET",
+          credentials: "include",
+        },
+      );
+
+      if (!response.ok) {
+        let message =
+          "Unable to download the invoice PDF.";
+
+        try {
+          const result = (await response.json()) as {
+            message?: string;
+          };
+
+          if (result.message) {
+            message = result.message;
+          }
+        } catch {
+          // Ignore invalid JSON error responses.
+        }
+
+        throw new Error(message);
+      }
+
+      const blob = await response.blob();
+
+      if (
+        !blob.size ||
+        blob.type !== "application/pdf"
+      ) {
+        throw new Error(
+          "The server returned an invalid PDF.",
+        );
+      }
+
+      const objectUrl =
+        window.URL.createObjectURL(blob);
+
+      const invoiceNumber =
+        data?.invoice?.invoiceNumber ??
+        data?.invoice?.invoiceNo ??
+        "invoice";
+
+      const safeInvoiceNumber =
+        invoiceNumber.replace(
+          /[^a-zA-Z0-9-_]/g,
+          "_",
+        );
+
+      const link =
+        document.createElement("a");
+
+      link.href = objectUrl;
+      link.download = `invoice-${safeInvoiceNumber}.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      setDownloadError(
+        err instanceof Error
+          ? err.message
+          : "Unable to download the invoice PDF.",
+      );
+    } finally {
+      setIsDownloading(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -357,417 +447,412 @@ export default function CustomerInvoiceDetailsPage() {
   const customer = invoice.customer;
 
   return (
-    <>
-      <style>
-        {`
-          @media print {
-            body {
-              background: white !important;
-            }
-
-            .print-hidden {
-              display: none !important;
-            }
-
-            .print-card {
-              border: 0 !important;
-              box-shadow: none !important;
-            }
+    <div className="mx-auto w-full max-w-5xl p-4 sm:p-6 lg:p-8">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <Button
+          variant="ghost"
+          onClick={() =>
+            navigate("/customer/invoices")
           }
-        `}
-      </style>
+          className="-ml-2"
+        >
+          <ArrowLeft className="mr-2 size-4" />
+          Back to purchases
+        </Button>
 
-      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6 lg:p-8">
-        <div className="print-hidden mb-5 flex items-center justify-between gap-3">
-          <Button
-            variant="ghost"
-            onClick={() =>
-              navigate("/customer/invoices")
-            }
-            className="-ml-2"
-          >
-            <ArrowLeft className="mr-2 size-4" />
-            Back to purchases
-          </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleDownloadPdf}
+          isDisabled={isDownloading}
+        >
+          {isDownloading ? (
+            <Loader2 className="mr-2 size-4 animate-spin" />
+          ) : (
+            <Download className="mr-2 size-4" />
+          )}
 
-          <Button
-            type="button"
-            onClick={() => window.print()}
-          >
-            Print invoice
-          </Button>
+          {isDownloading
+            ? "Downloading..."
+            : "Download PDF"}
+        </Button>
+      </div>
+
+      {downloadError && (
+        <div className="mb-5 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {downloadError}
+        </div>
+      )}
+
+      <Card className="overflow-hidden">
+        <div className="border-b bg-muted/20 p-6 sm:p-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-primary">
+                Purchase invoice
+              </p>
+
+              <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
+                {invoiceNumber}
+              </h1>
+
+              <p className="mt-2 text-sm text-muted-foreground">
+                Issued on{" "}
+                {formatDate(
+                  invoice.issueDate ??
+                    invoice.invoiceDate,
+                )}
+              </p>
+            </div>
+
+            <Badge
+              className={`rounded-full border px-3 py-1.5 ${getStatusClass(invoice.status)}`}
+            >
+              {invoice.status === "paid" && (
+                <CheckCircle2 className="mr-1.5 size-4" />
+              )}
+
+              {invoice.status ===
+                "partially_paid" && (
+                <CreditCard className="mr-1.5 size-4" />
+              )}
+
+              {invoice.status === "cancelled" && (
+                <XCircle className="mr-1.5 size-4" />
+              )}
+
+              {getStatusLabel(invoice.status)}
+            </Badge>
+          </div>
         </div>
 
-        <Card className="print-card overflow-hidden">
-          <div className="border-b bg-muted/20 p-6 sm:p-8">
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-primary">
-                  Purchase invoice
-                </p>
+        <CardContent className="p-6 sm:p-8">
+          <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <UserRound className="size-5 text-primary" />
 
-                <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-                  {invoiceNumber}
-                </h1>
-
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Issued on{" "}
-                  {formatDate(
-                    invoice.issueDate ??
-                      invoice.invoiceDate,
-                  )}
-                </p>
+                <CardTitle>
+                  Customer
+                </CardTitle>
               </div>
 
-              <Badge
-                className={`rounded-full border px-3 py-1.5 ${getStatusClass(invoice.status)}`}
-              >
-                {invoice.status === "paid" && (
-                  <CheckCircle2 className="mr-1.5 size-4" />
+              <div className="mt-4 rounded-2xl border p-5">
+                <p className="font-semibold">
+                  {customer?.name ??
+                    "Customer information unavailable"}
+                </p>
+
+                {customer?.phone && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {customer.phone}
+                  </p>
                 )}
 
-                {invoice.status ===
-                  "partially_paid" && (
-                  <CreditCard className="mr-1.5 size-4" />
+                {customer?.email && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {customer.email}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2">
+                <FileText className="size-5 text-primary" />
+
+                <CardTitle>
+                  Purchase store
+                </CardTitle>
+              </div>
+
+              <div className="mt-4 rounded-2xl border p-5">
+                <p className="font-semibold">
+                  {shop?.name ??
+                    "Store information unavailable"}
+                </p>
+
+                {shop?.phone && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {shop.phone}
+                  </p>
                 )}
 
-                {invoice.status === "cancelled" && (
-                  <XCircle className="mr-1.5 size-4" />
+                {shop?.email && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {shop.email}
+                  </p>
                 )}
 
-                {getStatusLabel(invoice.status)}
-              </Badge>
+                {address && (
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    {address}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
-          <CardContent className="p-6 sm:p-8">
-            <div className="grid gap-6 md:grid-cols-2">
+          <Separator className="my-8" />
+
+          <div>
+            <div className="flex items-center justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2">
-                  <UserRound className="size-5 text-primary" />
-                  <CardTitle>
-                    Customer
-                  </CardTitle>
-                </div>
+                <h2 className="text-lg font-semibold">
+                  Purchased items
+                </h2>
 
-                <div className="mt-4 rounded-2xl border p-5">
-                  <p className="font-semibold">
-                    {customer?.name ??
-                      "Customer information unavailable"}
-                  </p>
-
-                  {customer?.phone && (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {customer.phone}
-                    </p>
-                  )}
-
-                  {customer?.email && (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {customer.email}
-                    </p>
-                  )}
-                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Items included in this invoice.
+                </p>
               </div>
 
-              <div>
-                <div className="flex items-center gap-2">
-                  <FileText className="size-5 text-primary" />
-                  <CardTitle>
-                    Purchase store
-                  </CardTitle>
-                </div>
-
-                <div className="mt-4 rounded-2xl border p-5">
-                  <p className="font-semibold">
-                    {shop?.name ??
-                      "Store information unavailable"}
-                  </p>
-
-                  {shop?.phone && (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {shop.phone}
-                    </p>
-                  )}
-
-                  {shop?.email && (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {shop.email}
-                    </p>
-                  )}
-
-                  {address && (
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                      {address}
-                    </p>
-                  )}
-                </div>
-              </div>
+              <span className="text-sm text-muted-foreground">
+                {items.length} item
+                {items.length === 1 ? "" : "s"}
+              </span>
             </div>
 
-            <Separator className="my-8" />
+            <div className="mt-5 overflow-hidden rounded-2xl border">
+              <div className="hidden overflow-x-auto sm:block">
+                <table className="w-full text-left">
+                  <thead className="border-b bg-muted/40">
+                    <tr className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <th className="px-4 py-3">
+                        Product
+                      </th>
 
-            <div>
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold">
-                    Purchased items
-                  </h2>
+                      <th className="px-4 py-3 text-right">
+                        Qty
+                      </th>
 
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Items included in this invoice.
-                  </p>
-                </div>
+                      <th className="px-4 py-3 text-right">
+                        Unit price
+                      </th>
 
-                <span className="text-sm text-muted-foreground">
-                  {items.length} item
-                  {items.length === 1 ? "" : "s"}
-                </span>
-              </div>
+                      <th className="px-4 py-3 text-right">
+                        Total
+                      </th>
+                    </tr>
+                  </thead>
 
-              <div className="mt-5 overflow-hidden rounded-2xl border">
-                <div className="hidden overflow-x-auto sm:block">
-                  <table className="w-full text-left">
-                    <thead className="border-b bg-muted/40">
-                      <tr className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        <th className="px-4 py-3">
-                          Product
-                        </th>
+                  <tbody className="divide-y">
+                    {items.map((item, index) => {
+                      const lineTotal =
+                        item.lineTotal ??
+                        item.total ??
+                        item.quantity *
+                          item.unitPrice;
 
-                        <th className="px-4 py-3 text-right">
-                          Qty
-                        </th>
-
-                        <th className="px-4 py-3 text-right">
-                          Unit price
-                        </th>
-
-                        <th className="px-4 py-3 text-right">
-                          Total
-                        </th>
-                      </tr>
-                    </thead>
-
-                    <tbody className="divide-y">
-                      {items.map((item, index) => {
-                        const lineTotal =
-                          item.lineTotal ??
-                          item.total ??
-                          item.quantity *
-                            item.unitPrice;
-
-                        return (
-                          <tr
-                            key={
-                              item._id ??
-                              item.id ??
-                              `item-${index}`
-                            }
-                          >
-                            <td className="px-4 py-4">
-                              <p className="text-sm font-semibold">
-                                {item.productName ??
-                                  item.description ??
-                                  "Product"}
-                              </p>
-
-                              {item.description &&
-                                item.productName && (
-                                  <p className="mt-1 text-xs text-muted-foreground">
-                                    {
-                                      item.description
-                                    }
-                                  </p>
-                                )}
-                            </td>
-
-                            <td className="px-4 py-4 text-right text-sm">
-                              {item.quantity}
-                            </td>
-
-                            <td className="px-4 py-4 text-right text-sm">
-                              {formatCurrency(
-                                item.unitPrice,
-                              )}
-                            </td>
-
-                            <td className="px-4 py-4 text-right text-sm font-semibold">
-                              {formatCurrency(
-                                lineTotal,
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="divide-y sm:hidden">
-                  {items.map((item, index) => {
-                    const lineTotal =
-                      item.lineTotal ??
-                      item.total ??
-                      item.quantity *
-                        item.unitPrice;
-
-                    return (
-                      <div
-                        key={
-                          item._id ??
-                          item.id ??
-                          `mobile-item-${index}`
-                        }
-                        className="p-4"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
+                      return (
+                        <tr
+                          key={
+                            item._id ??
+                            item.id ??
+                            `item-${index}`
+                          }
+                        >
+                          <td className="px-4 py-4">
                             <p className="text-sm font-semibold">
                               {item.productName ??
                                 item.description ??
                                 "Product"}
                             </p>
 
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              Qty {item.quantity} ×{" "}
-                              {formatCurrency(
-                                item.unitPrice,
+                            {item.description &&
+                              item.productName && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {item.description}
+                                </p>
                               )}
-                            </p>
-                          </div>
+                          </td>
 
-                          <p className="text-sm font-semibold">
+                          <td className="px-4 py-4 text-right text-sm">
+                            {item.quantity}
+                          </td>
+
+                          <td className="px-4 py-4 text-right text-sm">
+                            {formatCurrency(
+                              item.unitPrice,
+                            )}
+                          </td>
+
+                          <td className="px-4 py-4 text-right text-sm font-semibold">
                             {formatCurrency(
                               lineTotal,
                             )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="divide-y sm:hidden">
+                {items.map((item, index) => {
+                  const lineTotal =
+                    item.lineTotal ??
+                    item.total ??
+                    item.quantity *
+                      item.unitPrice;
+
+                  return (
+                    <div
+                      key={
+                        item._id ??
+                        item.id ??
+                        `mobile-item-${index}`
+                      }
+                      className="p-4"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-semibold">
+                            {item.productName ??
+                              item.description ??
+                              "Product"}
+                          </p>
+
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Qty {item.quantity} ×{" "}
+                            {formatCurrency(
+                              item.unitPrice,
+                            )}
                           </p>
                         </div>
+
+                        <p className="text-sm font-semibold">
+                          {formatCurrency(
+                            lineTotal,
+                          )}
+                        </p>
                       </div>
-                    );
-                  })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <Separator className="my-8" />
+
+          <div className="ml-auto max-w-md space-y-3">
+            <div className="flex justify-between gap-4 text-sm">
+              <span className="text-muted-foreground">
+                Subtotal
+              </span>
+
+              <span className="font-medium">
+                {formatCurrency(
+                  invoice.subtotal,
+                )}
+              </span>
+            </div>
+
+            <div className="flex justify-between gap-4 text-sm">
+              <span className="text-muted-foreground">
+                Discount
+              </span>
+
+              <span className="font-medium">
+                -{" "}
+                {formatCurrency(
+                  invoice.discount,
+                )}
+              </span>
+            </div>
+
+            <div className="flex justify-between gap-4 text-sm">
+              <span className="text-muted-foreground">
+                Tax
+              </span>
+
+              <span className="font-medium">
+                {formatCurrency(invoice.tax)}
+              </span>
+            </div>
+
+            <Separator />
+
+            <div className="flex justify-between gap-4 text-lg font-bold">
+              <span>Total</span>
+
+              <span>
+                {formatCurrency(invoice.total)}
+              </span>
+            </div>
+
+            <div className="flex justify-between gap-4 text-sm">
+              <span className="text-muted-foreground">
+                Amount paid
+              </span>
+
+              <span className="font-medium">
+                {formatCurrency(
+                  invoice.amountPaid,
+                )}
+              </span>
+            </div>
+
+            <div className="flex justify-between gap-4 text-sm">
+              <span className="text-muted-foreground">
+                Amount due
+              </span>
+
+              <span className="font-semibold">
+                {formatCurrency(
+                  invoice.amountDue,
+                )}
+              </span>
+            </div>
+          </div>
+
+          <Separator className="my-8" />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Payment method
+              </p>
+
+              <p className="mt-2 font-semibold">
+                {getPaymentMethodLabel(
+                  invoice.paymentMethod,
+                )}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Due date
+              </p>
+
+              <p className="mt-2 font-semibold">
+                {formatDate(invoice.dueDate)}
+              </p>
+            </div>
+          </div>
+
+          {invoice.notes && (
+            <>
+              <Separator className="my-8" />
+
+              <div>
+                <h2 className="text-lg font-semibold">
+                  Notes
+                </h2>
+
+                <div className="mt-3 rounded-2xl border bg-muted/20 p-5">
+                  <p className="whitespace-pre-wrap text-sm leading-7 text-muted-foreground">
+                    {invoice.notes}
+                  </p>
                 </div>
               </div>
-            </div>
-
-            <Separator className="my-8" />
-
-            <div className="ml-auto max-w-md space-y-3">
-              <div className="flex justify-between gap-4 text-sm">
-                <span className="text-muted-foreground">
-                  Subtotal
-                </span>
-
-                <span className="font-medium">
-                  {formatCurrency(
-                    invoice.subtotal,
-                  )}
-                </span>
-              </div>
-
-              <div className="flex justify-between gap-4 text-sm">
-                <span className="text-muted-foreground">
-                  Discount
-                </span>
-
-                <span className="font-medium">
-                  -{" "}
-                  {formatCurrency(
-                    invoice.discount,
-                  )}
-                </span>
-              </div>
-
-              <div className="flex justify-between gap-4 text-sm">
-                <span className="text-muted-foreground">
-                  Tax
-                </span>
-
-                <span className="font-medium">
-                  {formatCurrency(invoice.tax)}
-                </span>
-              </div>
-
-              <Separator />
-
-              <div className="flex justify-between gap-4 text-lg font-bold">
-                <span>Total</span>
-
-                <span>
-                  {formatCurrency(invoice.total)}
-                </span>
-              </div>
-
-              <div className="flex justify-between gap-4 text-sm">
-                <span className="text-muted-foreground">
-                  Amount paid
-                </span>
-
-                <span className="font-medium">
-                  {formatCurrency(
-                    invoice.amountPaid,
-                  )}
-                </span>
-              </div>
-
-              <div className="flex justify-between gap-4 text-sm">
-                <span className="text-muted-foreground">
-                  Amount due
-                </span>
-
-                <span className="font-semibold">
-                  {formatCurrency(
-                    invoice.amountDue,
-                  )}
-                </span>
-              </div>
-            </div>
-
-            <Separator className="my-8" />
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Payment method
-                </p>
-
-                <p className="mt-2 font-semibold">
-                  {getPaymentMethodLabel(
-                    invoice.paymentMethod,
-                  )}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Due date
-                </p>
-
-                <p className="mt-2 font-semibold">
-                  {formatDate(invoice.dueDate)}
-                </p>
-              </div>
-            </div>
-
-            {invoice.notes && (
-              <>
-                <Separator className="my-8" />
-
-                <div>
-                  <h2 className="text-lg font-semibold">
-                    Notes
-                  </h2>
-
-                  <div className="mt-3 rounded-2xl border bg-muted/20 p-5">
-                    <p className="whitespace-pre-wrap text-sm leading-7 text-muted-foreground">
-                      {invoice.notes}
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

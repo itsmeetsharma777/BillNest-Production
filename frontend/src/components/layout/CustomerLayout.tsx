@@ -4,11 +4,16 @@ import {
   LayoutDashboard,
   LogOut,
   Receipt,
+  Settings,
   ShieldCheck,
   Store,
   UserCircle,
 } from "lucide-react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import {
+  NavLink,
+  Outlet,
+  useNavigate,
+} from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { ThemeSelector } from "@/components/common/theme-selector";
@@ -29,6 +34,11 @@ const navigation = [
     label: "Warranties",
     href: "/customer/warranties",
     icon: ShieldCheck,
+  },
+  {
+    label: "Settings",
+    href: "/customer/settings",
+    icon: Settings,
   },
 ];
 
@@ -51,7 +61,10 @@ export function CustomerLayout() {
             </div>
 
             <div>
-              <p className="font-bold tracking-tight">BillNest</p>
+              <p className="font-bold tracking-tight">
+                BillNest
+              </p>
+
               <p className="text-xs text-muted-foreground">
                 Customer Portal
               </p>
@@ -119,7 +132,10 @@ export function CustomerLayout() {
               </div>
 
               <div>
-                <p className="font-bold tracking-tight">BillNest</p>
+                <p className="font-bold tracking-tight">
+                  BillNest
+                </p>
+
                 <p className="text-[11px] text-muted-foreground">
                   Customer Portal
                 </p>
@@ -128,6 +144,7 @@ export function CustomerLayout() {
 
             <div className="hidden items-center gap-2 lg:flex">
               <Store className="size-4 text-muted-foreground" />
+
               <span className="text-sm text-muted-foreground">
                 Customer account
               </span>
@@ -138,10 +155,17 @@ export function CustomerLayout() {
                 variant="ghost"
                 size="icon"
                 className="text-muted-foreground"
-                onClick={() => navigate("/customer/notifications")}
+                onClick={() =>
+                  navigate(
+                    "/customer/notifications",
+                  )
+                }
               >
                 <Bell className="size-4" />
-                <span className="sr-only">Notifications</span>
+
+                <span className="sr-only">
+                  Notifications
+                </span>
               </Button>
 
               <ThemeSelector />

@@ -15,6 +15,7 @@ import shopRoutes from "./routes/shop.routes";
 import customerRoutes from "./routes/customer.routes";
 import customerPortalRoutes from "./routes/customer-portal.routes";
 import customerNotificationRoutes from "./routes/customer-notification.routes";
+import customerAccountRoutes from "./routes/customer-account.routes";
 import invoiceRoutes from "./routes/invoice.routes";
 import warrantyRoutes from "./routes/warranty.routes";
 import reportRoutes from "./routes/report.routes";
@@ -102,6 +103,11 @@ app.use(
 app.use(
   "/api/customer",
   customerPortalRoutes,
+);
+
+app.use(
+  "/api/customer/account",
+  customerAccountRoutes,
 );
 
 app.use(

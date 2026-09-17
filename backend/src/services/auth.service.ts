@@ -10,8 +10,9 @@ import {
 } from "../repositories/session.repository";
 
 import {
-  createShop,
-} from "../repositories/shop.repository";
+  findSingleUnlinkedCustomerByEmail,
+  linkCustomerToUser,
+} from "../repositories/customer.repository";
 
 import {
   generateSessionToken,
@@ -38,8 +39,47 @@ interface LoginInput {
   password: string;
 }
 
-export async function registerUser(input: RegisterInput) {
-  const existingUser = await findUserByEmail(input.email);
+/**
+ * Try to connect a customer account to an existing
+ * unlinked customer profile using the account email.
+ *
+ * Linking is performed only when exactly one active
+ * unlinked customer exists with that email.
+ */
+async function linkCustomerProfileIfPossible(
+  userId: string,
+  email: string,
+) {
+  const customer =
+    await findSingleUnlinkedCustomerByEmail(
+      email,
+    );
+
+  if (!customer) {
+    return null;
+  }
+
+  return linkCustomerToUser(
+    customer._id.toString(),
+    userId,
+  );
+}
+
+export async function registerUser(
+  input: RegisterInput,
+) {
+  const normalizedEmail =
+    input.email
+      .trim()
+      .toLowerCase();
+
+  const normalizedName =
+    input.name.trim();
+
+  const existingUser =
+    await findUserByEmail(
+      normalizedEmail,
+    );
 
   if (existingUser) {
     throw new ApiError(
@@ -49,34 +89,45 @@ export async function registerUser(input: RegisterInput) {
     );
   }
 
-  const passwordHash = await hashPassword(input.password);
+  const passwordHash =
+    await hashPassword(
+      input.password,
+    );
 
   const user = await createUser({
-    name: input.name,
-    email: input.email,
+    name: normalizedName,
+    email: normalizedEmail,
     passwordHash,
     role: input.role,
   });
 
   /*
-   * Every shopkeeper must have exactly one shop.
-   *
-   * The registration form currently does not collect shop
-   * information, so create a sensible default name that the
-   * shopkeeper can change later from Settings.
+   * If this is a customer account and a shopkeeper
+   * had already created a customer profile using
+   * the same email, link the two records immediately.
    */
-  if (input.role === "shopkeeper") {
-    await createShop({
-      ownerId: user._id.toString(),
-      name: `${input.name.trim()}'s Store`,
-    });
+  if (input.role === "customer") {
+    await linkCustomerProfileIfPossible(
+      user._id.toString(),
+      normalizedEmail,
+    );
   }
 
   return user;
 }
 
-export async function loginUser(input: LoginInput) {
-  const user = await findUserByEmailWithPassword(input.email);
+export async function loginUser(
+  input: LoginInput,
+) {
+  const normalizedEmail =
+    input.email
+      .trim()
+      .toLowerCase();
+
+  const user =
+    await findUserByEmailWithPassword(
+      normalizedEmail,
+    );
 
   if (!user || !user.isActive) {
     throw new ApiError(
@@ -86,10 +137,11 @@ export async function loginUser(input: LoginInput) {
     );
   }
 
-  const passwordValid = await verifyPassword(
-    user.passwordHash,
-    input.password,
-  );
+  const passwordValid =
+    await verifyPassword(
+      user.passwordHash,
+      input.password,
+    );
 
   if (!passwordValid) {
     throw new ApiError(
@@ -99,15 +151,38 @@ export async function loginUser(input: LoginInput) {
     );
   }
 
-  const sessionToken = generateSessionToken();
-  const tokenHash = hashSessionToken(sessionToken);
+  /*
+   * Repair an existing customer account that may
+   * have been created before its shop customer
+   * profile was linked.
+   *
+   * This makes the fix effective for existing
+   * accounts as well as newly registered accounts.
+   */
+  if (user.role === "customer") {
+    await linkCustomerProfileIfPossible(
+      user._id.toString(),
+      normalizedEmail,
+    );
+  }
 
-  const expiresAt = new Date(
-    Date.now() + SESSION_DURATION_MS,
-  );
+  const sessionToken =
+    generateSessionToken();
+
+  const tokenHash =
+    hashSessionToken(
+      sessionToken,
+    );
+
+  const expiresAt =
+    new Date(
+      Date.now() +
+        SESSION_DURATION_MS,
+    );
 
   await createSession({
-    userId: user._id.toString(),
+    userId:
+      user._id.toString(),
     tokenHash,
     expiresAt,
   });
@@ -118,8 +193,15 @@ export async function loginUser(input: LoginInput) {
   };
 }
 
-export async function deleteSession(sessionToken: string) {
-  const tokenHash = hashSessionToken(sessionToken);
+export async function deleteSession(
+  sessionToken: string,
+) {
+  const tokenHash =
+    hashSessionToken(
+      sessionToken,
+    );
 
-  await deleteSessionByTokenHash(tokenHash);
+  await deleteSessionByTokenHash(
+    tokenHash,
+  );
 }

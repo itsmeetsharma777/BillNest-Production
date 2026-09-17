@@ -4,6 +4,7 @@ import {
   getDashboard,
   getInvoices,
   getInvoice,
+  downloadCustomerInvoicePdf,
   getWarranties,
   getWarranty,
 } from "../controllers/customer-portal.controller";
@@ -25,6 +26,11 @@ router.get(
 router.get(
   "/invoices",
   asyncHandler(getInvoices),
+);
+
+router.get(
+  "/invoices/:invoiceId/pdf",
+  asyncHandler(downloadCustomerInvoicePdf),
 );
 
 router.get(

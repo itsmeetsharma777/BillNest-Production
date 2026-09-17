@@ -8,51 +8,21 @@ import CustomerDashboardPage from "@/pages/customer/CustomerDashboardPage";
 import CustomerInvoiceDetailsPage from "@/pages/customer/CustomerInvoiceDetailsPage";
 import CustomerInvoicesPage from "@/pages/customer/CustomerInvoicesPage";
 import CustomerNotificationsPage from "@/pages/customer/CustomerNotificationsPage";
+import CustomerSettingsPage from "@/pages/customer/CustomerSettingsPage";
 import CustomerWarrantyDetailsPage from "@/pages/customer/CustomerWarrantyDetailsPage";
 import CustomerWarrantiesPage from "@/pages/customer/CustomerWarrantiesPage";
+import CustomersPage from "@/pages/customer/CustomersPage";
 
-import { ShopkeeperDashboard } from "@/pages/shopkeeper/dashboard";
 import CreateInvoicePage from "@/pages/shopkeeper/CreateInvoicePage";
 import InvoiceDetailsPage from "@/pages/shopkeeper/InvoiceDetailsPage";
 import InvoicesPage from "@/pages/shopkeeper/InvoicesPage";
-import CustomersPage from "@/pages/customer/CustomersPage";
-import WarrantiesPage from "@/pages/shopkeeper/WarrantiesPage";
+import NotificationsPage from "@/pages/shopkeeper/NotificationsPage";
+import ReportsPage from "@/pages/shopkeeper/ReportsPage";
+import SettingsPage from "@/pages/shopkeeper/SettingsPage";
+import { ShopkeeperDashboard } from "@/pages/shopkeeper/dashboard";
 import CreateWarrantyPage from "@/pages/shopkeeper/CreateWarrantyPage";
 import WarrantyDetailsPage from "@/pages/shopkeeper/WarrantyDetailsPage";
-import ReportsPage from "@/pages/shopkeeper/ReportsPage";
-import NotificationsPage from "@/pages/shopkeeper/NotificationsPage";
-
-function CustomerSettingsPage() {
-  return (
-    <div className="mx-auto w-full max-w-5xl p-6 lg:p-8">
-      <div className="rounded-2xl border bg-card p-8 text-center shadow-sm">
-        <h1 className="text-xl font-semibold">
-          Settings
-        </h1>
-
-        <p className="mt-2 text-sm text-muted-foreground">
-          Account settings will appear here.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function ShopkeeperSettingsPage() {
-  return (
-    <div className="mx-auto w-full max-w-5xl p-6 lg:p-8">
-      <div className="rounded-2xl border bg-card p-8 text-center shadow-sm">
-        <h1 className="text-xl font-semibold">
-          Settings
-        </h1>
-
-        <p className="mt-2 text-sm text-muted-foreground">
-          Shop settings will appear here.
-        </p>
-      </div>
-    </div>
-  );
-}
+import WarrantiesPage from "@/pages/shopkeeper/WarrantiesPage";
 
 export function ProtectedRoutes() {
   return (
@@ -116,7 +86,7 @@ export function ProtectedRoutes() {
 
           <Route
             path="/shopkeeper/settings"
-            element={<ShopkeeperSettingsPage />}
+            element={<SettingsPage />}
           />
         </Route>
       </Route>
@@ -169,7 +139,10 @@ export function ProtectedRoutes() {
       <Route
         path="/dashboard"
         element={
-          <Navigate to="/shopkeeper" replace />
+          <Navigate
+            to="/shopkeeper"
+            replace
+          />
         }
       />
     </>

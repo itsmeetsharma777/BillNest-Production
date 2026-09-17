@@ -1,7 +1,5 @@
-import {
-  Types,
-  type ClientSession,
-} from "mongoose";
+import type { ClientSession } from "mongoose";
+import { Types } from "mongoose";
 
 import { CounterModel } from "../models/counter.model";
 
@@ -9,29 +7,33 @@ export async function getNextSequence(
   shopId: string,
   key: string,
   session?: ClientSession,
-) {
-  const counter =
-    await CounterModel.findOneAndUpdate(
-      {
+): Promise<number> {
+  const counter = await CounterModel.findOneAndUpdate(
+    {
+      shopId: new Types.ObjectId(shopId),
+      key,
+    },
+    {
+      $setOnInsert: {
         shopId: new Types.ObjectId(shopId),
         key,
+        sequence: 0,
       },
-      {
-        $inc: {
-          sequence: 1,
-        },
+      $inc: {
+        sequence: 1,
       },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true,
-        session,
-      },
-    );
+    },
+    {
+      new: true,
+      upsert: true,
+      runValidators: true,
+      session,
+    },
+  );
 
   if (!counter) {
     throw new Error(
-      "COUNTER_UPDATE_FAILED",
+      "Unable to generate the next sequence number.",
     );
   }
 

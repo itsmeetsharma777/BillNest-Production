@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import mongoose from "mongoose";
 
 import {
   getCustomerDashboard,
@@ -7,6 +8,10 @@ import {
   getCustomerWarranties,
   getCustomerWarranty,
 } from "../services/customer-portal.service";
+
+import { CustomerModel } from "../models/customer.model";
+import { InvoiceModel } from "../models/invoice.model";
+import { generateInvoicePdf } from "../services/invoice-pdf.service";
 
 import { ApiError } from "../utils/api-error";
 
@@ -168,6 +173,114 @@ export async function getInvoice(
     success: true,
     data,
   });
+}
+
+/**
+ * Download an invoice PDF for the
+ * authenticated customer.
+ *
+ * Security:
+ * 1. Resolve the customer from the
+ *    authenticated user.
+ * 2. Find the requested invoice.
+ * 3. Verify invoice.customerId matches
+ *    the authenticated customer's profile.
+ * 4. Generate the existing PDF using
+ *    the invoice's shop.
+ */
+export async function downloadCustomerInvoicePdf(
+  request: AuthenticatedRequest,
+  response: Response,
+) {
+  const userId = getUserId(request);
+
+  const invoiceId =
+    getRouteParam(
+      request.params.invoiceId,
+      "invoiceId",
+    );
+
+  if (
+    !mongoose.isValidObjectId(invoiceId)
+  ) {
+    throw new ApiError(
+      400,
+      "Invalid invoice ID.",
+      "INVALID_INVOICE_ID",
+    );
+  }
+
+  if (
+    !mongoose.isValidObjectId(userId)
+  ) {
+    throw new ApiError(
+      401,
+      "Invalid authenticated user.",
+      "INVALID_USER_ID",
+    );
+  }
+
+  const customer =
+    await CustomerModel.findOne({
+      userId: new mongoose.Types.ObjectId(
+        userId,
+      ),
+      isActive: true,
+    }).lean();
+
+  if (!customer) {
+    throw new ApiError(
+      404,
+      "Customer profile not found.",
+      "CUSTOMER_PROFILE_NOT_FOUND",
+    );
+  }
+
+  const invoice =
+    await InvoiceModel.findOne({
+      _id: new mongoose.Types.ObjectId(
+        invoiceId,
+      ),
+      customerId: customer._id,
+    }).lean();
+
+  if (!invoice) {
+    throw new ApiError(
+      404,
+      "Invoice not found.",
+      "INVOICE_NOT_FOUND",
+    );
+  }
+
+  const {
+    document,
+    invoiceNumber,
+  } = await generateInvoicePdf(
+    invoiceId,
+    invoice.shopId.toString(),
+  );
+
+  const safeInvoiceNumber =
+    invoiceNumber.replace(
+      /[^a-zA-Z0-9-_]/g,
+      "_",
+    );
+
+  const filename =
+    `invoice-${safeInvoiceNumber}.pdf`;
+
+  response.setHeader(
+    "Content-Type",
+    "application/pdf",
+  );
+
+  response.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${filename}"`,
+  );
+
+  document.pipe(response);
+  document.end();
 }
 
 export async function getWarranties(
