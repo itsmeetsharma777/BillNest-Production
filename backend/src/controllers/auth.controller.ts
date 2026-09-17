@@ -44,19 +44,29 @@ function sanitizeUser(user: {
 
 /**
  * Configure the secure HTTP-only session cookie.
+ *
+ * Production:
+ * - Vercel frontend and Render backend are different sites.
+ * - SameSite=None is required for the cross-site API request.
+ * - Secure=true is required when SameSite=None is used.
+ *
+ * Development:
+ * - localhost frontend/backend can continue using lax cookies.
  */
 function setSessionCookie(
   res: Response,
   sessionToken: string,
 ) {
+  const isProduction =
+    process.env.NODE_ENV === "production";
+
   res.cookie(
     SESSION_COOKIE_NAME,
     sessionToken,
     {
       httpOnly: true,
-      secure:
-        process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       maxAge: SESSION_DURATION_MS,
       path: "/",
 
@@ -74,9 +84,7 @@ export async function register(
   req: Request,
   res: Response,
 ) {
-  const input = registerSchema.parse(
-    req.body,
-  );
+  const input = registerSchema.parse(req.body);
 
   const user = await registerUser(input);
 
@@ -96,9 +104,7 @@ export async function login(
   req: Request,
   res: Response,
 ) {
-  const input = loginSchema.parse(
-    req.body,
-  );
+  const input = loginSchema.parse(req.body);
 
   const {
     user,
@@ -133,13 +139,15 @@ export async function logout(
     await deleteSession(sessionToken);
   }
 
+  const isProduction =
+    process.env.NODE_ENV === "production";
+
   res.clearCookie(
     SESSION_COOKIE_NAME,
     {
       httpOnly: true,
-      secure:
-        process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       path: "/",
 
       ...(process.env.COOKIE_DOMAIN && {
