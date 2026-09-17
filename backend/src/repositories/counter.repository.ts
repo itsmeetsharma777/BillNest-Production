@@ -17,7 +17,6 @@ export async function getNextSequence(
       $setOnInsert: {
         shopId: new Types.ObjectId(shopId),
         key,
-        sequence: 0,
       },
       $inc: {
         sequence: 1,
