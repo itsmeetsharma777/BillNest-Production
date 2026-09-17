@@ -26,7 +26,8 @@ import {
 } from "@/components/ui/card";
 
 const API_URL =
-  import.meta.env.VITE_API_URL ?? "http://localhost:5001/api";
+  import.meta.env.VITE_API_URL ??
+  "http://localhost:5001/api";
 
 const PINCODE_API_URL =
   "https://api.postalpincode.in/pincode";
@@ -137,7 +138,9 @@ const EMPTY_FORM: ShopForm = {
   },
 };
 
-function normalizePhoneForInput(phone?: string) {
+function normalizePhoneForInput(
+  phone?: string,
+) {
   if (!phone) {
     return "";
   }
@@ -151,7 +154,10 @@ function normalizePhoneForInput(phone?: string) {
       .slice(0, 10);
   }
 
-  if (normalized.startsWith("91") && normalized.length > 10) {
+  if (
+    normalized.startsWith("91") &&
+    normalized.length > 10
+  ) {
     return normalized
       .slice(2)
       .replace(/\D/g, "")
@@ -163,10 +169,14 @@ function normalizePhoneForInput(phone?: string) {
     .slice(0, 10);
 }
 
-function normalizeShop(shop: Shop): ShopForm {
+function normalizeShop(
+  shop: Shop,
+): ShopForm {
   return {
     name: shop.name ?? "",
-    phone: normalizePhoneForInput(shop.phone),
+    phone: normalizePhoneForInput(
+      shop.phone,
+    ),
     email: shop.email ?? "",
     taxId: shop.taxId ?? "",
     address: {
@@ -174,8 +184,10 @@ function normalizeShop(shop: Shop): ShopForm {
       line2: shop.address?.line2 ?? "",
       city: shop.address?.city ?? "",
       state: shop.address?.state ?? "",
-      postalCode: shop.address?.postalCode ?? "",
-      country: shop.address?.country ?? "India",
+      postalCode:
+        shop.address?.postalCode ?? "",
+      country:
+        shop.address?.country ?? "India",
     },
   };
 }
@@ -203,13 +215,23 @@ const selectClassName =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring";
 
 export default function SettingsPage() {
-  const [form, setForm] = useState<ShopForm>(EMPTY_FORM);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [hasShop, setHasShop] = useState(false);
+  const [form, setForm] =
+    useState<ShopForm>(EMPTY_FORM);
 
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [isSaving, setIsSaving] =
+    useState(false);
+
+  const [hasShop, setHasShop] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  const [successMessage, setSuccessMessage] =
+    useState("");
 
   const [isPincodeLoading, setIsPincodeLoading] =
     useState(false);
@@ -227,6 +249,7 @@ export default function SettingsPage() {
       try {
         setIsLoading(true);
         setError("");
+        setSuccessMessage("");
 
         const response = await fetch(
           `${API_URL}/shops/me`,
@@ -236,7 +259,42 @@ export default function SettingsPage() {
           },
         );
 
-        const result = await response.json();
+        let result: unknown = null;
+
+        try {
+          result = await response.json();
+        } catch {
+          result = null;
+        }
+
+        /*
+         * A shopkeeper may legitimately have no shop
+         * yet. Treat SHOP_NOT_FOUND as an empty
+         * first-time setup state instead of an error.
+         */
+        if (
+          response.status === 404 &&
+          typeof result === "object" &&
+          result !== null &&
+          "code" in result &&
+          result.code === "SHOP_NOT_FOUND"
+        ) {
+          if (!mounted) {
+            return;
+          }
+
+          setForm({
+            ...EMPTY_FORM,
+            address: {
+              ...EMPTY_FORM.address,
+            },
+          });
+
+          setHasShop(false);
+          setError("");
+
+          return;
+        }
 
         if (!response.ok) {
           throw new Error(
@@ -247,10 +305,18 @@ export default function SettingsPage() {
           );
         }
 
-        const shop = result?.data?.shop as
-          | Shop
-          | null
-          | undefined;
+        const shop =
+          typeof result === "object" &&
+          result !== null &&
+          "data" in result &&
+          typeof result.data === "object" &&
+          result.data !== null &&
+          "shop" in result.data
+            ? (result.data.shop as
+                | Shop
+                | null
+                | undefined)
+            : undefined;
 
         if (!mounted) {
           return;
@@ -260,7 +326,13 @@ export default function SettingsPage() {
           setForm(normalizeShop(shop));
           setHasShop(true);
         } else {
-          setForm(EMPTY_FORM);
+          setForm({
+            ...EMPTY_FORM,
+            address: {
+              ...EMPTY_FORM.address,
+            },
+          });
+
           setHasShop(false);
         }
       } catch (err) {
@@ -286,7 +358,9 @@ export default function SettingsPage() {
     };
   }, []);
 
-  const updateField = <K extends keyof ShopForm>(
+  const updateField = <
+    K extends keyof ShopForm,
+  >(
     field: K,
     value: ShopForm[K],
   ) => {
@@ -296,9 +370,12 @@ export default function SettingsPage() {
     }));
 
     setSuccessMessage("");
+    setError("");
   };
 
-  const updateAddress = <K extends keyof ShopAddress>(
+  const updateAddress = <
+    K extends keyof ShopAddress,
+  >(
     field: K,
     value: ShopAddress[K],
   ) => {
@@ -311,9 +388,12 @@ export default function SettingsPage() {
     }));
 
     setSuccessMessage("");
+    setError("");
   };
 
-  const lookupPincode = async (pincode: string) => {
+  const lookupPincode = async (
+    pincode: string,
+  ) => {
     const cleanedPincode = pincode
       .replace(/\D/g, "")
       .slice(0, 6);
@@ -326,9 +406,11 @@ export default function SettingsPage() {
 
     pincodeRequestRef.current?.abort();
 
-    const controller = new AbortController();
+    const controller =
+      new AbortController();
 
-    pincodeRequestRef.current = controller;
+    pincodeRequestRef.current =
+      controller;
 
     try {
       setIsPincodeLoading(true);
@@ -356,17 +438,20 @@ export default function SettingsPage() {
 
       if (
         !data ||
-        data.Status?.toLowerCase() !== "success" ||
+        data.Status?.toLowerCase() !==
+          "success" ||
         !data.PostOffice ||
         data.PostOffice.length === 0
       ) {
         setPincodeMessage(
           "Postal code not found. Please check the PIN code.",
         );
+
         return;
       }
 
-      const postOffice = data.PostOffice[0];
+      const postOffice =
+        data.PostOffice[0];
 
       const district =
         postOffice.District?.trim() ?? "";
@@ -375,15 +460,16 @@ export default function SettingsPage() {
         postOffice.State?.trim() ?? "";
 
       const country =
-        postOffice.Country?.trim() || "India";
+        postOffice.Country?.trim() ||
+        "India";
 
       setForm((current) => ({
         ...current,
         address: {
           ...current.address,
           city: district,
-          state: state,
-          country: country,
+          state,
+          country,
           postalCode: cleanedPincode,
         },
       }));
@@ -405,9 +491,7 @@ export default function SettingsPage() {
         "Could not find this postal code. You can enter the city manually.",
       );
     } finally {
-      if (
-        !controller.signal.aborted
-      ) {
+      if (!controller.signal.aborted) {
         setIsPincodeLoading(false);
       }
     }
@@ -415,34 +499,52 @@ export default function SettingsPage() {
 
   const handleTextChange =
     (field: keyof ShopForm) =>
-    (event: ChangeEvent<HTMLInputElement>) => {
-      updateField(field, event.target.value);
+    (
+      event: ChangeEvent<HTMLInputElement>,
+    ) => {
+      updateField(
+        field,
+        event.target.value,
+      );
     };
 
   const handlePhoneChange = (
     event: ChangeEvent<HTMLInputElement>,
   ) => {
-    const digitsOnly = event.target.value
-      .replace(/\D/g, "")
-      .slice(0, 10);
+    const digitsOnly =
+      event.target.value
+        .replace(/\D/g, "")
+        .slice(0, 10);
 
-    updateField("phone", digitsOnly);
+    updateField(
+      "phone",
+      digitsOnly,
+    );
   };
 
   const handleAddressChange =
     (field: keyof ShopAddress) =>
-    (event: ChangeEvent<HTMLInputElement>) => {
-      updateAddress(field, event.target.value);
+    (
+      event: ChangeEvent<HTMLInputElement>,
+    ) => {
+      updateAddress(
+        field,
+        event.target.value,
+      );
     };
 
   const handlePostalCodeChange = (
     event: ChangeEvent<HTMLInputElement>,
   ) => {
-    const digitsOnly = event.target.value
-      .replace(/\D/g, "")
-      .slice(0, 6);
+    const digitsOnly =
+      event.target.value
+        .replace(/\D/g, "")
+        .slice(0, 6);
 
-    updateAddress("postalCode", digitsOnly);
+    updateAddress(
+      "postalCode",
+      digitsOnly,
+    );
 
     setPincodeMessage("");
 
@@ -454,11 +556,15 @@ export default function SettingsPage() {
   const handleStateChange = (
     event: ChangeEvent<HTMLSelectElement>,
   ) => {
-    updateAddress("state", event.target.value);
+    updateAddress(
+      "state",
+      event.target.value,
+    );
   };
 
   const validateForm = (): string => {
-    const name = form.name.trim();
+    const name =
+      form.name.trim();
 
     if (name.length < 2) {
       return "Shop name must contain at least 2 characters.";
@@ -478,39 +584,61 @@ export default function SettingsPage() {
       const emailPattern =
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-      if (!emailPattern.test(form.email.trim())) {
+      if (
+        !emailPattern.test(
+          form.email.trim(),
+        )
+      ) {
         return "Please provide a valid shop email address.";
       }
     }
 
-    if (form.taxId.trim().length > 50) {
+    if (
+      form.taxId.trim().length > 50
+    ) {
       return "GST Number cannot exceed 50 characters.";
     }
 
-    if (form.address.line1.trim().length > 200) {
+    if (
+      form.address.line1.trim()
+        .length > 200
+    ) {
       return "Address Line 1 cannot exceed 200 characters.";
     }
 
-    if (form.address.line2.trim().length > 200) {
+    if (
+      form.address.line2.trim()
+        .length > 200
+    ) {
       return "Address Line 2 cannot exceed 200 characters.";
     }
 
-    if (form.address.city.trim().length > 100) {
+    if (
+      form.address.city.trim()
+        .length > 100
+    ) {
       return "City cannot exceed 100 characters.";
     }
 
-    if (form.address.state.trim().length > 100) {
+    if (
+      form.address.state.trim()
+        .length > 100
+    ) {
       return "State cannot exceed 100 characters.";
     }
 
     if (
       form.address.postalCode.trim() &&
-      form.address.postalCode.trim().length !== 6
+      form.address.postalCode.trim()
+        .length !== 6
     ) {
       return "Postal code must contain 6 digits.";
     }
 
-    if (form.address.country.trim().length > 100) {
+    if (
+      form.address.country.trim()
+        .length > 100
+    ) {
       return "Country cannot exceed 100 characters.";
     }
 
@@ -525,7 +653,8 @@ export default function SettingsPage() {
     setError("");
     setSuccessMessage("");
 
-    const validationError = validateForm();
+    const validationError =
+      validateForm();
 
     if (validationError) {
       setError(validationError);
@@ -535,54 +664,82 @@ export default function SettingsPage() {
     try {
       setIsSaving(true);
 
-      const phoneDigits = form.phone
-        .replace(/\D/g, "")
-        .slice(0, 10);
+      const phoneDigits =
+        form.phone
+          .replace(/\D/g, "")
+          .slice(0, 10);
 
       const payload = {
         name: form.name.trim(),
+
         phone: phoneDigits
           ? `+91${phoneDigits}`
           : undefined,
+
         email:
-          form.email.trim() || undefined,
+          form.email.trim() ||
+          undefined,
+
         taxId:
-          form.taxId.trim() || undefined,
+          form.taxId.trim() ||
+          undefined,
+
         address: {
           line1:
             form.address.line1.trim() ||
             undefined,
+
           line2:
             form.address.line2.trim() ||
             undefined,
+
           city:
             form.address.city.trim() ||
             undefined,
+
           state:
             form.address.state.trim() ||
             undefined,
+
           postalCode:
             form.address.postalCode.trim() ||
             undefined,
+
           country:
             form.address.country.trim() ||
             "India",
         },
       };
 
+      const creatingShop = !hasShop;
+
       const response = await fetch(
         `${API_URL}/shops/me`,
         {
-          method: hasShop ? "PATCH" : "POST",
+          method: creatingShop
+            ? "POST"
+            : "PATCH",
+
           credentials: "include",
+
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
-          body: JSON.stringify(payload),
+
+          body: JSON.stringify(
+            payload,
+          ),
         },
       );
 
-      const result = await response.json();
+      let result: unknown = null;
+
+      try {
+        result = await response.json();
+      } catch {
+        result = null;
+      }
 
       if (!response.ok) {
         throw new Error(
@@ -594,19 +751,31 @@ export default function SettingsPage() {
       }
 
       const savedShop =
-        result?.data?.shop as
-          | Shop
-          | undefined;
+        typeof result === "object" &&
+        result !== null &&
+        "data" in result &&
+        typeof result.data === "object" &&
+        result.data !== null &&
+        "shop" in result.data
+          ? (result.data.shop as
+              | Shop
+              | undefined)
+          : undefined;
 
       if (savedShop) {
-        setForm(normalizeShop(savedShop));
-        setHasShop(true);
+        setForm(
+          normalizeShop(
+            savedShop,
+          ),
+        );
       }
 
+      setHasShop(true);
+
       setSuccessMessage(
-        hasShop
-          ? "Shop details updated successfully."
-          : "Shop details saved successfully.",
+        creatingShop
+          ? "Shop details saved successfully."
+          : "Shop details updated successfully.",
       );
     } catch (err) {
       setError(
@@ -648,9 +817,9 @@ export default function SettingsPage() {
         </h1>
 
         <p className="mt-2 max-w-2xl text-muted-foreground">
-          Manage the business information that appears
-          across your invoices, warranties and customer
-          records.
+          Manage the business information
+          that appears across your invoices,
+          warranties and customer records.
         </p>
       </div>
 
@@ -670,7 +839,9 @@ export default function SettingsPage() {
         >
           <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
 
-          <span>{successMessage}</span>
+          <span>
+            {successMessage}
+          </span>
         </div>
       )}
 
@@ -691,7 +862,8 @@ export default function SettingsPage() {
                 </CardTitle>
 
                 <CardDescription>
-                  Basic details about your shop.
+                  Basic details about your
+                  shop.
                 </CardDescription>
               </div>
             </div>
@@ -712,7 +884,9 @@ export default function SettingsPage() {
               <input
                 id="shop-name"
                 value={form.name}
-                onChange={handleTextChange("name")}
+                onChange={handleTextChange(
+                  "name",
+                )}
                 placeholder="Enter your shop name"
                 maxLength={150}
                 required
@@ -731,14 +905,17 @@ export default function SettingsPage() {
               <input
                 id="shop-gst"
                 value={form.taxId}
-                onChange={handleTextChange("taxId")}
+                onChange={handleTextChange(
+                  "taxId",
+                )}
                 placeholder="Enter GSTIN"
                 maxLength={50}
                 className={inputClassName}
               />
 
               <p className="text-xs text-muted-foreground">
-                Your GSTIN is stored as the shop tax ID.
+                Your GSTIN is stored as the
+                shop tax ID.
               </p>
             </div>
 
@@ -762,7 +939,9 @@ export default function SettingsPage() {
                   inputMode="numeric"
                   autoComplete="tel-national"
                   value={form.phone}
-                  onChange={handlePhoneChange}
+                  onChange={
+                    handlePhoneChange
+                  }
                   placeholder="Enter 10-digit number"
                   maxLength={10}
                   className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
@@ -785,7 +964,11 @@ export default function SettingsPage() {
                   id="shop-email"
                   type="email"
                   value={form.email}
-                  onChange={handleTextChange("email")}
+                  onChange={
+                    handleTextChange(
+                      "email",
+                    )
+                  }
                   placeholder="Enter business email"
                   maxLength={254}
                   className={`${inputClassName} pl-9`}
@@ -808,8 +991,8 @@ export default function SettingsPage() {
                 </CardTitle>
 
                 <CardDescription>
-                  Address information for your shop and
-                  invoices.
+                  Address information for your
+                  shop and invoices.
                 </CardDescription>
               </div>
             </div>
@@ -826,8 +1009,14 @@ export default function SettingsPage() {
 
               <input
                 id="address-line1"
-                value={form.address.line1}
-                onChange={handleAddressChange("line1")}
+                value={
+                  form.address.line1
+                }
+                onChange={
+                  handleAddressChange(
+                    "line1",
+                  )
+                }
                 placeholder="Enter address line 1"
                 maxLength={200}
                 className={inputClassName}
@@ -844,8 +1033,14 @@ export default function SettingsPage() {
 
               <input
                 id="address-line2"
-                value={form.address.line2}
-                onChange={handleAddressChange("line2")}
+                value={
+                  form.address.line2
+                }
+                onChange={
+                  handleAddressChange(
+                    "line2",
+                  )
+                }
                 placeholder="Enter address line 2 (optional)"
                 maxLength={200}
                 className={inputClassName}
@@ -862,8 +1057,14 @@ export default function SettingsPage() {
 
               <input
                 id="address-city"
-                value={form.address.city}
-                onChange={handleAddressChange("city")}
+                value={
+                  form.address.city
+                }
+                onChange={
+                  handleAddressChange(
+                    "city",
+                  )
+                }
                 placeholder={
                   isPincodeLoading
                     ? "Finding city..."
@@ -906,9 +1107,15 @@ export default function SettingsPage() {
 
               <select
                 id="address-state"
-                value={form.address.state}
-                onChange={handleStateChange}
-                className={selectClassName}
+                value={
+                  form.address.state
+                }
+                onChange={
+                  handleStateChange
+                }
+                className={
+                  selectClassName
+                }
               >
                 <option value="">
                   Select state / UT
@@ -940,8 +1147,13 @@ export default function SettingsPage() {
                 type="text"
                 inputMode="numeric"
                 autoComplete="postal-code"
-                value={form.address.postalCode}
-                onChange={handlePostalCodeChange}
+                value={
+                  form.address
+                    .postalCode
+                }
+                onChange={
+                  handlePostalCodeChange
+                }
                 placeholder="Enter 6-digit PIN code"
                 maxLength={6}
                 className={inputClassName}
@@ -958,10 +1170,14 @@ export default function SettingsPage() {
 
               <input
                 id="address-country"
-                value={form.address.country}
-                onChange={handleAddressChange(
-                  "country",
-                )}
+                value={
+                  form.address.country
+                }
+                onChange={
+                  handleAddressChange(
+                    "country",
+                  )
+                }
                 placeholder="Country"
                 maxLength={100}
                 className={inputClassName}
@@ -975,13 +1191,14 @@ export default function SettingsPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-medium">
-                  Keep your business information up to
-                  date
+                  Keep your business information
+                  up to date
                 </p>
 
                 <p className="mt-1 text-sm text-muted-foreground">
-                  These details can be used across your
-                  invoices and business records.
+                  These details can be used
+                  across your invoices and
+                  business records.
                 </p>
               </div>
 
