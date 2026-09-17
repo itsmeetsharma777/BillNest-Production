@@ -138,9 +138,7 @@ const EMPTY_FORM: ShopForm = {
   },
 };
 
-function normalizePhoneForInput(
-  phone?: string,
-) {
+function normalizePhoneForInput(phone?: string) {
   if (!phone) {
     return "";
   }
@@ -169,14 +167,10 @@ function normalizePhoneForInput(
     .slice(0, 10);
 }
 
-function normalizeShop(
-  shop: Shop,
-): ShopForm {
+function normalizeShop(shop: Shop): ShopForm {
   return {
     name: shop.name ?? "",
-    phone: normalizePhoneForInput(
-      shop.phone,
-    ),
+    phone: normalizePhoneForInput(shop.phone),
     email: shop.email ?? "",
     taxId: shop.taxId ?? "",
     address: {
@@ -713,20 +707,35 @@ export default function SettingsPage() {
 
       const creatingShop = !hasShop;
 
+      /*
+       * IMPORTANT:
+       *
+       * First-time shop creation uses:
+       *     POST /shops
+       *
+       * Existing shop updates use:
+       *     PATCH /shops/me
+       *
+       * The previous implementation incorrectly used
+       * POST /shops/me for first-time creation.
+       */
+      const endpoint = creatingShop
+        ? `${API_URL}/shops`
+        : `${API_URL}/shops/me`;
+
+      const method = creatingShop
+        ? "POST"
+        : "PATCH";
+
       const response = await fetch(
-        `${API_URL}/shops/me`,
+        endpoint,
         {
-          method: creatingShop
-            ? "POST"
-            : "PATCH",
-
+          method,
           credentials: "include",
-
           headers: {
             "Content-Type":
               "application/json",
           },
-
           body: JSON.stringify(
             payload,
           ),
