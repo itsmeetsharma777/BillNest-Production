@@ -15,8 +15,7 @@ import { generateInvoicePdf } from "../services/invoice-pdf.service";
 
 import { ApiError } from "../utils/api-error";
 
-interface AuthenticatedRequest
-  extends Request {
+interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
   };
@@ -75,10 +74,7 @@ function parsePositiveInteger(
     return fallback;
   }
 
-  return Math.min(
-    parsed,
-    maximum,
-  );
+  return Math.min(parsed, maximum);
 }
 
 export async function getDashboard(

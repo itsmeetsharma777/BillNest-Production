@@ -3,11 +3,17 @@ import {
   Search,
   XCircle,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 
 const API_URL =
-  import.meta.env.VITE_API_URL ?? "http://localhost:5001/api";
+  import.meta.env.VITE_API_URL ??
+  "http://localhost:5001/api";
 
 type InvoiceStatus =
   | "draft"
@@ -18,6 +24,7 @@ type InvoiceStatus =
 interface Invoice {
   id: string;
   invoiceNo: string;
+  productNames: string[];
   customerName: string;
   customerId?: string;
   issueDate?: string;
@@ -53,16 +60,22 @@ interface InvoicesResponse {
       paymentMethod?: string;
       status?: string;
       notes?: string;
+
       customer?: {
         _id?: string;
         id?: string;
         name?: string;
       };
+
       customerName?: string;
       customerId?: string;
+
+      productNames?: string[];
     }>;
+
     total?: number;
   };
+
   message?: string;
 }
 
@@ -92,7 +105,9 @@ function formatDate(value?: string) {
   }).format(date);
 }
 
-function normalizeStatus(status?: string): InvoiceStatus {
+function normalizeStatus(
+  status?: string,
+): InvoiceStatus {
   switch (status?.toLowerCase()) {
     case "paid":
       return "paid";
@@ -109,7 +124,9 @@ function normalizeStatus(status?: string): InvoiceStatus {
   }
 }
 
-function getStatusLabel(status: InvoiceStatus) {
+function getStatusLabel(
+  status: InvoiceStatus,
+) {
   switch (status) {
     case "paid":
       return "Paid";
@@ -126,7 +143,9 @@ function getStatusLabel(status: InvoiceStatus) {
   }
 }
 
-function getStatusClass(status: InvoiceStatus) {
+function getStatusClass(
+  status: InvoiceStatus,
+) {
   switch (status) {
     case "paid":
       return "border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400";
@@ -143,7 +162,9 @@ function getStatusClass(status: InvoiceStatus) {
   }
 }
 
-function getPaymentMethodLabel(method?: string) {
+function getPaymentMethodLabel(
+  method?: string,
+) {
   switch (method?.toLowerCase()) {
     case "cash":
       return "Cash";
@@ -174,152 +195,216 @@ function normalizeInvoice(
       : never
     : never,
 ): Invoice {
-  const id = invoice._id ?? invoice.id ?? "";
+  const id =
+    invoice._id ??
+    invoice.id ??
+    "";
 
   return {
     id,
+
     invoiceNo:
       invoice.invoiceNumber ??
       invoice.invoiceNo ??
       "Invoice",
+
+    productNames:
+      invoice.productNames ?? [],
+
     customerName:
       invoice.customer?.name ??
       invoice.customerName ??
       "Customer",
+
     customerId:
       invoice.customer?._id ??
       invoice.customer?.id ??
       invoice.customerId,
+
     issueDate:
       invoice.issueDate ??
       invoice.invoiceDate,
+
     dueDate: invoice.dueDate,
-    subtotal: invoice.subtotal ?? 0,
-    discount: invoice.discount ?? 0,
-    tax: invoice.tax ?? 0,
-    total: invoice.total ?? 0,
-    amountPaid: invoice.amountPaid ?? 0,
-    amountDue: invoice.amountDue ?? 0,
-    paymentMethod: invoice.paymentMethod,
-    status: normalizeStatus(invoice.status),
-    notes: invoice.notes,
+
+    subtotal:
+      invoice.subtotal ?? 0,
+
+    discount:
+      invoice.discount ?? 0,
+
+    tax:
+      invoice.tax ?? 0,
+
+    total:
+      invoice.total ?? 0,
+
+    amountPaid:
+      invoice.amountPaid ?? 0,
+
+    amountDue:
+      invoice.amountDue ?? 0,
+
+    paymentMethod:
+      invoice.paymentMethod,
+
+    status:
+      normalizeStatus(invoice.status),
+
+    notes:
+      invoice.notes,
   };
 }
 
 export default function CustomerInvoicesPage() {
   const navigate = useNavigate();
 
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [invoices, setInvoices] =
+    useState<Invoice[]>([]);
 
-  const [search, setSearch] = useState("");
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  const [search, setSearch] =
+    useState("");
+
   const [statusFilter, setStatusFilter] =
-    useState<"ALL" | InvoiceStatus>("ALL");
+    useState<
+      "ALL" | InvoiceStatus
+    >("ALL");
 
-  const loadInvoices = useCallback(async () => {
-    setIsLoading(true);
-    setError("");
+  const loadInvoices =
+    useCallback(async () => {
+      setIsLoading(true);
+      setError("");
 
-    try {
-      const response = await fetch(
-        `${API_URL}/customer/invoices`,
-        {
-          method: "GET",
-          credentials: "include",
-        },
-      );
-
-      const result =
-        (await response.json()) as InvoicesResponse;
-
-      if (!response.ok) {
-        throw new Error(
-          result.message ?? "Unable to load your purchases.",
+      try {
+        const response = await fetch(
+          `${API_URL}/customer/invoices`,
+          {
+            method: "GET",
+            credentials: "include",
+          },
         );
+
+        const result =
+          (await response.json()) as InvoicesResponse;
+
+        if (!response.ok) {
+          throw new Error(
+            result.message ??
+              "Unable to load your purchases.",
+          );
+        }
+
+        const records =
+          result.data?.invoices ?? [];
+
+        setInvoices(
+          records.map((invoice) =>
+            normalizeInvoice(invoice),
+          ),
+        );
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load your purchases.",
+        );
+      } finally {
+        setIsLoading(false);
       }
-
-      const records = result.data?.invoices ?? [];
-
-      setInvoices(
-        records.map((invoice) =>
-          normalizeInvoice(invoice),
-        ),
-      );
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to load your purchases.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    }, []);
 
   useEffect(() => {
     void loadInvoices();
   }, [loadInvoices]);
 
-  const filteredInvoices = useMemo(() => {
-    const query = search.trim().toLowerCase();
+  const filteredInvoices =
+    useMemo(() => {
+      const query =
+        search.trim().toLowerCase();
 
-    return invoices.filter((invoice) => {
-      if (
-        statusFilter !== "ALL" &&
-        invoice.status !== statusFilter
-      ) {
-        return false;
-      }
+      return invoices.filter(
+        (invoice) => {
+          if (
+            statusFilter !== "ALL" &&
+            invoice.status !==
+              statusFilter
+          ) {
+            return false;
+          }
 
-      if (!query) {
-        return true;
-      }
+          if (!query) {
+            return true;
+          }
 
-      return [
-        invoice.invoiceNo,
-        invoice.customerName,
-        invoice.paymentMethod,
-        getPaymentMethodLabel(invoice.paymentMethod),
-      ]
-        .filter(Boolean)
-        .some((value) =>
-          String(value)
-            .toLowerCase()
-            .includes(query),
-        );
-    });
-  }, [invoices, search, statusFilter]);
+          return [
+            invoice.invoiceNo,
+            ...invoice.productNames,
+            invoice.customerName,
+            invoice.paymentMethod,
+            getPaymentMethodLabel(
+              invoice.paymentMethod,
+            ),
+          ]
+            .filter(Boolean)
+            .some((value) =>
+              String(value)
+                .toLowerCase()
+                .includes(query),
+            );
+        },
+      );
+    }, [
+      invoices,
+      search,
+      statusFilter,
+    ]);
 
-  const totalPurchases = useMemo(
-    () =>
-      invoices
-        .filter(
-          (invoice) =>
-            invoice.status !== "cancelled" &&
-            invoice.status !== "draft",
-        )
-        .reduce(
-          (sum, invoice) => sum + invoice.total,
-          0,
-        ),
-    [invoices],
-  );
+  const totalPurchases =
+    useMemo(
+      () =>
+        invoices
+          .filter(
+            (invoice) =>
+              invoice.status !==
+                "cancelled" &&
+              invoice.status !== "draft",
+          )
+          .reduce(
+            (sum, invoice) =>
+              sum + invoice.total,
+            0,
+          ),
+      [invoices],
+    );
 
-  const paidCount = invoices.filter(
-    (invoice) => invoice.status === "paid",
-  ).length;
+  const paidCount =
+    invoices.filter(
+      (invoice) =>
+        invoice.status === "paid",
+    ).length;
 
-  const outstandingAmount = useMemo(
-    () =>
-      invoices
-        .filter((invoice) => invoice.status !== "cancelled")
-        .reduce(
-          (sum, invoice) => sum + invoice.amountDue,
-          0,
-        ),
-    [invoices],
-  );
+  const outstandingAmount =
+    useMemo(
+      () =>
+        invoices
+          .filter(
+            (invoice) =>
+              invoice.status !==
+              "cancelled",
+          )
+          .reduce(
+            (sum, invoice) =>
+              sum + invoice.amountDue,
+            0,
+          ),
+      [invoices],
+    );
 
   return (
     <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
@@ -340,7 +425,9 @@ export default function CustomerInvoicesPage() {
 
         <button
           type="button"
-          onClick={() => void loadInvoices()}
+          onClick={() =>
+            void loadInvoices()
+          }
           className="inline-flex h-10 items-center justify-center rounded-xl border px-4 text-sm font-semibold transition-colors hover:bg-muted"
         >
           Refresh
@@ -364,7 +451,9 @@ export default function CustomerInvoicesPage() {
           </p>
 
           <p className="mt-2 text-2xl font-bold">
-            {formatCurrency(totalPurchases)}
+            {formatCurrency(
+              totalPurchases,
+            )}
           </p>
         </div>
 
@@ -384,7 +473,9 @@ export default function CustomerInvoicesPage() {
           </p>
 
           <p className="mt-2 text-2xl font-bold">
-            {formatCurrency(outstandingAmount)}
+            {formatCurrency(
+              outstandingAmount,
+            )}
           </p>
         </div>
       </div>
@@ -396,9 +487,11 @@ export default function CustomerInvoicesPage() {
           <input
             value={search}
             onChange={(event) =>
-              setSearch(event.target.value)
+              setSearch(
+                event.target.value,
+              )
             }
-            placeholder="Search invoices..."
+            placeholder="Search invoices or products..."
             className="h-10 w-full rounded-xl border bg-background pl-10 pr-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </div>
@@ -414,13 +507,25 @@ export default function CustomerInvoicesPage() {
           }
           className="h-10 rounded-xl border bg-background px-3 text-sm outline-none focus:border-primary"
         >
-          <option value="ALL">All statuses</option>
-          <option value="paid">Paid</option>
+          <option value="ALL">
+            All statuses
+          </option>
+
+          <option value="paid">
+            Paid
+          </option>
+
           <option value="partially_paid">
             Partially Paid
           </option>
-          <option value="draft">Draft</option>
-          <option value="cancelled">Cancelled</option>
+
+          <option value="draft">
+            Draft
+          </option>
+
+          <option value="cancelled">
+            Cancelled
+          </option>
         </select>
       </div>
 
@@ -452,7 +557,9 @@ export default function CustomerInvoicesPage() {
 
               <button
                 type="button"
-                onClick={() => void loadInvoices()}
+                onClick={() =>
+                  void loadInvoices()
+                }
                 className="mt-4 inline-flex h-9 items-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground"
               >
                 Try again
@@ -464,20 +571,23 @@ export default function CustomerInvoicesPage() {
 
       {!isLoading &&
         !error &&
-        filteredInvoices.length === 0 && (
+        filteredInvoices.length ===
+          0 && (
           <div className="flex min-h-80 flex-col items-center justify-center rounded-2xl border bg-card px-6 text-center shadow-sm">
             <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <FileText className="size-7" />
             </div>
 
             <h2 className="text-lg font-semibold">
-              {search || statusFilter !== "ALL"
+              {search ||
+              statusFilter !== "ALL"
                 ? "No invoices found"
                 : "No purchases yet"}
             </h2>
 
             <p className="mt-1 max-w-md text-sm text-muted-foreground">
-              {search || statusFilter !== "ALL"
+              {search ||
+              statusFilter !== "ALL"
                 ? "Try changing your search or status filter."
                 : "Your purchase invoices will appear here once you make a purchase."}
             </p>
@@ -486,7 +596,8 @@ export default function CustomerInvoicesPage() {
 
       {!isLoading &&
         !error &&
-        filteredInvoices.length > 0 && (
+        filteredInvoices.length >
+          0 && (
           <>
             <div className="hidden overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
               <div className="overflow-x-auto">
@@ -520,134 +631,216 @@ export default function CustomerInvoicesPage() {
                   </thead>
 
                   <tbody className="divide-y">
-                    {filteredInvoices.map((invoice) => (
-                      <tr
-                        key={invoice.id}
-                        className="transition-colors hover:bg-muted/30"
-                      >
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                              <FileText className="size-4" />
-                            </div>
+                    {filteredInvoices.map(
+                      (invoice) => (
+                        <tr
+                          key={invoice.id}
+                          className="transition-colors hover:bg-muted/30"
+                        >
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <FileText className="size-4" />
+                              </div>
 
-                            <div>
-                              <p className="text-sm font-semibold">
-                                {invoice.invoiceNo}
-                              </p>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold">
+                                  {invoice.invoiceNo}
+                                </p>
 
-                              <p className="mt-0.5 text-xs text-muted-foreground">
-                                {getPaymentMethodLabel(
-                                  invoice.paymentMethod,
+                                <p className="mt-1 truncate text-sm font-medium">
+                                  {invoice
+                                    .productNames
+                                    .length >
+                                  0
+                                    ? invoice
+                                        .productNames[0]
+                                    : "Product details unavailable"}
+                                </p>
+
+                                {invoice
+                                  .productNames
+                                  .length >
+                                  1 && (
+                                  <p className="mt-0.5 text-xs text-muted-foreground">
+                                    +{" "}
+                                    {invoice
+                                      .productNames
+                                      .length -
+                                      1}{" "}
+                                    more{" "}
+                                    {invoice
+                                      .productNames
+                                      .length -
+                                      1 ===
+                                    1
+                                      ? "item"
+                                      : "items"}
+                                  </p>
                                 )}
-                              </p>
+
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {getPaymentMethodLabel(
+                                    invoice.paymentMethod,
+                                  )}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        <td className="whitespace-nowrap px-5 py-4 text-sm">
-                          {formatDate(invoice.issueDate)}
-                        </td>
+                          <td className="whitespace-nowrap px-5 py-4 text-sm">
+                            {formatDate(
+                              invoice.issueDate,
+                            )}
+                          </td>
 
-                        <td className="whitespace-nowrap px-5 py-4 text-sm font-semibold">
-                          {formatCurrency(invoice.total)}
-                        </td>
+                          <td className="whitespace-nowrap px-5 py-4 text-sm font-semibold">
+                            {formatCurrency(
+                              invoice.total,
+                            )}
+                          </td>
 
-                        <td className="whitespace-nowrap px-5 py-4 text-sm">
-                          {formatCurrency(
-                            invoice.amountPaid,
-                          )}
-                        </td>
+                          <td className="whitespace-nowrap px-5 py-4 text-sm">
+                            {formatCurrency(
+                              invoice.amountPaid,
+                            )}
+                          </td>
 
-                        <td className="px-5 py-4">
-                          <span
-                            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusClass(invoice.status)}`}
-                          >
-                            {getStatusLabel(invoice.status)}
-                          </span>
-                        </td>
+                          <td className="px-5 py-4">
+                            <span
+                              className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusClass(
+                                invoice.status,
+                              )}`}
+                            >
+                              {getStatusLabel(
+                                invoice.status,
+                              )}
+                            </span>
+                          </td>
 
-                        <td className="px-5 py-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              navigate(
-                                `/customer/invoices/${invoice.id}`,
-                              )
-                            }
-                            className="inline-flex h-9 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90"
-                          >
-                            View invoice
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                          <td className="px-5 py-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(
+                                  `/customer/invoices/${invoice.id}`,
+                                )
+                              }
+                              className="inline-flex h-9 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90"
+                            >
+                              View invoice
+                            </button>
+                          </td>
+                        </tr>
+                      ),
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
 
             <div className="space-y-3 md:hidden">
-              {filteredInvoices.map((invoice) => (
-                <button
-                  key={invoice.id}
-                  type="button"
-                  onClick={() =>
-                    navigate(
-                      `/customer/invoices/${invoice.id}`,
-                    )
-                  }
-                  className="w-full rounded-2xl border bg-card p-4 text-left shadow-sm transition hover:bg-muted/30"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <FileText className="size-5" />
+              {filteredInvoices.map(
+                (invoice) => (
+                  <button
+                    key={invoice.id}
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        `/customer/invoices/${invoice.id}`,
+                      )
+                    }
+                    className="w-full rounded-2xl border bg-card p-4 text-left shadow-sm transition hover:bg-muted/30"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <FileText className="size-5" />
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="font-semibold">
+                            {invoice.invoiceNo}
+                          </p>
+
+                          <p className="mt-1 truncate text-sm font-medium">
+                            {invoice
+                              .productNames
+                              .length >
+                            0
+                              ? invoice
+                                  .productNames[0]
+                              : "Product details unavailable"}
+                          </p>
+
+                          {invoice
+                            .productNames
+                            .length >
+                            1 && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              +{" "}
+                              {invoice
+                                .productNames
+                                .length -
+                                1}{" "}
+                              more{" "}
+                              {invoice
+                                .productNames
+                                .length -
+                                1 ===
+                              1
+                                ? "item"
+                                : "items"}
+                            </p>
+                          )}
+
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {formatDate(
+                              invoice.issueDate,
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span
+                        className={`inline-flex shrink-0 rounded-full border px-2 py-1 text-[11px] font-semibold ${getStatusClass(
+                          invoice.status,
+                        )}`}
+                      >
+                        {getStatusLabel(
+                          invoice.status,
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-3 border-t pt-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Total
+                        </p>
+
+                        <p className="mt-1 text-sm font-semibold">
+                          {formatCurrency(
+                            invoice.total,
+                          )}
+                        </p>
                       </div>
 
                       <div>
-                        <p className="font-semibold">
-                          {invoice.invoiceNo}
+                        <p className="text-xs text-muted-foreground">
+                          Paid
                         </p>
 
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {formatDate(invoice.issueDate)}
+                        <p className="mt-1 text-sm font-semibold">
+                          {formatCurrency(
+                            invoice.amountPaid,
+                          )}
                         </p>
                       </div>
                     </div>
-
-                    <span
-                      className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-semibold ${getStatusClass(invoice.status)}`}
-                    >
-                      {getStatusLabel(invoice.status)}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3 border-t pt-4">
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Total
-                      </p>
-
-                      <p className="mt-1 text-sm font-semibold">
-                        {formatCurrency(invoice.total)}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Paid
-                      </p>
-
-                      <p className="mt-1 text-sm font-semibold">
-                        {formatCurrency(
-                          invoice.amountPaid,
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                ),
+              )}
             </div>
           </>
         )}
