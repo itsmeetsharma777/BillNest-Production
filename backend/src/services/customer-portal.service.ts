@@ -34,13 +34,19 @@ function toObjectId(
   return new Types.ObjectId(value);
 }
 
-async function getCustomerForUser(userId: string) {
-  const userObjectId = toObjectId(userId, "user ID");
+async function getCustomerForUser(
+  userId: string,
+) {
+  const userObjectId = toObjectId(
+    userId,
+    "user ID",
+  );
 
-  const customer = await CustomerModel.findOne({
-    userId: userObjectId,
-    isActive: true,
-  }).lean();
+  const customer =
+    await CustomerModel.findOne({
+      userId: userObjectId,
+      isActive: true,
+    }).lean();
 
   if (!customer) {
     throw new ApiError(
@@ -55,10 +61,6 @@ async function getCustomerForUser(userId: string) {
 
 /**
  * Customer dashboard.
- *
- * Everything is derived from the authenticated user's
- * linked customer profile. No customerId is accepted
- * from the client.
  */
 export async function getCustomerDashboard(
   userId: string,
@@ -280,8 +282,11 @@ export async function getCustomerDashboard(
 }
 
 /**
- * Get invoices belonging only to the authenticated
- * customer's profile.
+ * Get invoices belonging only to the
+ * authenticated customer.
+ *
+ * Each invoice also includes the names of
+ * the products contained in that invoice.
  */
 export async function getCustomerInvoices(
   userId: string,
@@ -318,28 +323,102 @@ export async function getCustomerInvoices(
     filter.status = options.status;
   }
 
-  const [invoices, total] =
-    await Promise.all([
-      InvoiceModel.find(filter)
-        .sort({
-          issueDate: -1,
-          createdAt: -1,
-        })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+  const [
+    invoices,
+    total,
+  ] = await Promise.all([
+    InvoiceModel.find(filter)
+      .sort({
+        issueDate: -1,
+        createdAt: -1,
+      })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
 
-      InvoiceModel.countDocuments(filter),
-    ]);
+    InvoiceModel.countDocuments(filter),
+  ]);
+
+  /*
+   * Load all invoice items for the invoices
+   * on this page in ONE database query.
+   *
+   * This avoids making one API/database request
+   * per invoice.
+   */
+  const invoiceIds = invoices.map(
+    (invoice) => invoice._id,
+  );
+
+  const invoiceItems =
+    invoiceIds.length > 0
+      ? await InvoiceItemModel.find({
+          invoiceId: {
+            $in: invoiceIds,
+          },
+        })
+          .sort({
+            createdAt: 1,
+          })
+          .lean()
+      : [];
+
+  /*
+   * Group product names by invoice.
+   */
+  const productNamesByInvoice =
+    new Map<string, string[]>();
+
+  for (const item of invoiceItems) {
+    const invoiceId =
+      item.invoiceId.toString();
+
+    const existing =
+      productNamesByInvoice.get(
+        invoiceId,
+      ) ?? [];
+
+    if (
+      !existing.includes(
+        item.productName,
+      )
+    ) {
+      existing.push(
+        item.productName,
+      );
+    }
+
+    productNamesByInvoice.set(
+      invoiceId,
+      existing,
+    );
+  }
+
+  /*
+   * Attach productNames to every invoice.
+   */
+  const invoicesWithProducts =
+    invoices.map((invoice) => ({
+      ...invoice,
+
+      productNames:
+        productNamesByInvoice.get(
+          invoice._id.toString(),
+        ) ?? [],
+    }));
 
   return {
-    invoices,
+    invoices:
+      invoicesWithProducts,
 
     pagination: {
       page:
         Math.floor(skip / limit) + 1,
+
       limit,
+
       total,
+
       hasMore:
         skip + invoices.length < total,
     },
@@ -347,8 +426,8 @@ export async function getCustomerInvoices(
 }
 
 /**
- * Get one invoice only when it belongs to the
- * authenticated customer.
+ * Get one invoice only when it belongs
+ * to the authenticated customer.
  */
 export async function getCustomerInvoice(
   userId: string,
@@ -358,7 +437,10 @@ export async function getCustomerInvoice(
     await getCustomerForUser(userId);
 
   const invoiceObjectId =
-    toObjectId(invoiceId, "invoice ID");
+    toObjectId(
+      invoiceId,
+      "invoice ID",
+    );
 
   const invoice =
     await InvoiceModel.findOne({
@@ -412,8 +494,8 @@ export async function getCustomerInvoice(
 }
 
 /**
- * Get warranties belonging only to the authenticated
- * customer's profile.
+ * Get warranties belonging only to the
+ * authenticated customer.
  */
 export async function getCustomerWarranties(
   userId: string,
@@ -473,8 +555,11 @@ export async function getCustomerWarranties(
     pagination: {
       page:
         Math.floor(skip / limit) + 1,
+
       limit,
+
       total,
+
       hasMore:
         skip + warranties.length < total,
     },
@@ -482,8 +567,8 @@ export async function getCustomerWarranties(
 }
 
 /**
- * Get one warranty only when it belongs to the
- * authenticated customer.
+ * Get one warranty only when it belongs
+ * to the authenticated customer.
  */
 export async function getCustomerWarranty(
   userId: string,
@@ -493,7 +578,10 @@ export async function getCustomerWarranty(
     await getCustomerForUser(userId);
 
   const warrantyObjectId =
-    toObjectId(warrantyId, "warranty ID");
+    toObjectId(
+      warrantyId,
+      "warranty ID",
+    );
 
   const warranty =
     await WarrantyModel.findOne({
@@ -517,7 +605,8 @@ export async function getCustomerWarranty(
     warranty.invoiceId
       ? InvoiceModel.findOne({
           _id: warranty.invoiceId,
-          customerId: customer._id,
+          customerId:
+            customer._id,
         }).lean()
       : null,
 
@@ -535,12 +624,18 @@ export async function getCustomerWarranty(
           id: invoice._id,
           invoiceNumber:
             invoice.invoiceNumber,
-          issueDate: invoice.issueDate,
-          dueDate: invoice.dueDate,
-          status: invoice.status,
-          total: invoice.total,
-          amountPaid: invoice.amountPaid,
-          amountDue: invoice.amountDue,
+          issueDate:
+            invoice.issueDate,
+          dueDate:
+            invoice.dueDate,
+          status:
+            invoice.status,
+          total:
+            invoice.total,
+          amountPaid:
+            invoice.amountPaid,
+          amountDue:
+            invoice.amountDue,
         }
       : null,
 
