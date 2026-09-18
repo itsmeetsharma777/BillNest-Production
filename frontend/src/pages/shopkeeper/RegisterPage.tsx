@@ -170,6 +170,25 @@ export default function RegisterPage() {
     }
   }
 
+  function handleRoleChange(
+    nextRole: UserRole,
+  ) {
+    if (nextRole === role) {
+      return;
+    }
+
+    setRole(nextRole);
+
+    /*
+     * Clear all login fields whenever the
+     * account type is changed.
+     */
+    setEmail("");
+    setPassword("");
+    setError("");
+    setShowPassword(false);
+  }
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="grid min-h-screen lg:grid-cols-2">
@@ -257,10 +276,9 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   disabled={isLoading}
-                  onClick={() => {
-                    setRole("shopkeeper");
-                    setError("");
-                  }}
+                  onClick={() =>
+                    handleRoleChange("shopkeeper")
+                  }
                   className={`rounded-2xl border p-4 text-left transition-all ${
                     role === "shopkeeper"
                       ? "border-primary bg-primary/10 ring-2 ring-primary/20"
@@ -299,10 +317,9 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   disabled={isLoading}
-                  onClick={() => {
-                    setRole("customer");
-                    setError("");
-                  }}
+                  onClick={() =>
+                    handleRoleChange("customer")
+                  }
                   className={`rounded-2xl border p-4 text-left transition-all ${
                     role === "customer"
                       ? "border-primary bg-primary/10 ring-2 ring-primary/20"
@@ -476,11 +493,12 @@ export default function RegisterPage() {
               </button>
             </form>
 
-            {/* Create account → existing registration page */}
+            {/* Create account */}
             <p className="mt-8 text-center text-sm text-muted-foreground">
               Don't have a BillNest account?{" "}
               <Link
                 to="/login"
+                state={{ role }}
                 className="font-semibold text-primary hover:underline"
               >
                 Create an account

@@ -1,6 +1,10 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import {
   Check,
   Eye,
@@ -18,11 +22,20 @@ const API_URL =
 
 type UserRole = "shopkeeper" | "customer";
 
+interface LocationState {
+  role?: UserRole;
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [role, setRole] =
-    useState<UserRole>("shopkeeper");
+  const locationState =
+    (location.state as LocationState | null) ?? null;
+
+  const [role, setRole] = useState<UserRole>(
+    locationState?.role ?? "shopkeeper",
+  );
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -52,6 +65,28 @@ export default function LoginPage() {
 
   const passwordIsStrong =
     Object.values(passwordChecks).every(Boolean);
+
+  function handleRoleChange(
+    nextRole: UserRole,
+  ) {
+    if (nextRole === role) {
+      return;
+    }
+
+    setRole(nextRole);
+
+    /*
+     * Clear every registration field whenever
+     * the account type changes.
+     */
+    setName("");
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setError("");
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+  }
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
@@ -119,6 +154,10 @@ export default function LoginPage() {
         );
       }
 
+      /*
+       * Return to the login page and preserve the
+       * role that was just used for registration.
+       */
       navigate("/register", {
         replace: true,
         state: {
@@ -215,6 +254,7 @@ export default function LoginPage() {
               </Link>
             </div>
 
+            {/* Heading */}
             <div className="mb-8">
               <h2 className="text-3xl font-bold tracking-tight">
                 Create your account
@@ -225,6 +265,7 @@ export default function LoginPage() {
               </p>
             </div>
 
+            {/* Error */}
             {error && (
               <div
                 role="alert"
@@ -234,6 +275,7 @@ export default function LoginPage() {
               </div>
             )}
 
+            {/* Registration form */}
             <form
               onSubmit={handleSubmit}
               className="space-y-5"
@@ -256,7 +298,7 @@ export default function LoginPage() {
                     type="button"
                     disabled={isLoading}
                     onClick={() =>
-                      setRole("shopkeeper")
+                      handleRoleChange("shopkeeper")
                     }
                     className={`rounded-2xl border p-4 text-left transition-all ${
                       role === "shopkeeper"
@@ -297,7 +339,7 @@ export default function LoginPage() {
                     type="button"
                     disabled={isLoading}
                     onClick={() =>
-                      setRole("customer")
+                      handleRoleChange("customer")
                     }
                     className={`rounded-2xl border p-4 text-left transition-all ${
                       role === "customer"
@@ -335,7 +377,7 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Name */}
+              {/* Full name */}
               <div className="space-y-2">
                 <label
                   htmlFor="name"
