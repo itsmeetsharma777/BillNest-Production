@@ -16,6 +16,25 @@ export async function findCustomerByIdForShop(
   });
 }
 
+export async function findCustomersByIdsForShop(
+  customerIds: string[],
+  shopId: string,
+) {
+  if (customerIds.length === 0) {
+    return [];
+  }
+
+  return CustomerModel.find({
+    _id: {
+      $in: customerIds,
+    },
+    shopId,
+  }).select({
+    _id: 1,
+    name: 1,
+  });
+}
+
 export async function findCustomerByUserId(
   userId: string,
 ) {
