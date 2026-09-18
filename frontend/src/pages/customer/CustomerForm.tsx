@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Loader2,
   Mail,
@@ -80,6 +80,18 @@ interface CustomerFormProps {
   mode?: "create" | "edit";
 }
 
+interface PostalApiResponse {
+  Message?: string;
+  Status?: string;
+  PostOffice?: Array<{
+    Name?: string;
+    District?: string;
+    State?: string;
+    Country?: string;
+    Pincode?: string;
+  }> | null;
+}
+
 const defaultValues: CustomerFormValues = {
   name: "",
   email: "",
@@ -100,10 +112,18 @@ export function CustomerForm({
   initialValues,
   mode = "create",
 }: CustomerFormProps) {
+  const [isLookingUpPostalCode, setIsLookingUpPostalCode] =
+    useState(false);
+
+  const [postalCodeMessage, setPostalCodeMessage] =
+    useState("");
+
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
+    clearErrors,
     formState: { errors },
   } = useForm<CustomerFormValues>({
     resolver: zodResolver(customerFormSchema),
@@ -122,6 +142,8 @@ export function CustomerForm({
       ...defaultValues,
       ...initialValues,
     });
+
+    setPostalCodeMessage("");
   }, [open, initialValues, reset]);
 
   useEffect(() => {
@@ -138,9 +160,146 @@ export function CustomerForm({
     document.addEventListener("keydown", handleEscape);
 
     return () => {
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener(
+        "keydown",
+        handleEscape,
+      );
     };
   }, [open, isSubmitting, onClose]);
+
+  async function lookupPostalCode(
+    postalCode: string,
+  ) {
+    const normalizedPostalCode =
+      postalCode.replace(/\D/g, "");
+
+    /*
+     * Only lookup after a complete Indian
+     * 6-digit PIN code has been entered.
+     */
+    if (normalizedPostalCode.length !== 6) {
+      setPostalCodeMessage("");
+
+      return;
+    }
+
+    setIsLookingUpPostalCode(true);
+    setPostalCodeMessage("");
+
+    try {
+      const response = await fetch(
+        `https://api.postalpincode.in/pincode/${normalizedPostalCode}`,
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "Unable to look up this postal code.",
+        );
+      }
+
+      const result =
+        (await response.json()) as PostalApiResponse[];
+
+      const postalData = result?.[0];
+
+      if (
+        !postalData ||
+        postalData.Status !== "Success" ||
+        !postalData.PostOffice ||
+        postalData.PostOffice.length === 0
+      ) {
+        setValue("city", "");
+        setValue("state", "");
+
+        setPostalCodeMessage(
+          "Postal code not found. Please check the PIN code.",
+        );
+
+        return;
+      }
+
+      /*
+       * A PIN can have multiple post offices.
+       * District and State are shared location
+       * information for the returned postal records.
+       */
+      const firstPostOffice =
+        postalData.PostOffice[0];
+
+      const district =
+        firstPostOffice?.District?.trim() ?? "";
+
+      const state =
+        firstPostOffice?.State?.trim() ?? "";
+
+      const country =
+        firstPostOffice?.Country?.trim() ?? "";
+
+      setValue("city", district, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+
+      setValue("state", state, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+
+      if (country) {
+        setValue("country", country, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }
+
+      clearErrors(["city", "state"]);
+
+      setPostalCodeMessage(
+        district && state
+          ? "City and state filled automatically."
+          : "",
+      );
+    } catch {
+      setPostalCodeMessage(
+        "Unable to look up this postal code. Please try again.",
+      );
+    } finally {
+      setIsLookingUpPostalCode(false);
+    }
+  }
+
+  function handlePostalCodeChange(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const value = event.target.value;
+
+    /*
+     * Keep only numbers and limit the field
+     * to 6 digits.
+     */
+    const normalizedValue =
+      value.replace(/\D/g, "").slice(0, 6);
+
+    setValue("postalCode", normalizedValue, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+
+    setPostalCodeMessage("");
+
+    /*
+     * Clear automatically populated location
+     * fields while the user is changing the PIN.
+     */
+    if (normalizedValue.length < 6) {
+      setValue("city", "");
+      setValue("state", "");
+    }
+
+    if (normalizedValue.length === 6) {
+      void lookupPostalCode(normalizedValue);
+    }
+  }
 
   if (!open) {
     return null;
@@ -328,10 +487,11 @@ export function CustomerForm({
                 >
                   <input
                     {...register("city")}
-                    placeholder="City"
-                    className={inputClass(
+                    readOnly
+                    placeholder="Enter postal code"
+                    className={`${inputClass(
                       Boolean(errors.city),
-                    )}
+                    )} bg-muted/30`}
                   />
                 </FormField>
 
@@ -341,10 +501,11 @@ export function CustomerForm({
                 >
                   <input
                     {...register("state")}
-                    placeholder="State"
-                    className={inputClass(
+                    readOnly
+                    placeholder="Enter postal code"
+                    className={`${inputClass(
                       Boolean(errors.state),
-                    )}
+                    )} bg-muted/30`}
                   />
                 </FormField>
 
@@ -352,14 +513,38 @@ export function CustomerForm({
                   label="Postal code"
                   error={errors.postalCode?.message}
                 >
-                  <input
-                    {...register("postalCode")}
-                    inputMode="numeric"
-                    placeholder="Postal code"
-                    className={inputClass(
-                      Boolean(errors.postalCode),
+                  <div className="relative">
+                    <input
+                      {...register("postalCode", {
+                        onChange:
+                          handlePostalCodeChange,
+                      })}
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="6-digit PIN code"
+                      className={inputClass(
+                        Boolean(errors.postalCode),
+                      )}
+                    />
+
+                    {isLookingUpPostalCode && (
+                      <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
                     )}
-                  />
+                  </div>
+
+                  {postalCodeMessage && (
+                    <p
+                      className={`mt-1.5 text-xs ${
+                        postalCodeMessage.includes(
+                          "automatically",
+                        )
+                          ? "text-primary"
+                          : "text-destructive"
+                      }`}
+                    >
+                      {postalCodeMessage}
+                    </p>
+                  )}
                 </FormField>
 
                 <FormField
@@ -391,7 +576,10 @@ export function CustomerForm({
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={
+                isSubmitting ||
+                isLookingUpPostalCode
+              }
               className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting && (
