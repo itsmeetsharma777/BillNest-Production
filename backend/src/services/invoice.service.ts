@@ -41,6 +41,7 @@ type PaymentMethod =
 interface InvoiceItemInput {
   productName: string;
   sku?: string;
+  serialNumber?: string;
   quantity: number;
   unitPrice: number;
   discount?: number;
@@ -457,6 +458,9 @@ export async function createInvoiceForOwner(
         );
       }
 
+      const serialNumber =
+        item.serialNumber?.trim();
+
       const totals =
         calculateItemTotals({
           ...item,
@@ -468,6 +472,10 @@ export async function createInvoiceForOwner(
 
         ...(item.sku?.trim() && {
           sku: item.sku.trim(),
+        }),
+
+        ...(serialNumber && {
+          serialNumber,
         }),
 
         ...totals,
@@ -588,6 +596,11 @@ export async function createInvoiceForOwner(
 
                   ...(item.sku && {
                     sku: item.sku,
+                  }),
+
+                  ...(item.serialNumber && {
+                    serialNumber:
+                      item.serialNumber,
                   }),
 
                   quantity:

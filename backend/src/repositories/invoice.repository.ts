@@ -106,6 +106,7 @@ export async function createInvoiceItems(
     invoiceId: string;
     productName: string;
     sku?: string;
+    serialNumber?: string;
     quantity: number;
     unitPrice: number;
     discount: number;
@@ -182,6 +183,7 @@ export async function deleteInvoiceItems(
     invoiceId,
   });
 }
+
 export async function findInvoiceItemsByInvoiceIds(
   invoiceIds: string[],
 ) {
@@ -197,6 +199,7 @@ export async function findInvoiceItemsByInvoiceIds(
     .select({
       invoiceId: 1,
       productName: 1,
+      serialNumber: 1,
     })
     .sort({
       createdAt: 1,

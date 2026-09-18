@@ -27,6 +27,15 @@ const invoiceItemSchema = z.object({
     )
     .optional(),
 
+  serialNumber: z
+    .string()
+    .trim()
+    .max(
+      150,
+      "Serial number cannot exceed 150 characters.",
+    )
+    .optional(),
+
   quantity: z
     .number()
     .positive(

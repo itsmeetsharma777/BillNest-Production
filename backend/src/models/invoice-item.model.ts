@@ -22,6 +22,12 @@ const invoiceItemSchema = new Schema(
       maxlength: 100,
     },
 
+    serialNumber: {
+      type: String,
+      trim: true,
+      maxlength: 150,
+    },
+
     quantity: {
       type: Number,
       required: true,
@@ -72,6 +78,8 @@ const invoiceItemSchema = new Schema(
 
 invoiceItemSchema.index({ invoiceId: 1 });
 
-export type InvoiceItem = InferSchemaType<typeof invoiceItemSchema>;
+export type InvoiceItem =
+  InferSchemaType<typeof invoiceItemSchema>;
 
-export const InvoiceItemModel = model("InvoiceItem", invoiceItemSchema);
+export const InvoiceItemModel =
+  model("InvoiceItem", invoiceItemSchema);

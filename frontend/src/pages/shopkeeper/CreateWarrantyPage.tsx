@@ -48,6 +48,7 @@ interface InvoiceItem {
   _id?: string;
   productName?: string;
   description?: string;
+  serialNumber?: string;
   quantity: number;
   unitPrice: number;
   discount?: number;
@@ -69,6 +70,9 @@ interface Invoice {
   total?: number;
   amountPaid?: number;
   amountDue?: number;
+
+  productNames?: string[];
+
   customer?: {
     id?: string;
     _id?: string;
@@ -76,6 +80,7 @@ interface Invoice {
     phone?: string;
     email?: string;
   };
+
   items?: InvoiceItem[];
 }
 
@@ -165,6 +170,32 @@ function getItemId(item: InvoiceItem) {
   return item.id ?? item._id ?? "";
 }
 
+function getInvoiceProductNames(invoice: Invoice) {
+  const productNames =
+    invoice.productNames?.filter(
+      (name) =>
+        typeof name === "string" &&
+        name.trim().length > 0,
+    ) ?? [];
+
+  if (productNames.length > 0) {
+    return productNames;
+  }
+
+  const itemNames =
+    invoice.items
+      ?.map((item) =>
+        getItemName(item).trim(),
+      )
+      .filter(
+        (name) =>
+          name.length > 0 &&
+          name !== "Item",
+      ) ?? [];
+
+  return itemNames;
+}
+
 function isUsableInvoice(invoice: Invoice) {
   const status = invoice.status?.toLowerCase();
 
@@ -180,7 +211,25 @@ function getInvoiceCustomerId(invoice: Invoice) {
     invoice.customer?._id,
   );
 }
+function generateSerialNumber() {
+  const date = new Date();
 
+  const year = date.getFullYear();
+  const month = String(
+    date.getMonth() + 1,
+  ).padStart(2, "0");
+  const day = String(
+    date.getDate(),
+  ).padStart(2, "0");
+
+  const randomPart = crypto
+    .randomUUID()
+    .replace(/-/g, "")
+    .slice(0, 6)
+    .toUpperCase();
+
+  return `BN-SN-${year}${month}${day}-${randomPart}`;
+}
 export default function CreateWarrantyPage() {
   const navigate = useNavigate();
 
@@ -209,6 +258,7 @@ export default function CreateWarrantyPage() {
     const date = new Date();
 
     const year = date.getFullYear();
+
     const month = String(
       date.getMonth() + 1,
     ).padStart(2, "0");
@@ -382,6 +432,7 @@ export default function CreateWarrantyPage() {
       setInvoiceItems([]);
       setInvoiceItemId("");
       setProductName("");
+      setSerialNumber("");
       return;
     }
 
@@ -397,6 +448,7 @@ export default function CreateWarrantyPage() {
         setInvoiceItems([]);
         setInvoiceItemId("");
         setProductName("");
+        setSerialNumber("");
 
         const params = new URLSearchParams({
           customerId,
@@ -471,6 +523,7 @@ export default function CreateWarrantyPage() {
       setInvoiceItems([]);
       setInvoiceItemId("");
       setProductName("");
+      setSerialNumber("");
       return;
     }
 
@@ -484,6 +537,7 @@ export default function CreateWarrantyPage() {
         setInvoiceItems([]);
         setInvoiceItemId("");
         setProductName("");
+        setSerialNumber("");
 
         const response = await fetch(
           `${API_URL}/invoices/${invoiceId}`,
@@ -551,18 +605,24 @@ export default function CreateWarrantyPage() {
   }, [invoiceId]);
 
   /*
-   * Auto-fill product name from the exact
-   * invoice item selected.
+   * Auto-fill product name and serial number
+   * from the exact invoice item selected.
    */
-  useEffect(() => {
-    if (!selectedInvoiceItem) {
-      return;
-    }
+useEffect(() => {
+  if (!selectedInvoiceItem) {
+    setProductName("");
+    setSerialNumber("");
+    return;
+  }
 
-    setProductName(
-      getItemName(selectedInvoiceItem),
-    );
-  }, [selectedInvoiceItem]);
+  setProductName(
+    getItemName(selectedInvoiceItem),
+  );
+
+  setSerialNumber(
+    generateSerialNumber(),
+  );
+}, [selectedInvoiceItem]);
 
   function handleCustomerChange(
     event: ChangeEvent<HTMLSelectElement>,
@@ -594,6 +654,10 @@ export default function CreateWarrantyPage() {
 
     setProductName(
       item ? getItemName(item) : "",
+    );
+
+    setSerialNumber(
+      item?.serialNumber?.trim() ?? "",
     );
   }
 
@@ -1033,6 +1097,18 @@ export default function CreateWarrantyPage() {
                         invoice._id,
                       );
 
+                      const productNames =
+                        getInvoiceProductNames(
+                          invoice,
+                        );
+
+                      const productText =
+                        productNames.length > 0
+                          ? productNames.join(
+                              ", ",
+                            )
+                          : "No products";
+
                       return (
                         <option
                           key={id}
@@ -1041,6 +1117,8 @@ export default function CreateWarrantyPage() {
                           {getInvoiceNumber(
                             invoice,
                           )}{" "}
+                          —{" "}
+                          {productText}{" "}
                           —{" "}
                           {formatDate(
                             invoice.invoiceDate,
@@ -1101,6 +1179,13 @@ export default function CreateWarrantyPage() {
                       {getInvoiceNumber(
                         selectedInvoice,
                       )}
+                    </p>
+
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {getInvoiceProductNames(
+                        selectedInvoice,
+                      ).join(", ") ||
+                        "No products"}
                     </p>
 
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -1185,6 +1270,9 @@ export default function CreateWarrantyPage() {
                           {formatCurrency(
                             item.unitPrice,
                           )}
+                          {item.serialNumber
+                            ? ` — S/N: ${item.serialNumber}`
+                            : ""}
                         </option>
                       );
                     },
@@ -1262,11 +1350,25 @@ export default function CreateWarrantyPage() {
                     event.target.value,
                   )
                 }
-                placeholder="Optional"
+                placeholder={
+                  selectedInvoiceItem?.serialNumber
+                    ? "Auto-filled from invoice"
+                    : "Optional"
+                }
                 maxLength={150}
-                disabled={isSubmitting}
+                disabled={
+                  !invoiceItemId ||
+                  isSubmitting
+                }
                 className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
               />
+
+              {selectedInvoiceItem?.serialNumber && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Auto-filled from the selected
+                  invoice item.
+                </p>
+              )}
             </div>
 
             {/* Warranty period */}
