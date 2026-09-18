@@ -340,7 +340,6 @@ export function ShopkeeperDashboard() {
     useState(false);
 
   const [error, setError] = useState("");
-
   const loadDashboard = useCallback(
     async (refresh = false) => {
       try {
@@ -366,7 +365,7 @@ export function ShopkeeperDashboard() {
         if (!response.ok || !result.success) {
           throw new Error(
             result.message ??
-              "Unable to load your dashboard.",
+            "Unable to load your dashboard.",
           );
         }
 
@@ -409,7 +408,6 @@ export function ShopkeeperDashboard() {
 
   const unreadNotificationCount =
     data?.notifications?.unreadCount ?? 0;
-
   async function markAllNotificationsAsRead() {
     if (
       unreadNotificationCount === 0 ||
@@ -439,7 +437,7 @@ export function ShopkeeperDashboard() {
       if (!response.ok || !result.success) {
         throw new Error(
           result.message ??
-            "Unable to mark notifications as read.",
+          "Unable to mark notifications as read.",
         );
       }
 
@@ -494,8 +492,7 @@ export function ShopkeeperDashboard() {
         overview?.totalInvoices ?? 0,
       ),
       description:
-        `${overview?.paidInvoices ?? 0} paid · ${
-          overview?.partiallyPaidInvoices ?? 0
+        `${overview?.paidInvoices ?? 0} paid · ${overview?.partiallyPaidInvoices ?? 0
         } partially paid`,
       icon: FileText,
     },
@@ -611,11 +608,10 @@ export function ShopkeeperDashboard() {
               className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border bg-card px-4 text-sm font-semibold shadow-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
             >
               <RefreshCw
-                className={`size-4 ${
-                  isRefreshing
-                    ? "animate-spin"
-                    : ""
-                }`}
+                className={`size-4 ${isRefreshing
+                  ? "animate-spin"
+                  : ""
+                  }`}
               />
 
               {isRefreshing
@@ -744,7 +740,7 @@ export function ShopkeeperDashboard() {
                   {formatCurrency(
                     Number(
                       overview?.amountCollected ??
-                        0,
+                      0,
                     ),
                   )}
                 </p>
@@ -759,7 +755,7 @@ export function ShopkeeperDashboard() {
                   {formatCurrency(
                     Number(
                       overview?.amountOutstanding ??
-                        0,
+                      0,
                     ),
                   )}
                 </p>
@@ -1220,15 +1216,13 @@ export function ShopkeeperDashboard() {
 
                     const content = (
                       <div
-                        className={`flex gap-3 p-4 transition-colors ${
-                          notification.isRead
-                            ? "opacity-70"
-                            : "bg-primary/[0.03]"
-                        } ${
-                          notification.link
+                        className={`flex gap-3 p-4 transition-colors ${notification.isRead
+                          ? "opacity-70"
+                          : "bg-primary/[0.03]"
+                          } ${notification.link
                             ? "hover:bg-muted/40"
                             : ""
-                        }`}
+                          }`}
                       >
                         <div
                           className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${getNotificationIconClass(
