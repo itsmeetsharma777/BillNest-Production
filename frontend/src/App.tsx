@@ -71,6 +71,7 @@ function App() {
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              {/* Get started → Register */}
               <Button
                 size="lg"
                 type="button"
@@ -79,11 +80,12 @@ function App() {
                 Get started
               </Button>
 
+              {/* Explore → Explore Page */}
               <Button
                 size="lg"
                 variant="outline"
                 type="button"
-                onClick={() => navigate("/login")}
+                onClick={() => navigate("/explore")}
               >
                 Explore BillNest
               </Button>

@@ -2,11 +2,14 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
+  Check,
   Eye,
   EyeOff,
   Loader2,
   LockKeyhole,
   Mail,
+  Store,
+  UserRound,
 } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
@@ -48,14 +51,22 @@ export default function LoginPage() {
   const locationState =
     (location.state as LocationState | null) ?? null;
 
+  const [role, setRole] = useState<UserRole>(
+    locationState?.role ?? "shopkeeper",
+  );
+
   const [email, setEmail] = useState(
     locationState?.email ?? "",
   );
+
   const [password, setPassword] = useState("");
 
   const [showPassword, setShowPassword] =
     useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+
+  const [isLoading, setIsLoading] =
+    useState(false);
+
   const [error, setError] = useState("");
 
   async function handleSubmit(
@@ -65,10 +76,13 @@ export default function LoginPage() {
 
     setError("");
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail =
+      email.trim().toLowerCase();
 
     if (!normalizedEmail) {
-      setError("Please enter your email address.");
+      setError(
+        "Please enter your email address.",
+      );
       return;
     }
 
@@ -96,9 +110,9 @@ export default function LoginPage() {
       );
 
       const result =
-        (await response.json().catch(
-          () => null,
-        )) as LoginResponse | null;
+        (await response
+          .json()
+          .catch(() => null)) as LoginResponse | null;
 
       if (!response.ok || !result?.success) {
         throw new Error(
@@ -121,9 +135,24 @@ export default function LoginPage() {
       }
 
       /*
-       * The login endpoint creates the HTTP-only session cookie.
-       * Refresh AuthContext so ProtectedRoute immediately knows
-       * which user is authenticated.
+       * Make sure the role selected on the login page
+       * matches the role of the authenticated account.
+       */
+      if (loggedInUser.role !== role) {
+        throw new Error(
+          `This account is registered as a ${
+            loggedInUser.role === "shopkeeper"
+              ? "Shopkeeper"
+              : "Customer"
+          }. Please select the correct account type.`,
+        );
+      }
+
+      /*
+       * The login endpoint creates the HTTP-only
+       * session cookie. Refresh AuthContext so
+       * ProtectedRoute immediately knows which user
+       * is authenticated.
        */
       await refreshUser();
 
@@ -196,7 +225,7 @@ export default function LoginPage() {
         <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8 lg:px-12">
           <div className="w-full max-w-md">
             {/* Mobile logo */}
-            <div className="mb-10 lg:hidden">
+            <div className="mb-8 lg:hidden">
               <Link
                 to="/"
                 className="inline-flex items-center gap-3 text-xl font-bold tracking-tight"
@@ -219,6 +248,105 @@ export default function LoginPage() {
                 Sign in to your BillNest account to
                 continue.
               </p>
+            </div>
+
+            {/* Account type */}
+            <div className="mb-6 space-y-3">
+              <div>
+                <label className="text-sm font-medium">
+                  Account type
+                </label>
+
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Select how you use BillNest.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {/* Shopkeeper */}
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => {
+                    setRole("shopkeeper");
+                    setError("");
+                  }}
+                  className={`rounded-2xl border p-4 text-left transition-all ${
+                    role === "shopkeeper"
+                      ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+                      : "border-input bg-background hover:bg-muted/50"
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
+                >
+                  <div
+                    className={`mb-3 flex size-10 items-center justify-center rounded-xl ${
+                      role === "shopkeeper"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    <Store className="size-5" />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold">
+                      Shopkeeper
+                    </span>
+
+                    {role === "shopkeeper" && (
+                      <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                        <Check className="size-3" />
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    Manage your business, customers,
+                    invoices and warranties.
+                  </p>
+                </button>
+
+                {/* Customer */}
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => {
+                    setRole("customer");
+                    setError("");
+                  }}
+                  className={`rounded-2xl border p-4 text-left transition-all ${
+                    role === "customer"
+                      ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+                      : "border-input bg-background hover:bg-muted/50"
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
+                >
+                  <div
+                    className={`mb-3 flex size-10 items-center justify-center rounded-xl ${
+                      role === "customer"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    <UserRound className="size-5" />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold">
+                      Customer
+                    </span>
+
+                    {role === "customer" && (
+                      <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                        <Check className="size-3" />
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    Track your purchases, invoices and
+                    product warranties.
+                  </p>
+                </button>
+              </div>
             </div>
 
             {/* Registration success */}
@@ -358,19 +486,8 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Divider */}
-            <div className="my-8 flex items-center gap-4">
-              <div className="h-px flex-1 bg-border" />
-
-              <span className="text-xs text-muted-foreground">
-                OR
-              </span>
-
-              <div className="h-px flex-1 bg-border" />
-            </div>
-
-            {/* Register */}
-            <p className="text-center text-sm text-muted-foreground">
+            {/* Create account */}
+            <p className="mt-8 text-center text-sm text-muted-foreground">
               Don't have a BillNest account?{" "}
               <Link
                 to="/register"
