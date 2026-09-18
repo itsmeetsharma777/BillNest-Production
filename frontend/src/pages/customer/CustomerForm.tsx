@@ -168,7 +168,7 @@ export function CustomerForm({
 
       try {
         const response = await fetch(
-          \`${PINCODE_API_URL}/${cleanedPostalCode}\`,
+          PINCODE_API_URL + "/" + cleanedPostalCode,
           {
             method: "GET",
             signal: controller.signal,
@@ -492,8 +492,14 @@ export function CustomerForm({
                             .replace(/\D/g, "")
                             .slice(0, 6);
 
-                        event.target.value =
-                          value;
+                        setValue(
+                          "postalCode",
+                          value,
+                          {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          },
+                        );
                       },
                     })}
                     inputMode="numeric"
