@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Loader2,
   Mail,
@@ -10,6 +10,23 @@ import {
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+
+const PINCODE_API_URL =
+  "https://api.postalpincode.in/pincode";
+
+interface PincodePostOffice {
+  Name?: string;
+  District?: string;
+  State?: string;
+  Country?: string;
+  Pincode?: string;
+}
+
+interface PincodeResponse {
+  Message?: string;
+  Status?: string;
+  PostOffice?: PincodePostOffice[] | null;
+}
 
 const customerFormSchema = z.object({
   name: z
@@ -100,10 +117,15 @@ export function CustomerForm({
   initialValues,
   mode = "create",
 }: CustomerFormProps) {
+  const [postalLookupMessage, setPostalLookupMessage] =
+    useState("");
+
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<CustomerFormValues>({
     resolver: zodResolver(customerFormSchema),
@@ -123,6 +145,116 @@ export function CustomerForm({
       ...initialValues,
     });
   }, [open, initialValues, reset]);
+
+  const postalCode = watch("postalCode");
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const cleanedPostalCode =
+      postalCode.replace(/\D/g, "").slice(0, 6);
+
+    if (cleanedPostalCode.length !== 6) {
+      setPostalLookupMessage("");
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const lookupPostalCode = async () => {
+      setPostalLookupMessage("Looking up location...");
+
+      try {
+        const response = await fetch(
+          \`${PINCODE_API_URL}/${cleanedPostalCode}\`,
+          {
+            method: "GET",
+            signal: controller.signal,
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            "Unable to lookup postal code.",
+          );
+        }
+
+        const result =
+          (await response.json()) as PincodeResponse[];
+
+        const firstResult = result[0];
+
+        if (
+          firstResult?.Status !== "Success" ||
+          !firstResult.PostOffice?.length
+        ) {
+          setPostalLookupMessage(
+            "Postal code not found.",
+          );
+          return;
+        }
+
+        const postOffice =
+          firstResult.PostOffice[0];
+
+        setValue(
+          "city",
+          postOffice.District ??
+            postOffice.Name ??
+            "",
+          {
+            shouldDirty: true,
+            shouldValidate: true,
+          },
+        );
+
+        setValue(
+          "state",
+          postOffice.State ?? "",
+          {
+            shouldDirty: true,
+            shouldValidate: true,
+          },
+        );
+
+        setValue(
+          "country",
+          postOffice.Country ??
+            "India",
+          {
+            shouldDirty: true,
+            shouldValidate: true,
+          },
+        );
+
+        setPostalLookupMessage(
+          postOffice.District &&
+            postOffice.State
+            ? \`Location found: ${postOffice.District}, ${postOffice.State}\`
+            : "Location found.",
+        );
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setPostalLookupMessage(
+          "Unable to lookup this postal code.",
+        );
+      }
+    };
+
+    void lookupPostalCode();
+
+    return () => {
+      controller.abort();
+    };
+  }, [open, postalCode, setValue]);
 
   useEffect(() => {
     if (!open) {
@@ -353,13 +485,32 @@ export function CustomerForm({
                   error={errors.postalCode?.message}
                 >
                   <input
-                    {...register("postalCode")}
+                    {...register("postalCode", {
+                      onChange: (event) => {
+                        const value =
+                          event.target.value
+                            .replace(/\D/g, "")
+                            .slice(0, 6);
+
+                        event.target.value =
+                          value;
+                      },
+                    })}
                     inputMode="numeric"
+                    maxLength={6}
+                    autoComplete="postal-code"
                     placeholder="Postal code"
                     className={inputClass(
                       Boolean(errors.postalCode),
                     )}
                   />
+
+                  {postalLookupMessage &&
+                    !errors.postalCode?.message && (
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        {postalLookupMessage}
+                      </p>
+                    )}
                 </FormField>
 
                 <FormField
