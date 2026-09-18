@@ -14,6 +14,7 @@ import { getNextSequence } from "../repositories/counter.repository";
 
 import {
   findCustomerByIdForShop,
+  findCustomersByIdsForShop,
 } from "../repositories/customer.repository";
 
 import { getShopForOwner } from "./shop.service";
@@ -768,18 +769,35 @@ export async function getInvoicesForOwner(
   }
 
   /*
-   * Load product names for all invoices
-   * in the current page with one query.
+   * Load product names and customer names
+   * for the current page in two batch queries.
+   * This avoids an N+1 query for invoices.
    */
   const invoiceIds =
     invoices.map((invoice) =>
       invoice._id.toString(),
     );
 
-  const invoiceItems =
-    await findInvoiceItemsByInvoiceIds(
+  const customerIds = [
+    ...new Set(
+      invoices.map((invoice) =>
+        invoice.customerId.toString(),
+      ),
+    ),
+  ];
+
+  const [
+    invoiceItems,
+    customers,
+  ] = await Promise.all([
+    findInvoiceItemsByInvoiceIds(
       invoiceIds,
-    );
+    ),
+    findCustomersByIdsForShop(
+      customerIds,
+      shop._id.toString(),
+    ),
+  ]);
 
   const productNamesByInvoice =
     new Map<string, string[]>();
@@ -794,7 +812,9 @@ export async function getInvoicesForOwner(
       ) ?? [];
 
     if (item.productName) {
-      existing.push(item.productName);
+      existing.push(
+        item.productName,
+      );
     }
 
     productNamesByInvoice.set(
@@ -803,9 +823,25 @@ export async function getInvoicesForOwner(
     );
   }
 
-  const invoicesWithProducts =
+  const customerNamesById =
+    new Map<string, string>();
+
+  for (const customer of customers) {
+    customerNamesById.set(
+      customer._id.toString(),
+      customer.name,
+    );
+  }
+
+  const invoicesWithDetails =
     invoices.map((invoice) => ({
       ...invoice.toObject(),
+
+      customerName:
+        customerNamesById.get(
+          invoice.customerId.toString(),
+        ) ?? "Customer",
+
       productNames:
         productNamesByInvoice.get(
           invoice._id.toString(),
@@ -813,7 +849,7 @@ export async function getInvoicesForOwner(
     }));
 
   return {
-    invoices: invoicesWithProducts,
+    invoices: invoicesWithDetails,
 
     pagination: {
       page,
