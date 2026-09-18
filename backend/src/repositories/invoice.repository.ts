@@ -182,3 +182,23 @@ export async function deleteInvoiceItems(
     invoiceId,
   });
 }
+export async function findInvoiceItemsByInvoiceIds(
+  invoiceIds: string[],
+) {
+  if (invoiceIds.length === 0) {
+    return [];
+  }
+
+  return InvoiceItemModel.find({
+    invoiceId: {
+      $in: invoiceIds,
+    },
+  })
+    .select({
+      invoiceId: 1,
+      productName: 1,
+    })
+    .sort({
+      createdAt: 1,
+    });
+}

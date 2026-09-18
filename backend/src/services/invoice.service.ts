@@ -5,6 +5,7 @@ import {
   createInvoiceItems,
   findInvoiceByIdForShop,
   findInvoiceItems,
+  findInvoiceItemsByInvoiceIds,
   findInvoicesByShopId,
   updateInvoiceByIdForShop,
 } from "../repositories/invoice.repository";
@@ -766,8 +767,53 @@ export async function getInvoicesForOwner(
     invoices.pop();
   }
 
+  /*
+   * Load product names for all invoices
+   * in the current page with one query.
+   */
+  const invoiceIds =
+    invoices.map((invoice) =>
+      invoice._id.toString(),
+    );
+
+  const invoiceItems =
+    await findInvoiceItemsByInvoiceIds(
+      invoiceIds,
+    );
+
+  const productNamesByInvoice =
+    new Map<string, string[]>();
+
+  for (const item of invoiceItems) {
+    const invoiceId =
+      item.invoiceId.toString();
+
+    const existing =
+      productNamesByInvoice.get(
+        invoiceId,
+      ) ?? [];
+
+    if (item.productName) {
+      existing.push(item.productName);
+    }
+
+    productNamesByInvoice.set(
+      invoiceId,
+      existing,
+    );
+  }
+
+  const invoicesWithProducts =
+    invoices.map((invoice) => ({
+      ...invoice.toObject(),
+      productNames:
+        productNamesByInvoice.get(
+          invoice._id.toString(),
+        ) ?? [],
+    }));
+
   return {
-    invoices,
+    invoices: invoicesWithProducts,
 
     pagination: {
       page,
