@@ -476,11 +476,11 @@ export default function RegisterPage() {
               </button>
             </form>
 
-            {/* Create account */}
+            {/* Create account → existing registration page */}
             <p className="mt-8 text-center text-sm text-muted-foreground">
               Don't have a BillNest account?{" "}
               <Link
-                to="/create-account"
+                to="/login"
                 className="font-semibold text-primary hover:underline"
               >
                 Create an account
