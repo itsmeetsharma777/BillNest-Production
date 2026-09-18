@@ -1,6 +1,7 @@
 import {
   countActiveCustomers,
   countUnreadNotificationsForDashboard,
+  findRecentActivityForDashboard,
   findRecentInvoicesForDashboard,
   findRecentNotificationsForDashboard,
   getInvoiceDashboardSummary,
@@ -201,10 +202,13 @@ function serializeRecentInvoices(
                   customer._id,
                 )
               : null,
+
             name:
               customer.name ?? null,
+
             email:
               customer.email ?? null,
+
             phone:
               customer.phone ?? null,
           }
@@ -253,6 +257,7 @@ export async function getDashboardForOwner(
     totalCustomers,
     warrantySummary,
     recentInvoices,
+    recentActivity,
     recentNotifications,
     unreadNotificationCount,
     salesTrend,
@@ -276,6 +281,11 @@ export async function getDashboardForOwner(
     ),
 
     findRecentInvoicesForDashboard(
+      shopId,
+      recentLimit,
+    ),
+
+    findRecentActivityForDashboard(
       shopId,
       recentLimit,
     ),
@@ -317,6 +327,7 @@ export async function getDashboardForOwner(
     period: {
       startDate:
         startDate.toISOString(),
+
       endDate:
         endDate.toISOString(),
     },
@@ -360,7 +371,8 @@ export async function getDashboardForOwner(
         totalCustomers,
     },
 
-    warranties: warrantySummary,
+    warranties:
+      warrantySummary,
 
     sales: {
       totalSales:
@@ -390,8 +402,12 @@ export async function getDashboardForOwner(
         recentInvoices,
       ),
 
+    recentActivity,
+
     notifications: {
-      items: recentNotifications,
+      items:
+        recentNotifications,
+
       unreadCount:
         unreadNotificationCount,
     },

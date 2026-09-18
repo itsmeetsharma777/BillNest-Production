@@ -29,6 +29,16 @@ type WarrantyDashboardSummary = {
   noWarranty: number;
 };
 
+export type DashboardActivity = {
+  id: string;
+  type: "invoice" | "customer" | "warranty";
+  action: "created";
+  title: string;
+  description: string;
+  entityId: string;
+  createdAt: string;
+};
+
 type SalesTrendItem = {
   date: string;
   sales: number;
@@ -68,138 +78,145 @@ export async function getInvoiceDashboardSummary(
     ...buildInvoiceDateFilter(range),
   };
 
-  const result = await InvoiceModel.aggregate<InvoiceDashboardSummary>([
-    {
-      $match: match,
-    },
-    {
-      $group: {
-        _id: null,
+  const result =
+    await InvoiceModel.aggregate<InvoiceDashboardSummary>([
+      {
+        $match: match,
+      },
+      {
+        $group: {
+          _id: null,
 
-        totalInvoices: {
-          $sum: 1,
-        },
-
-        paidInvoices: {
-          $sum: {
-            $cond: [
-              { $eq: ["$status", "paid"] },
-              1,
-              0,
-            ],
+          totalInvoices: {
+            $sum: 1,
           },
-        },
 
-        partiallyPaidInvoices: {
-          $sum: {
-            $cond: [
-              {
-                $eq: [
-                  "$status",
-                  "partially_paid",
-                ],
-              },
-              1,
-              0,
-            ],
+          paidInvoices: {
+            $sum: {
+              $cond: [
+                {
+                  $eq: ["$status", "paid"],
+                },
+                1,
+                0,
+              ],
+            },
           },
-        },
 
-        draftInvoices: {
-          $sum: {
-            $cond: [
-              { $eq: ["$status", "draft"] },
-              1,
-              0,
-            ],
+          partiallyPaidInvoices: {
+            $sum: {
+              $cond: [
+                {
+                  $eq: [
+                    "$status",
+                    "partially_paid",
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
           },
-        },
 
-        cancelledInvoices: {
-          $sum: {
-            $cond: [
-              {
-                $eq: [
-                  "$status",
-                  "cancelled",
-                ],
-              },
-              1,
-              0,
-            ],
+          draftInvoices: {
+            $sum: {
+              $cond: [
+                {
+                  $eq: ["$status", "draft"],
+                },
+                1,
+                0,
+              ],
+            },
           },
-        },
 
-        totalSales: {
-          $sum: {
-            $cond: [
-              {
-                $in: [
-                  "$status",
-                  ["draft", "cancelled"],
-                ],
-              },
-              0,
-              { $ifNull: ["$total", 0] },
-            ],
+          cancelledInvoices: {
+            $sum: {
+              $cond: [
+                {
+                  $eq: [
+                    "$status",
+                    "cancelled",
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
           },
-        },
 
-        amountCollected: {
-          $sum: {
-            $cond: [
-              {
-                $in: [
-                  "$status",
-                  ["draft", "cancelled"],
-                ],
-              },
-              0,
-              {
-                $ifNull: [
-                  "$amountPaid",
-                  0,
-                ],
-              },
-            ],
+          totalSales: {
+            $sum: {
+              $cond: [
+                {
+                  $in: [
+                    "$status",
+                    ["draft", "cancelled"],
+                  ],
+                },
+                0,
+                {
+                  $ifNull: ["$total", 0],
+                },
+              ],
+            },
           },
-        },
 
-        amountOutstanding: {
-          $sum: {
-            $cond: [
-              {
-                $in: [
-                  "$status",
-                  ["draft", "cancelled"],
-                ],
-              },
-              0,
-              {
-                $ifNull: [
-                  "$amountDue",
-                  0,
-                ],
-              },
-            ],
+          amountCollected: {
+            $sum: {
+              $cond: [
+                {
+                  $in: [
+                    "$status",
+                    ["draft", "cancelled"],
+                  ],
+                },
+                0,
+                {
+                  $ifNull: [
+                    "$amountPaid",
+                    0,
+                  ],
+                },
+              ],
+            },
+          },
+
+          amountOutstanding: {
+            $sum: {
+              $cond: [
+                {
+                  $in: [
+                    "$status",
+                    ["draft", "cancelled"],
+                  ],
+                },
+                0,
+                {
+                  $ifNull: [
+                    "$amountDue",
+                    0,
+                  ],
+                },
+              ],
+            },
           },
         },
       },
-    },
-    {
-      $project: {
-        _id: 0,
-        totalInvoices: 1,
-        paidInvoices: 1,
-        partiallyPaidInvoices: 1,
-        draftInvoices: 1,
-        cancelledInvoices: 1,
-        totalSales: 1,
-        amountCollected: 1,
-        amountOutstanding: 1,
+      {
+        $project: {
+          _id: 0,
+          totalInvoices: 1,
+          paidInvoices: 1,
+          partiallyPaidInvoices: 1,
+          draftInvoices: 1,
+          cancelledInvoices: 1,
+          totalSales: 1,
+          amountCollected: 1,
+          amountOutstanding: 1,
+        },
       },
-    },
-  ]);
+    ]);
 
   return (
     result[0] ?? {
@@ -382,6 +399,137 @@ export async function findRecentInvoicesForDashboard(
       "name email phone",
     )
     .lean();
+}
+
+/**
+ * Real dashboard activity feed.
+ *
+ * We intentionally derive this from the existing business
+ * collections instead of depending on audit-log records.
+ *
+ * This means existing invoices, customers and warranties
+ * immediately appear in Recent Activity without requiring
+ * a database backfill.
+ */
+export async function findRecentActivityForDashboard(
+  shopId: string,
+  limit: number,
+): Promise<DashboardActivity[]> {
+  const [invoices, customers, warranties] =
+    await Promise.all([
+      InvoiceModel.find({
+        shopId: toObjectId(shopId),
+      })
+        .sort({
+          createdAt: -1,
+        })
+        .limit(limit)
+        .populate(
+          "customerId",
+          "name",
+        )
+        .lean(),
+
+      CustomerModel.find({
+        shopId: toObjectId(shopId),
+      })
+        .sort({
+          createdAt: -1,
+        })
+        .limit(limit)
+        .lean(),
+
+      WarrantyModel.find({
+        shopId: toObjectId(shopId),
+        isActive: true,
+      })
+        .sort({
+          createdAt: -1,
+        })
+        .limit(limit)
+        .lean(),
+    ]);
+
+  const activities: DashboardActivity[] = [];
+
+  for (const invoice of invoices) {
+    const customer =
+      invoice.customerId &&
+      typeof invoice.customerId === "object" &&
+      "name" in invoice.customerId
+        ? (
+            invoice.customerId as {
+              _id?: unknown;
+              name?: string;
+            }
+          )
+        : null;
+
+    const customerName =
+      customer?.name ?? "customer";
+
+    const statusText =
+      invoice.status === "paid"
+        ? "paid"
+        : invoice.status ===
+            "partially_paid"
+          ? "partially paid"
+          : invoice.status ===
+              "cancelled"
+            ? "cancelled"
+            : invoice.status ===
+                "draft"
+              ? "draft"
+              : "created";
+
+    activities.push({
+      id: `invoice-${String(invoice._id)}`,
+      type: "invoice",
+      action: "created",
+      title: "Invoice activity",
+      description: `${invoice.invoiceNumber} for ${customerName} — ${statusText}`,
+      entityId: String(invoice._id),
+      createdAt: new Date(
+        invoice.createdAt,
+      ).toISOString(),
+    });
+  }
+
+  for (const customer of customers) {
+    activities.push({
+      id: `customer-${String(customer._id)}`,
+      type: "customer",
+      action: "created",
+      title: "Customer added",
+      description: `${customer.name} was added to your customer records.`,
+      entityId: String(customer._id),
+      createdAt: new Date(
+        customer.createdAt,
+      ).toISOString(),
+    });
+  }
+
+  for (const warranty of warranties) {
+    activities.push({
+      id: `warranty-${String(warranty._id)}`,
+      type: "warranty",
+      action: "created",
+      title: "Warranty created",
+      description: `${warranty.productName} warranty was added.`,
+      entityId: String(warranty._id),
+      createdAt: new Date(
+        warranty.createdAt,
+      ).toISOString(),
+    });
+  }
+
+  return activities
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() -
+        new Date(a.createdAt).getTime(),
+    )
+    .slice(0, limit);
 }
 
 export async function findRecentNotificationsForDashboard(

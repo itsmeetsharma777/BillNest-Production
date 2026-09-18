@@ -50,6 +50,16 @@ interface DashboardInvoice {
   } | null;
 }
 
+interface DashboardActivity {
+  id: string;
+  type: "invoice" | "customer" | "warranty";
+  action: "created";
+  title: string;
+  description: string;
+  entityId: string;
+  createdAt: string;
+}
+
 interface DashboardNotification {
   _id: string;
   type: NotificationType;
@@ -107,6 +117,8 @@ interface DashboardResponse {
     };
 
     recentInvoices?: DashboardInvoice[];
+
+    recentActivity?: DashboardActivity[];
 
     notifications?: {
       items?: DashboardNotification[];
@@ -216,6 +228,38 @@ function getStatusClass(status: InvoiceStatus) {
     case "draft":
     default:
       return "border-muted bg-muted text-muted-foreground";
+  }
+}
+
+function getActivityIcon(type: DashboardActivity["type"]) {
+  switch (type) {
+    case "invoice":
+      return FileText;
+
+    case "customer":
+      return Users;
+
+    case "warranty":
+      return ShieldCheck;
+
+    default:
+      return FileText;
+  }
+}
+
+function getActivityIconClass(type: DashboardActivity["type"]) {
+  switch (type) {
+    case "invoice":
+      return "bg-blue-500/10 text-blue-600 dark:text-blue-400";
+
+    case "customer":
+      return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+
+    case "warranty":
+      return "bg-amber-500/10 text-amber-600 dark:text-amber-400";
+
+    default:
+      return "bg-primary/10 text-primary";
   }
 }
 
@@ -352,6 +396,9 @@ export function ShopkeeperDashboard() {
       ),
     [data?.recentInvoices],
   );
+
+  const recentActivity =
+    data?.recentActivity ?? [];
 
   const notifications =
     data?.notifications?.items ?? [];
@@ -819,6 +866,102 @@ export function ShopkeeperDashboard() {
               </p>
             </Link>
           </div>
+        </section>
+
+        {/* Recent activity */}
+        <section className="rounded-2xl border bg-card shadow-sm">
+          <div className="flex items-center justify-between border-b p-5">
+            <div>
+              <h2 className="font-semibold tracking-tight">
+                Recent activity
+              </h2>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Latest customers, invoices, and warranty records.
+              </p>
+            </div>
+
+            <RefreshCw className="size-5 text-muted-foreground" />
+          </div>
+
+          {recentActivity.length === 0 ? (
+            <div className="flex min-h-40 flex-col items-center justify-center px-5 py-8 text-center">
+              <div className="flex size-11 items-center justify-center rounded-full bg-muted">
+                <CheckCircle2 className="size-5 text-muted-foreground" />
+              </div>
+
+              <h3 className="mt-4 font-medium">
+                No recent activity
+              </h3>
+
+              <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                New customers, invoices, and warranties will appear here
+                automatically.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {recentActivity
+                .slice(0, 8)
+                .map((activity) => {
+                  const Icon = getActivityIcon(
+                    activity.type,
+                  );
+
+                  const iconClass =
+                    getActivityIconClass(
+                      activity.type,
+                    );
+
+                  const content = (
+                    <div className="flex gap-3 p-4 transition-colors hover:bg-muted/40 sm:p-5">
+                      <div
+                        className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${iconClass}`}
+                      >
+                        <Icon className="size-4" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold">
+                              {activity.title}
+                            </p>
+
+                            <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                              {activity.description}
+                            </p>
+                          </div>
+
+                          <p className="shrink-0 text-xs text-muted-foreground">
+                            {formatDateTime(
+                              activity.createdAt,
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+
+                  if (activity.type === "invoice") {
+                    return (
+                      <Link
+                        key={activity.id}
+                        to={`/shopkeeper/invoices/${activity.entityId}`}
+                      >
+                        {content}
+                      </Link>
+                    );
+                  }
+
+                  return (
+                    <div key={activity.id}>
+                      {content}
+                    </div>
+                  );
+                })}
+            </div>
+          )}
         </section>
 
         {/* Recent invoices + notifications */}
