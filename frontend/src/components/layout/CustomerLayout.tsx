@@ -48,7 +48,7 @@ export function CustomerLayout() {
 
   async function handleLogout() {
     await logout();
-    navigate("/login", { replace: true });
+    navigate("/register", { replace: true });
   }
 
   return (
