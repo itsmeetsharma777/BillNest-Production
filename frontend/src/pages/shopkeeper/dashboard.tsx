@@ -2,6 +2,7 @@ import {
   AlertCircle,
   ArrowUpRight,
   Bell,
+  CheckCheck,
   CheckCircle2,
   FileText,
   Loader2,
@@ -335,6 +336,9 @@ export function ShopkeeperDashboard() {
   const [isRefreshing, setIsRefreshing] =
     useState(false);
 
+  const [isMarkingAllAsRead, setIsMarkingAllAsRead] =
+    useState(false);
+
   const [error, setError] = useState("");
 
   const loadDashboard = useCallback(
@@ -405,6 +409,74 @@ export function ShopkeeperDashboard() {
 
   const unreadNotificationCount =
     data?.notifications?.unreadCount ?? 0;
+
+  async function markAllNotificationsAsRead() {
+    if (
+      unreadNotificationCount === 0 ||
+      isMarkingAllAsRead
+    ) {
+      return;
+    }
+
+    try {
+      setIsMarkingAllAsRead(true);
+      setError("");
+
+      const response = await fetch(
+        `${API_URL}/notifications/read-all`,
+        {
+          method: "PATCH",
+          credentials: "include",
+        },
+      );
+
+      const result =
+        (await response.json()) as {
+          success: boolean;
+          message?: string;
+        };
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ??
+            "Unable to mark notifications as read.",
+        );
+      }
+
+      const readAt =
+        new Date().toISOString();
+
+      setData((current) => {
+        if (!current) {
+          return current;
+        }
+
+        return {
+          ...current,
+          notifications: {
+            ...current.notifications,
+            items:
+              current.notifications?.items?.map(
+                (notification) => ({
+                  ...notification,
+                  isRead: true,
+                  readAt,
+                }),
+              ) ?? [],
+            unreadCount: 0,
+          },
+        };
+      });
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to update notifications.",
+      );
+    } finally {
+      setIsMarkingAllAsRead(false);
+    }
+  }
 
   const stats: StatCard[] = [
     {
@@ -1093,7 +1165,31 @@ export function ShopkeeperDashboard() {
                 </p>
               </div>
 
-              <Bell className="size-5 text-muted-foreground" />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    void markAllNotificationsAsRead()
+                  }
+                  disabled={
+                    unreadNotificationCount === 0 ||
+                    isMarkingAllAsRead
+                  }
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  title={
+                    unreadNotificationCount === 0
+                      ? "No unread notifications"
+                      : "Mark all notifications as read"
+                  }
+                >
+                  <CheckCheck className="size-3.5" />
+                  {isMarkingAllAsRead
+                    ? "Marking..."
+                    : "Mark all read"}
+                </button>
+
+                <Bell className="size-5 text-muted-foreground" />
+              </div>
             </div>
 
             {notifications.length === 0 ? (
