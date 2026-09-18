@@ -340,6 +340,7 @@ export function ShopkeeperDashboard() {
     useState(false);
 
   const [error, setError] = useState("");
+
   const loadDashboard = useCallback(
     async (refresh = false) => {
       try {
@@ -408,6 +409,7 @@ export function ShopkeeperDashboard() {
 
   const unreadNotificationCount =
     data?.notifications?.unreadCount ?? 0;
+
   async function markAllNotificationsAsRead() {
     if (
       unreadNotificationCount === 0 ||
@@ -1161,7 +1163,8 @@ export function ShopkeeperDashboard() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Mark all as read + notification bell */}
+              <div className="flex items-center gap-5">
                 <button
                   type="button"
                   onClick={() =>
@@ -1171,20 +1174,18 @@ export function ShopkeeperDashboard() {
                     unreadNotificationCount === 0 ||
                     isMarkingAllAsRead
                   }
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   title={
                     unreadNotificationCount === 0
                       ? "No unread notifications"
-                      : "Mark all notifications as read"
+                      : "Mark all as read"
                   }
+                  aria-label="Mark all notifications as read"
                 >
-                  <CheckCheck className="size-3.5" />
-                  {isMarkingAllAsRead
-                    ? "Marking..."
-                    : "Mark all read"}
+                  <CheckCheck className="size-6" />
                 </button>
 
-                <Bell className="size-5 text-muted-foreground" />
+                <Bell className="size-6 text-muted-foreground" />
               </div>
             </div>
 
