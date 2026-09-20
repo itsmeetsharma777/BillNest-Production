@@ -22,24 +22,18 @@ function SessionLoading() {
   );
 }
 
+/*
+ * The BillNest root URL is always the public landing page.
+ *
+ * Authentication is intentionally NOT used to redirect "/" into
+ * a dashboard. The session can remain active in the background,
+ * but opening the main BillNest URL should always show Get Started.
+ */
 function PublicEntryRoute() {
-  const { user, isLoading } = useAuth();
+  const { isLoading } = useAuth();
 
   if (isLoading) {
     return <SessionLoading />;
-  }
-
-  if (user) {
-    return (
-      <Navigate
-        to={
-          user.role === "customer"
-            ? "/customer"
-            : "/shopkeeper"
-        }
-        replace
-      />
-    );
   }
 
   return <App />;
