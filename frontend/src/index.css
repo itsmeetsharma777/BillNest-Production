@@ -33,6 +33,10 @@
   --color-ring: var(--ring);
 }
 
+/* =========================================================
+   LIGHT THEME
+========================================================= */
+
 :root {
   --background: oklch(0.985 0.002 247);
   --foreground: oklch(0.18 0.02 260);
@@ -43,8 +47,8 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.18 0.02 260);
 
-  --primary: oklch(0.52 0.22 262);
-  --primary-foreground: oklch(0.98 0.01 260);
+  --primary: oklch(0.58 0.22 262);
+  --primary-foreground: oklch(0.99 0 0);
 
   --secondary: oklch(0.95 0.02 260);
   --secondary-foreground: oklch(0.25 0.04 260);
@@ -58,40 +62,50 @@
   --destructive: oklch(0.58 0.22 27);
   --destructive-foreground: oklch(0.98 0.01 30);
 
-  --border: oklch(0.9 0.015 260);
-  --input: oklch(0.9 0.015 260);
-  --ring: oklch(0.52 0.22 262);
+  --border: oklch(0.89 0.015 260);
+  --input: oklch(0.89 0.015 260);
+
+  --ring: oklch(0.58 0.22 262);
 }
 
+/* =========================================================
+   DARK THEME
+========================================================= */
+
 .dark {
-  --background: oklch(0.13 0.015 260);
-  --foreground: oklch(0.96 0.01 260);
+  --background: oklch(0.075 0.015 260);
+  --foreground: oklch(0.96 0.008 260);
 
-  --card: oklch(0.17 0.02 260);
-  --card-foreground: oklch(0.96 0.01 260);
+  --card: oklch(0.105 0.018 260);
+  --card-foreground: oklch(0.96 0.008 260);
 
-  --popover: oklch(0.17 0.02 260);
-  --popover-foreground: oklch(0.96 0.01 260);
+  --popover: oklch(0.105 0.018 260);
+  --popover-foreground: oklch(0.96 0.008 260);
 
-  --primary: oklch(0.68 0.19 262);
-  --primary-foreground: oklch(0.14 0.02 260);
+  --primary: oklch(0.66 0.2 262);
+  --primary-foreground: oklch(0.12 0.02 260);
 
-  --secondary: oklch(0.23 0.025 260);
-  --secondary-foreground: oklch(0.94 0.01 260);
+  --secondary: oklch(0.17 0.022 260);
+  --secondary-foreground: oklch(0.94 0.008 260);
 
-  --muted: oklch(0.22 0.02 260);
-  --muted-foreground: oklch(0.68 0.025 260);
+  --muted: oklch(0.16 0.02 260);
+  --muted-foreground: oklch(0.67 0.025 260);
 
-  --accent: oklch(0.24 0.03 260);
-  --accent-foreground: oklch(0.95 0.01 260);
+  --accent: oklch(0.18 0.025 260);
+  --accent-foreground: oklch(0.95 0.008 260);
 
-  --destructive: oklch(0.65 0.2 27);
-  --destructive-foreground: oklch(0.98 0.01 30);
+  --destructive: oklch(0.64 0.21 27);
+  --destructive-foreground: oklch(0.99 0 0);
 
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.68 0.19 262);
+
+  --ring: oklch(0.66 0.2 262);
 }
+
+/* =========================================================
+   GLOBAL
+========================================================= */
 
 * {
   box-sizing: border-box;
@@ -102,10 +116,16 @@ html {
   scroll-behavior: smooth;
 }
 
-body {
+html,
+body,
+#root {
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100%;
+}
+
+body {
   margin: 0;
+  min-height: 100vh;
 
   background: var(--background);
   color: var(--foreground);
@@ -120,7 +140,12 @@ body {
     sans-serif;
 
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+
+  transition:
+    background-color 300ms ease,
+    color 300ms ease;
 }
 
 button,
@@ -134,7 +159,61 @@ button {
   cursor: pointer;
 }
 
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* =========================================================
+   FORM PLACEHOLDERS
+========================================================= */
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted-foreground);
+}
+
+/* =========================================================
+   SELECTION
+========================================================= */
+
 ::selection {
-  background: color-mix(in oklab, var(--primary) 20%, transparent);
+  background: color-mix(
+    in oklab,
+    var(--primary) 20%,
+    transparent
+  );
+
   color: var(--foreground);
+}
+
+/* =========================================================
+   SCROLLBAR
+========================================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+
+  background: color-mix(
+    in oklab,
+    var(--muted-foreground) 35%,
+    transparent
+  );
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(
+    in oklab,
+    var(--muted-foreground) 50%,
+    transparent
+  );
 }

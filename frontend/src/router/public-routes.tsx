@@ -2,139 +2,120 @@ import { Navigate, Route } from "react-router-dom";
 
 import App from "@/App";
 import ExplorePage from "@/pages/ExplorePage";
+import GetStartedPage from "@/pages/GetStartedPage";
 
 import ForgotPasswordPage from "@/pages/shopkeeper/ForgotPasswordPage";
 import ResetPasswordPage from "@/pages/shopkeeper/ResetPasswordPage";
 
 import ShopkeeperLoginPage from "@/pages/shopkeeper/LoginPage";
 import ShopkeeperRegisterPage from "@/pages/shopkeeper/RegisterPage";
+import ShopkeeperLearnMorePage from "@/pages/shopkeeper/LearnMorePage";
 
 import CustomerLoginPage from "@/pages/customer/LoginPage";
 import CustomerRegisterPage from "@/pages/customer/RegisterPage";
+import CustomerLearnMorePage from "@/pages/customer/LearnMorePage";
 
 import { useAuth } from "@/context/AuthContext";
 
-function SessionLoading() {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-background text-foreground">
-      <div className="flex flex-col items-center gap-3">
-        <div className="size-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
+function PublicRootRedirect() {
+  const { user, isLoading } = useAuth();
 
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
         <p className="text-sm text-muted-foreground">
           Checking your session...
         </p>
       </div>
-    </main>
-  );
-}
+    );
+  }
 
-/*
- * Root URL always opens the BillNest homepage.
- */
-function PublicEntryRoute() {
-  const { isLoading } = useAuth();
+  /*
+   * IMPORTANT:
+   *
+   * The landing page should remain accessible when
+   * there is no logged-in user.
+   *
+   * If there is an authenticated user, send them to
+   * their dashboard.
+   */
+  if (user?.role === "shopkeeper") {
+    return <Navigate to="/shopkeeper" replace />;
+  }
 
-  if (isLoading) {
-    return <SessionLoading />;
+  if (user?.role === "customer") {
+    return <Navigate to="/customer" replace />;
   }
 
   return <App />;
 }
 
-/*
- * Prevent authenticated users from opening
- * public login/register pages.
- */
-function PublicAuthRoute({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <SessionLoading />;
-  }
-
-  if (user) {
-    return (
-      <Navigate
-        to={
-          user.role === "customer"
-            ? "/customer"
-            : "/shopkeeper"
-        }
-        replace
-      />
-    );
-  }
-
-  return children;
-}
-
 export function PublicRoutes() {
   return (
     <>
-      {/* HOME */}
+      {/* =====================================================
+          LANDING
+      ===================================================== */}
       <Route
         path="/"
-        element={<PublicEntryRoute />}
+        element={<PublicRootRedirect />}
       />
 
-      {/* EXPLORE */}
+      {/* =====================================================
+          ACCOUNT SELECTION
+      ===================================================== */}
+      <Route
+        path="/get-started"
+        element={<GetStartedPage />}
+      />
+
+      {/* =====================================================
+          EXPLORE
+      ===================================================== */}
       <Route
         path="/explore"
         element={<ExplorePage />}
       />
 
-      {/* ========================================= */}
-      {/* SHOPKEEPER AUTH */}
-      {/* ========================================= */}
-
+      {/* =====================================================
+          SHOPKEEPER AUTH
+      ===================================================== */}
       <Route
         path="/shopkeeper/login"
-        element={
-          <PublicAuthRoute>
-            <ShopkeeperLoginPage />
-          </PublicAuthRoute>
-        }
+        element={<ShopkeeperLoginPage />}
       />
 
       <Route
         path="/shopkeeper/register"
-        element={
-          <PublicAuthRoute>
-            <ShopkeeperRegisterPage />
-          </PublicAuthRoute>
-        }
+        element={<ShopkeeperRegisterPage />}
       />
 
-      {/* ========================================= */}
-      {/* CUSTOMER AUTH */}
-      {/* ========================================= */}
+      <Route
+        path="/shopkeeper/learn-more"
+        element={<ShopkeeperLearnMorePage />}
+      />
 
+      {/* =====================================================
+          CUSTOMER AUTH
+      ===================================================== */}
       <Route
         path="/customer/login"
-        element={
-          <PublicAuthRoute>
-            <CustomerLoginPage />
-          </PublicAuthRoute>
-        }
+        element={<CustomerLoginPage />}
       />
 
       <Route
         path="/customer/register"
-        element={
-          <PublicAuthRoute>
-            <CustomerRegisterPage />
-          </PublicAuthRoute>
-        }
+        element={<CustomerRegisterPage />}
       />
 
-      {/* ========================================= */}
-      {/* PASSWORD RESET */}
-      {/* ========================================= */}
+      <Route
+        path="/customer/learn-more"
+        element={<CustomerLearnMorePage />}
+      />
 
+      {/* =====================================================
+          PASSWORD
+      ===================================================== */}
       <Route
         path="/forgot-password"
         element={<ForgotPasswordPage />}
@@ -145,10 +126,9 @@ export function PublicRoutes() {
         element={<ResetPasswordPage />}
       />
 
-      {/* ========================================= */}
-      {/* BACKWARD COMPATIBILITY */}
-      {/* ========================================= */}
-
+      {/* =====================================================
+          BACKWARD COMPATIBILITY
+      ===================================================== */}
       <Route
         path="/login"
         element={
@@ -169,15 +149,12 @@ export function PublicRoutes() {
         }
       />
 
-      {/* FALLBACK */}
+      {/* =====================================================
+          FALLBACK
+      ===================================================== */}
       <Route
         path="*"
-        element={
-          <Navigate
-            to="/"
-            replace
-          />
-        }
+        element={<Navigate to="/" replace />}
       />
     </>
   );
