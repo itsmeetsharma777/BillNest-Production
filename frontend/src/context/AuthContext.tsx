@@ -76,6 +76,7 @@ export function AuthProvider({
           if (isMounted) {
             setUser(null);
           }
+
           return;
         }
 
@@ -102,6 +103,59 @@ export function AuthProvider({
     };
   }, []);
 
+  /*
+   * Automatically invalidate the server session when
+   * the BillNest page is unloaded.
+   *
+   * This handles:
+   * - closing the browser window
+   * - closing the browser
+   * - closing the BillNest tab
+   * - refreshing the page
+   * - navigating away from BillNest
+   *
+   * Normal React Router navigation inside BillNest does
+   * NOT unload the page, so it does not log the user out.
+   */
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    let logoutSent = false;
+
+    const handlePageHide = () => {
+      if (logoutSent) {
+        return;
+      }
+
+      logoutSent = true;
+
+      void fetch(`${API_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+        keepalive: true,
+      }).catch(() => {
+        /*
+         * The browser may terminate the request during shutdown.
+         * The server session will expire normally if this happens.
+         */
+      });
+    };
+
+    window.addEventListener(
+      "pagehide",
+      handlePageHide,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "pagehide",
+        handlePageHide,
+      );
+    };
+  }, [user]);
+
   const logout = useCallback(async () => {
     try {
       await fetch(`${API_URL}/auth/logout`, {
@@ -121,7 +175,12 @@ export function AuthProvider({
       refreshUser,
       logout,
     }),
-    [user, isLoading, refreshUser, logout],
+    [
+      user,
+      isLoading,
+      refreshUser,
+      logout,
+    ],
   );
 
   return (

@@ -13,17 +13,12 @@ import {
 
 import {
   SESSION_COOKIE_NAME,
-  SESSION_DURATION_MS,
 } from "../utils/session";
 
 import type {
   AuthenticatedRequest,
 } from "../middleware/auth.middleware";
 
-/**
- * Remove sensitive fields before returning a user
- * to the frontend.
- */
 function sanitizeUser(user: {
   _id: unknown;
   name: string;
@@ -42,17 +37,6 @@ function sanitizeUser(user: {
   };
 }
 
-/**
- * Configure the secure HTTP-only session cookie.
- *
- * Production:
- * - Vercel frontend and Render backend are different sites.
- * - SameSite=None is required for the cross-site API request.
- * - Secure=true is required when SameSite=None is used.
- *
- * Development:
- * - localhost frontend/backend can continue using lax cookies.
- */
 function setSessionCookie(
   res: Response,
   sessionToken: string,
@@ -66,8 +50,9 @@ function setSessionCookie(
     {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? "none" : "lax",
-      maxAge: SESSION_DURATION_MS,
+      sameSite: isProduction
+        ? "none"
+        : "lax",
       path: "/",
 
       ...(process.env.COOKIE_DOMAIN && {
@@ -77,9 +62,6 @@ function setSessionCookie(
   );
 }
 
-/**
- * Register a new user.
- */
 export async function register(
   req: Request,
   res: Response,
@@ -97,9 +79,6 @@ export async function register(
   });
 }
 
-/**
- * Login an existing user.
- */
 export async function login(
   req: Request,
   res: Response,
@@ -125,9 +104,6 @@ export async function login(
   });
 }
 
-/**
- * Logout the current user.
- */
 export async function logout(
   req: Request,
   res: Response,
@@ -147,7 +123,9 @@ export async function logout(
     {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? "none" : "lax",
+      sameSite: isProduction
+        ? "none"
+        : "lax",
       path: "/",
 
       ...(process.env.COOKIE_DOMAIN && {
@@ -162,12 +140,6 @@ export async function logout(
   });
 }
 
-/**
- * Get the currently authenticated user.
- *
- * requireAuth runs before this controller and
- * attaches the authenticated user to the request.
- */
 export async function getCurrentUser(
   req: Request,
   res: Response,
