@@ -1,9 +1,9 @@
 import RoleAuthPage from "@/components/common/RoleAuthPage";
 
-export default function LoginPage() {
+export default function CustomerLoginPage() {
   return (
     <RoleAuthPage
-      role="shopkeeper"
+      role="customer"
       mode="login"
     />
   );

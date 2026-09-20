@@ -1,10 +1,10 @@
 import RoleAuthPage from "@/components/common/RoleAuthPage";
 
-export default function LoginPage() {
+export default function CustomerRegisterPage() {
   return (
     <RoleAuthPage
-      role="shopkeeper"
-      mode="login"
+      role="customer"
+      mode="register"
     />
   );
 }

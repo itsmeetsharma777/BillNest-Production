@@ -2,10 +2,16 @@ import { Navigate, Route } from "react-router-dom";
 
 import App from "@/App";
 import ExplorePage from "@/pages/ExplorePage";
+
 import ForgotPasswordPage from "@/pages/shopkeeper/ForgotPasswordPage";
-import LoginPage from "@/pages/shopkeeper/LoginPage";
-import RegisterPage from "@/pages/shopkeeper/RegisterPage";
 import ResetPasswordPage from "@/pages/shopkeeper/ResetPasswordPage";
+
+import ShopkeeperLoginPage from "@/pages/shopkeeper/LoginPage";
+import ShopkeeperRegisterPage from "@/pages/shopkeeper/RegisterPage";
+
+import CustomerLoginPage from "@/pages/customer/LoginPage";
+import CustomerRegisterPage from "@/pages/customer/RegisterPage";
+
 import { useAuth } from "@/context/AuthContext";
 
 function SessionLoading() {
@@ -23,11 +29,7 @@ function SessionLoading() {
 }
 
 /*
- * The BillNest root URL is always the public landing page.
- *
- * Authentication is intentionally NOT used to redirect "/" into
- * a dashboard. The session can remain active in the background,
- * but opening the main BillNest URL should always show Get Started.
+ * Root URL always opens the BillNest homepage.
  */
 function PublicEntryRoute() {
   const { isLoading } = useAuth();
@@ -39,6 +41,10 @@ function PublicEntryRoute() {
   return <App />;
 }
 
+/*
+ * Prevent authenticated users from opening
+ * public login/register pages.
+ */
 function PublicAuthRoute({
   children,
 }: {
@@ -69,39 +75,66 @@ function PublicAuthRoute({
 export function PublicRoutes() {
   return (
     <>
-      {/* PUBLIC LANDING PAGE */}
+      {/* HOME */}
       <Route
         path="/"
         element={<PublicEntryRoute />}
       />
 
-      {/* PUBLIC EXPLORE PAGE */}
+      {/* EXPLORE */}
       <Route
         path="/explore"
         element={<ExplorePage />}
       />
 
-      {/* LOGIN */}
+      {/* ========================================= */}
+      {/* SHOPKEEPER AUTH */}
+      {/* ========================================= */}
+
       <Route
-        path="/login"
+        path="/shopkeeper/login"
         element={
           <PublicAuthRoute>
-            <LoginPage />
+            <ShopkeeperLoginPage />
           </PublicAuthRoute>
         }
       />
 
-      {/* REGISTER */}
       <Route
-        path="/register"
+        path="/shopkeeper/register"
         element={
           <PublicAuthRoute>
-            <RegisterPage />
+            <ShopkeeperRegisterPage />
           </PublicAuthRoute>
         }
       />
 
+      {/* ========================================= */}
+      {/* CUSTOMER AUTH */}
+      {/* ========================================= */}
+
+      <Route
+        path="/customer/login"
+        element={
+          <PublicAuthRoute>
+            <CustomerLoginPage />
+          </PublicAuthRoute>
+        }
+      />
+
+      <Route
+        path="/customer/register"
+        element={
+          <PublicAuthRoute>
+            <CustomerRegisterPage />
+          </PublicAuthRoute>
+        }
+      />
+
+      {/* ========================================= */}
       {/* PASSWORD RESET */}
+      {/* ========================================= */}
+
       <Route
         path="/forgot-password"
         element={<ForgotPasswordPage />}
@@ -110,6 +143,30 @@ export function PublicRoutes() {
       <Route
         path="/reset-password"
         element={<ResetPasswordPage />}
+      />
+
+      {/* ========================================= */}
+      {/* BACKWARD COMPATIBILITY */}
+      {/* ========================================= */}
+
+      <Route
+        path="/login"
+        element={
+          <Navigate
+            to="/shopkeeper/login"
+            replace
+          />
+        }
+      />
+
+      <Route
+        path="/register"
+        element={
+          <Navigate
+            to="/shopkeeper/register"
+            replace
+          />
+        }
       />
 
       {/* FALLBACK */}
