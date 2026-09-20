@@ -152,9 +152,7 @@ function RoleCard({
           </p>
 
           {/* Title */}
-          <h2 className="mt-1 text-[17px] font-bold">
-            {title}
-          </h2>
+          <h2 className="mt-1 text-[17px] font-bold">{title}</h2>
 
           {/* Description */}
           <p className="mt-1 max-w-[310px] text-[11px] leading-5 text-muted-foreground">
@@ -182,7 +180,7 @@ function RoleCard({
             ))}
           </div>
 
-          {/* Login button */}
+          {/* Role button */}
           <div
             className={[
               "absolute bottom-0 left-0 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[10px] font-semibold text-white shadow-lg",
@@ -265,9 +263,7 @@ function DashboardMockup() {
 
           {/* Main */}
           <div className="bg-background/70 p-2.5">
-            <p className="text-[7px] font-bold">
-              Dashboard
-            </p>
+            <p className="text-[7px] font-bold">Dashboard</p>
 
             <div className="mt-2 grid grid-cols-3 gap-1.5">
               {[
@@ -300,13 +296,9 @@ function DashboardMockup() {
                   key={item}
                   className="mt-1 flex items-center justify-between border-b border-border pb-1 text-[4px] text-muted-foreground"
                 >
-                  <span>
-                    INV-{1020 + item}
-                  </span>
+                  <span>INV-{1020 + item}</span>
 
-                  <span>
-                    ₹{item * 2450}
-                  </span>
+                  <span>₹{item * 2450}</span>
 
                   <span className="rounded bg-green-500/10 px-1 text-green-600 dark:text-green-400">
                     Paid
@@ -324,6 +316,13 @@ function DashboardMockup() {
 function App() {
   const navigate = useNavigate();
 
+  /*
+   * Smooth section navigation.
+   *
+   * IMPORTANT:
+   * The CTA at the bottom uses scrollTo("top")
+   * instead of navigate("/get-started").
+   */
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({
       behavior: "smooth",
@@ -332,8 +331,13 @@ function App() {
   };
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-background text-foreground transition-colors duration-300">
-      {/* Background */}
+    <main
+      className="min-h-screen overflow-x-hidden bg-background text-foreground transition-colors duration-300"
+    >
+      {/* =========================================================
+          BACKGROUND
+      ========================================================= */}
+
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute left-1/2 top-[-250px] h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-blue-500/[0.04] blur-[150px] dark:bg-blue-500/[0.08]" />
 
@@ -343,7 +347,11 @@ function App() {
       </div>
 
       <div className="mx-auto w-full max-w-[1180px] px-5 sm:px-7">
-        {/* HEADER */}
+
+        {/* =======================================================
+            HEADER
+        ======================================================= */}
+
         <header className="flex h-[64px] items-center justify-between border-b border-border">
           <button
             type="button"
@@ -400,19 +408,28 @@ function App() {
           </div>
         </header>
 
-        {/* HERO */}
+        {/* =======================================================
+            HERO
+        ======================================================= */}
+
         <section id="top" className="relative pt-7">
           <div className="grid items-start gap-5 lg:grid-cols-[1fr_1fr]">
+
+            {/* HERO TEXT */}
+
             <div className="pt-2">
               <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-blue-500">
                 <Sparkles className="size-3.5" />
+
                 Every bill. One organized home.
               </div>
 
               <h1 className="max-w-[620px] text-[38px] font-bold leading-[1.04] tracking-[-0.035em] sm:text-[45px]">
                 Billing and warranty
                 <br />
+
                 management,
+
                 <span className="text-blue-500">
                   {" "}
                   beautifully simple.
@@ -426,7 +443,8 @@ function App() {
               </p>
             </div>
 
-            {/* Dashboard */}
+            {/* DASHBOARD */}
+
             <div className="relative hidden h-[190px] lg:block">
               <div className="absolute left-2 top-4 rotate-[-6deg] text-center text-[11px] italic leading-4 text-blue-500">
                 <span className="block">Organize today</span>
@@ -442,8 +460,12 @@ function App() {
             </div>
           </div>
 
-          {/* ROLE CARDS */}
+          {/* =====================================================
+              ROLE CARDS
+          ===================================================== */}
+
           <div className="mt-3 grid gap-4 md:grid-cols-2">
+
             <RoleCard
               role="shopkeeper"
               title="Shopkeeper"
@@ -471,15 +493,20 @@ function App() {
                 navigate("/customer/login")
               }
             />
+
           </div>
         </section>
 
-        {/* FEATURE STRIP */}
+        {/* =======================================================
+            FEATURE STRIP
+        ======================================================= */}
+
         <section
           id="features"
           className="mt-6 border-y border-border py-3"
         >
           <div className="grid grid-cols-2 divide-x divide-border lg:grid-cols-4">
+
             {[
               {
                 icon: FileText,
@@ -525,12 +552,17 @@ function App() {
                 </div>
               );
             })}
+
           </div>
         </section>
 
-        {/* HOW IT WORKS */}
+        {/* =======================================================
+            HOW IT WORKS
+        ======================================================= */}
+
         <section id="how-it-works" className="py-7">
           <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
+
             <div>
               <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-blue-500">
                 How it works
@@ -539,7 +571,9 @@ function App() {
               <h2 className="mt-2 text-[24px] font-bold leading-[1.1]">
                 Get started in
                 <br />
+
                 just{" "}
+
                 <span className="text-blue-500">
                   3 simple steps.
                 </span>
@@ -571,6 +605,7 @@ function App() {
 
                 return (
                   <div key={step.number}>
+
                     <div className="flex items-center gap-2">
                       <div className="flex size-9 items-center justify-center rounded-full border border-blue-500 bg-blue-500/5 text-[13px] font-bold text-blue-500">
                         {step.number}
@@ -594,6 +629,7 @@ function App() {
                         </p>
                       </div>
                     </div>
+
                   </div>
                 );
               })}
@@ -601,13 +637,20 @@ function App() {
           </div>
         </section>
 
-        {/* DETAIL PANELS */}
+        {/* =======================================================
+            DETAIL PANELS
+        ======================================================= */}
+
         <section className="grid gap-4 lg:grid-cols-2">
+
           {/* SHOPKEEPER */}
+
           <div className="relative min-h-[300px] overflow-hidden rounded-xl border border-blue-500/20 bg-blue-500/[0.025] p-4 dark:bg-blue-950/15">
+
             <div className="absolute bottom-[-100px] right-[-70px] size-64 rounded-full bg-blue-500/10 blur-[70px]" />
 
             <div className="relative z-10">
+
               <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-blue-500">
                 For shopkeepers
               </p>
@@ -653,12 +696,16 @@ function App() {
                 className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-500/10 px-3.5 py-2 text-[10px] font-semibold text-blue-500 transition hover:bg-blue-500/15"
               >
                 Learn more
+
                 <ArrowRight className="size-3" />
               </button>
             </div>
 
+            {/* Invoice illustration */}
+
             <div className="absolute bottom-4 right-3 hidden rotate-[-7deg] md:block">
               <div className="relative h-[185px] w-[190px]">
+
                 <div className="absolute left-0 top-7 h-[140px] w-[95px] rotate-[-5deg] rounded-lg bg-card p-3 shadow-2xl ring-1 ring-border">
                   <div className="h-2 w-8 rounded bg-blue-500" />
 
@@ -696,15 +743,19 @@ function App() {
                     Generate Invoice
                   </div>
                 </div>
+
               </div>
             </div>
           </div>
 
           {/* CUSTOMER */}
+
           <div className="relative min-h-[300px] overflow-hidden rounded-xl border border-violet-500/20 bg-violet-500/[0.025] p-4 dark:bg-violet-950/15">
+
             <div className="absolute bottom-[-100px] right-[-70px] size-64 rounded-full bg-violet-500/10 blur-[70px]" />
 
             <div className="relative z-10">
+
               <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-violet-500">
                 For customers
               </p>
@@ -720,13 +771,13 @@ function App() {
                 paper bills, keep your purchase information
                 and warranties organized in BillNest.
               </p>
+
               <div className="mt-4 space-y-2">
                 {[
                   "Access digital invoices",
                   "View warranty details",
                   "Get expiry reminders",
                   "All your purchases in one place",
-                  
                 ].map((item) => (
                   <div
                     key={item}
@@ -749,12 +800,16 @@ function App() {
                 className="mt-4 inline-flex items-center gap-2 rounded-lg bg-violet-500/10 px-3.5 py-2 text-[10px] font-semibold text-violet-500 transition hover:bg-violet-500/15"
               >
                 Learn more
+
                 <ArrowRight className="size-3" />
               </button>
             </div>
 
+            {/* Purchases illustration */}
+
             <div className="absolute bottom-3 right-2 hidden md:block">
               <div className="w-[165px] rotate-[-5deg] rounded-xl border border-violet-500/20 bg-card p-3 shadow-2xl">
+
                 <div className="flex items-center gap-2 text-[8px] font-semibold">
                   <UserRound className="size-3 text-violet-500" />
                   My Purchases
@@ -790,12 +845,18 @@ function App() {
                 ))}
               </div>
             </div>
+
           </div>
         </section>
 
-        {/* WHY BILLNEST */}
+        {/* =======================================================
+            WHY BILLNEST
+        ======================================================= */}
+
         <section id="about" className="py-7">
+
           <div className="flex items-end justify-between">
+
             <div>
               <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-blue-500">
                 Why BillNest
@@ -815,9 +876,11 @@ function App() {
               <div>Small bills.</div>
               <div>Big peace of mind.</div>
             </div>
+
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+
             {[
               {
                 icon: Zap,
@@ -861,15 +924,22 @@ function App() {
                 </div>
               );
             })}
+
           </div>
         </section>
 
-        {/* CTA */}
+        {/* =======================================================
+            CTA
+        ======================================================= */}
+
         <section className="relative overflow-hidden rounded-xl border border-blue-500/40 bg-blue-500/[0.06] px-4 py-4 dark:bg-blue-950/30">
+
           <div className="absolute right-[-60px] top-[-80px] h-[200px] w-[500px] rotate-[-15deg] border-t border-blue-500/20 bg-blue-500/[0.04]" />
 
           <div className="relative flex items-center justify-between gap-4">
+
             <div className="flex items-center gap-4">
+
               <div className="hidden size-12 items-center justify-center rounded-xl bg-blue-500 text-white shadow-lg shadow-blue-500/20 sm:flex">
                 <FileText className="size-6" />
               </div>
@@ -888,25 +958,43 @@ function App() {
                   to stay organized.
                 </p>
               </div>
+
             </div>
+
+            {/* ==================================================
+                IMPORTANT:
+                THIS BUTTON NOW SCROLLS TO THE TOP.
+                IT DOES NOT NAVIGATE TO /get-started.
+            ================================================== */}
 
             <button
               type="button"
-              onClick={() => navigate("/get-started")}
+              onClick={() => scrollTo("top")}
               className="hidden shrink-0 items-center gap-2 rounded-lg bg-blue-500 px-5 py-3 text-[10px] font-bold text-white shadow-lg shadow-blue-500/20 hover:bg-blue-600 sm:inline-flex"
             >
               Get started now
+
               <ArrowRight className="size-3.5" />
             </button>
+
           </div>
         </section>
 
-        {/* FOOTER */}
+        {/* =======================================================
+            FOOTER
+        ======================================================= */}
+
         <footer id="contact" className="mt-4">
+
           <div className="border-t border-border py-4">
+
             <div className="grid gap-6 sm:grid-cols-[1.3fr_1fr_1fr]">
+
+              {/* BRAND */}
+
               <div>
                 <div className="flex items-center gap-3">
+
                   <div className="flex size-9 items-center justify-center rounded-lg bg-blue-500 text-sm font-bold text-slate-950">
                     B
                   </div>
@@ -920,10 +1008,14 @@ function App() {
                       Every bill. One organized home.
                     </p>
                   </div>
+
                 </div>
               </div>
 
+              {/* FOOTER NAV */}
+
               <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-[9px] text-muted-foreground">
+
                 <button
                   type="button"
                   onClick={() => scrollTo("features")}
@@ -955,9 +1047,13 @@ function App() {
                 >
                   Contact
                 </button>
+
               </div>
 
+              {/* DEVELOPER */}
+
               <div className="border-l border-border pl-5">
+
                 <p className="text-[8px] text-muted-foreground">
                   Developed by
                 </p>
@@ -971,13 +1067,19 @@ function App() {
                   className="mt-1 flex items-center gap-1.5 text-[8px] text-muted-foreground hover:text-foreground"
                 >
                   <Mail className="size-3" />
+
                   itsmeetsharma@gmail.com
                 </a>
+
               </div>
+
             </div>
           </div>
 
+          {/* COPYRIGHT */}
+
           <div className="flex flex-col gap-2 border-t border-border py-3 text-[8px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+
             <span>
               © 2026 BillNest. All rights reserved.
             </span>
@@ -985,7 +1087,9 @@ function App() {
             <span>
               Built with ❤️ by Meet Sharma
             </span>
+
           </div>
+
         </footer>
       </div>
     </main>
