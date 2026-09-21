@@ -6,6 +6,11 @@ import {
 import { InvoiceModel } from "../models/invoice.model";
 import { InvoiceItemModel } from "../models/invoice-item.model";
 import { ProductModel } from "../models/product.model";
+import { ShopModel } from "../models/shop.model";
+import {
+  InventoryMovementModel,
+} from "../models/inventory-movement.model";
+
 import { ApiError } from "../utils/api-error";
 
 export async function findInvoiceByIdForShop(
@@ -54,7 +59,8 @@ export async function findInvoicesByShopId(
   }
 
   if (options?.status) {
-    filter.status = options.status;
+    filter.status =
+      options.status;
   }
 
   return InvoiceModel.find(filter)
@@ -104,18 +110,9 @@ export async function createInvoice(
 }
 
 /**
- * Resolve a catalog product for an invoice item.
- *
- * The current frontend sends the selected
- * product's name and selling price, but does
- * not yet send productId.
- *
- * We therefore use an exact match on:
- *
- *   shopId
- *   product name
- *   selling price
- *   active status
+ * ============================================================
+ * RESOLVE CATALOG PRODUCT
+ * ============================================================
  */
 async function findCatalogProductForInvoiceItem(
   shopId: Types.ObjectId,
@@ -129,8 +126,10 @@ async function findCatalogProductForInvoiceItem(
     await ProductModel.find(
       {
         shopId,
-        name: item.productName.trim(),
-        sellingPrice: item.unitPrice,
+        name:
+          item.productName.trim(),
+        sellingPrice:
+          item.unitPrice,
         isActive: true,
       },
       {
@@ -161,16 +160,121 @@ async function findCatalogProductForInvoiceItem(
 }
 
 /**
- * Decrease catalog inventory for one invoice item.
+ * ============================================================
+ * CREATE INVENTORY MOVEMENT
+ * ============================================================
  *
- * The update is atomic and only succeeds when
- * enough stock exists.
+ * This repository-level helper is used only from inside
+ * trusted invoice transactions.
+ */
+async function createInvoiceInventoryMovement(
+  shopId: Types.ObjectId,
+  productId: Types.ObjectId,
+  movementType:
+    | "sale"
+    | "sale_reversal",
+  quantity: number,
+  previousStock: number,
+  newStock: number,
+  referenceType:
+    | "invoice"
+    | "invoice_cancellation",
+  referenceId: string,
+  reason: string,
+  session: ClientSession,
+) {
+  const shop =
+    await ShopModel.findOne(
+      {
+        _id: shopId,
+      },
+      {
+        ownerId: 1,
+      },
+      {
+        session,
+      },
+    );
+
+  if (!shop) {
+    throw new ApiError(
+      404,
+      "Shop not found while recording inventory movement.",
+      "SHOP_NOT_FOUND",
+    );
+  }
+
+  const product =
+    await ProductModel.findOne(
+      {
+        _id: productId,
+        shopId,
+      },
+      {
+        name: 1,
+        sku: 1,
+      },
+      {
+        session,
+      },
+    );
+
+  if (!product) {
+    throw new ApiError(
+      404,
+      "Product not found while recording inventory movement.",
+      "PRODUCT_NOT_FOUND",
+    );
+  }
+
+  const movement =
+    new InventoryMovementModel({
+      shopId,
+
+      productId,
+
+      productName:
+        product.name,
+
+      ...(product.sku && {
+        sku:
+          product.sku,
+      }),
+
+      movementType,
+
+      quantity,
+
+      previousStock,
+
+      newStock,
+
+      referenceType,
+
+      referenceId,
+
+      reason,
+
+      createdBy:
+        shop.ownerId,
+    });
+
+  return movement.save({
+    session,
+  });
+}
+
+/**
+ * ============================================================
+ * DECREASE CATALOG PRODUCT STOCK
+ * ============================================================
  */
 async function decrementCatalogProductStock(
   shopId: Types.ObjectId,
   productId: Types.ObjectId,
   productName: string,
   quantity: number,
+  invoiceId: string,
   session: ClientSession,
 ) {
   if (
@@ -184,29 +288,31 @@ async function decrementCatalogProductStock(
     );
   }
 
-  const updatedProduct =
-    await ProductModel.findOneAndUpdate(
+  /**
+   * We need the stock BEFORE the update so the
+   * movement ledger can accurately record:
+   *
+   * previousStock
+   * newStock
+   */
+  const productBefore =
+    await ProductModel.findOne(
       {
         _id: productId,
         shopId,
         isActive: true,
-        stockQuantity: {
-          $gte: quantity,
-        },
       },
       {
-        $inc: {
-          stockQuantity:
-            -quantity,
-        },
+        stockQuantity: 1,
+        name: 1,
+        isActive: 1,
       },
       {
         session,
-        returnDocument: "after",
       },
     );
 
-  if (!updatedProduct) {
+  if (!productBefore) {
     const product =
       await ProductModel.findOne(
         {
@@ -246,23 +352,95 @@ async function decrementCatalogProductStock(
     );
   }
 
+  if (
+    productBefore.stockQuantity <
+    quantity
+  ) {
+    throw new ApiError(
+      400,
+      `Insufficient stock for "${productName}". Available: ${productBefore.stockQuantity}, requested: ${quantity}.`,
+      "INSUFFICIENT_STOCK",
+    );
+  }
+
+  const previousStock =
+    productBefore.stockQuantity;
+
+  const newStock =
+    previousStock - quantity;
+
+  /**
+   * Atomic stock update.
+   *
+   * The stock condition is repeated here so
+   * concurrent invoice creation cannot make
+   * inventory negative.
+   */
+  const updatedProduct =
+    await ProductModel.findOneAndUpdate(
+      {
+        _id: productId,
+        shopId,
+        isActive: true,
+        stockQuantity: {
+          $gte: quantity,
+        },
+      },
+      {
+        $inc: {
+          stockQuantity:
+            -quantity,
+        },
+      },
+      {
+        session,
+        returnDocument:
+          "after",
+      },
+    );
+
+  if (!updatedProduct) {
+    throw new ApiError(
+      400,
+      `Insufficient stock for "${productName}".`,
+      "INSUFFICIENT_STOCK",
+    );
+  }
+
+  /**
+   * ==========================================================
+   * AUTOMATIC SALE MOVEMENT
+   * ==========================================================
+   */
+  await createInvoiceInventoryMovement(
+    shopId,
+    productId,
+    "sale",
+    quantity,
+    previousStock,
+    newStock,
+    "invoice",
+    invoiceId,
+    "Stock sold through invoice.",
+    session,
+  );
+
   return updatedProduct;
 }
 
 /**
- * Restore catalog inventory for an invoice item.
+ * ============================================================
+ * RESTORE CATALOG PRODUCT STOCK
+ * ============================================================
  *
- * This is used when an invoice is cancelled.
- *
- * The update is intentionally atomic and is
- * performed inside the same transaction as
- * the invoice cancellation.
+ * Used when an invoice is cancelled.
  */
 export async function restoreCatalogProductStock(
   shopId: Types.ObjectId,
   productId: Types.ObjectId,
   productName: string,
   quantity: number,
+  invoiceId: string,
   session: ClientSession,
 ) {
   if (
@@ -276,6 +454,36 @@ export async function restoreCatalogProductStock(
     );
   }
 
+  const productBefore =
+    await ProductModel.findOne(
+      {
+        _id: productId,
+        shopId,
+      },
+      {
+        stockQuantity: 1,
+        name: 1,
+        isActive: 1,
+      },
+      {
+        session,
+      },
+    );
+
+  if (!productBefore) {
+    throw new ApiError(
+      404,
+      `Product "${productName}" could not be found while restoring stock.`,
+      "PRODUCT_NOT_FOUND",
+    );
+  }
+
+  const previousStock =
+    productBefore.stockQuantity;
+
+  const newStock =
+    previousStock + quantity;
+
   const updatedProduct =
     await ProductModel.findOneAndUpdate(
       {
@@ -284,12 +492,14 @@ export async function restoreCatalogProductStock(
       },
       {
         $inc: {
-          stockQuantity: quantity,
+          stockQuantity:
+            quantity,
         },
       },
       {
         session,
-        returnDocument: "after",
+        returnDocument:
+          "after",
       },
     );
 
@@ -301,9 +511,32 @@ export async function restoreCatalogProductStock(
     );
   }
 
+  /**
+   * ==========================================================
+   * AUTOMATIC SALE REVERSAL
+   * ==========================================================
+   */
+  await createInvoiceInventoryMovement(
+    shopId,
+    productId,
+    "sale_reversal",
+    quantity,
+    previousStock,
+    newStock,
+    "invoice_cancellation",
+    invoiceId,
+    "Stock restored because invoice was cancelled.",
+    session,
+  );
+
   return updatedProduct;
 }
 
+/**
+ * ============================================================
+ * CREATE INVOICE ITEMS
+ * ============================================================
+ */
 export async function createInvoiceItems(
   items: Array<{
     invoiceId: string;
@@ -357,13 +590,16 @@ export async function createInvoiceItems(
 
   const invoiceItems = [];
 
-  for (const item of items) {
+  for (
+    const item of items
+  ) {
     const catalogProduct =
       await findCatalogProductForInvoiceItem(
         shopId,
         {
           productName:
             item.productName,
+
           unitPrice:
             item.unitPrice,
         },
@@ -393,6 +629,7 @@ export async function createInvoiceItems(
         catalogProduct._id,
         catalogProduct.name,
         item.quantity,
+        item.invoiceId,
         session,
       );
     }

@@ -362,8 +362,8 @@ async function notifyInvoicePaid(
     customerId: mongoose.Types.ObjectId;
     amountPaid: number;
     paymentMethod?:
-      | PaymentMethod
-      | null;
+    | PaymentMethod
+    | null;
   },
   customerName?: string,
 ): Promise<void> {
@@ -1022,7 +1022,7 @@ export async function updateInvoiceForOwner(
       if (
         invoice.amountPaid <= 0 ||
         invoice.amountPaid >=
-          invoice.total
+        invoice.total
       ) {
         throw new ApiError(
           400,
@@ -1039,7 +1039,7 @@ export async function updateInvoiceForOwner(
       amountDue =
         roundMoney(
           invoice.total -
-            amountPaid,
+          amountPaid,
         );
     }
 
@@ -1325,6 +1325,7 @@ export async function cancelInvoiceForOwner(
               item.productId,
               item.productName,
               item.quantity,
+              invoiceId,
               session,
             );
           }
