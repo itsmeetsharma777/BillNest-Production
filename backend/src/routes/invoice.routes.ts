@@ -9,17 +9,34 @@ import {
   cancelInvoice,
 } from "../controllers/invoice.controller";
 
-import { downloadInvoicePdf } from "../controllers/invoice-pdf.controller";
+import {
+  recordInvoicePayment,
+  getInvoicePayments,
+} from "../controllers/invoice-payment.controller";
 
-import { requireAuth } from "../middleware/auth.middleware";
-import { requireRole } from "../middleware/role.middleware";
+import {
+  downloadInvoicePdf,
+} from "../controllers/invoice-pdf.controller";
 
-import { asyncHandler } from "../utils/async-handler";
+import {
+  requireAuth,
+} from "../middleware/auth.middleware";
+
+import {
+  requireRole,
+} from "../middleware/role.middleware";
+
+import {
+  asyncHandler,
+} from "../utils/async-handler";
 
 const router = Router();
 
 router.use(requireAuth);
-router.use(requireRole("shopkeeper"));
+
+router.use(
+  requireRole("shopkeeper"),
+);
 
 router.post(
   "/",
@@ -41,15 +58,55 @@ router.get(
   asyncHandler(downloadInvoicePdf),
 );
 
+/*
+ * ============================================================
+ * PAYMENT HISTORY
+ * ============================================================
+ */
+
+router.get(
+  "/:invoiceId/payments",
+  asyncHandler(getInvoicePayments),
+);
+
+/*
+ * ============================================================
+ * RECEIVE PAYMENT
+ * ============================================================
+ */
+
+router.post(
+  "/:invoiceId/payments",
+  asyncHandler(recordInvoicePayment),
+);
+
+/*
+ * ============================================================
+ * GENERAL INVOICE UPDATE
+ * ============================================================
+ */
+
 router.patch(
   "/:invoiceId",
   asyncHandler(updateInvoice),
 );
 
+/*
+ * ============================================================
+ * MARK COMPLETELY PAID
+ * ============================================================
+ */
+
 router.post(
   "/:invoiceId/pay",
   asyncHandler(markInvoiceAsPaid),
 );
+
+/*
+ * ============================================================
+ * CANCEL
+ * ============================================================
+ */
 
 router.post(
   "/:invoiceId/cancel",

@@ -329,7 +329,7 @@ export default function CreateInvoicePage() {
       if (!response.ok) {
         throw new Error(
           result.message ??
-            "Unable to load customers.",
+          "Unable to load customers.",
         );
       }
 
@@ -429,7 +429,7 @@ export default function CreateInvoicePage() {
         if (!response.ok) {
           throw new Error(
             result.message ??
-              "Unable to load customer details.",
+            "Unable to load customer details.",
           );
         }
 
@@ -555,7 +555,7 @@ export default function CreateInvoicePage() {
       if (
         !data ||
         data.Status?.toLowerCase() !==
-          "success" ||
+        "success" ||
         !data.PostOffice ||
         data.PostOffice.length === 0
       ) {
@@ -654,7 +654,7 @@ export default function CreateInvoicePage() {
             Math.max(
               0,
               Number(item.quantity) ||
-                0,
+              0,
             );
 
           const unitPrice =
@@ -665,7 +665,7 @@ export default function CreateInvoicePage() {
           return (
             sum +
             quantity *
-              unitPrice
+            unitPrice
           );
         },
         0,
@@ -683,7 +683,7 @@ export default function CreateInvoicePage() {
     Math.max(
       0,
       subtotal -
-        safeDiscount,
+      safeDiscount,
     );
 
   const safeTax =
@@ -692,7 +692,7 @@ export default function CreateInvoicePage() {
   const total =
     roundMoney(
       taxableAmount +
-        safeTax,
+      safeTax,
     );
 
   const enteredAmountPaid =
@@ -711,7 +711,7 @@ export default function CreateInvoicePage() {
       Math.max(
         0,
         total -
-          safeAmountPaid,
+        safeAmountPaid,
       ),
     );
 
@@ -963,7 +963,7 @@ export default function CreateInvoicePage() {
       if (!response.ok) {
         throw new Error(
           result.message ??
-            "Unable to save customer address.",
+          "Unable to save customer address.",
         );
       }
 
@@ -980,7 +980,7 @@ export default function CreateInvoicePage() {
             currentCustomers.map(
               (customer) =>
                 customer.id ===
-                updatedCustomer.id
+                  updatedCustomer.id
                   ? updatedCustomer
                   : customer,
             ),
@@ -1130,9 +1130,9 @@ export default function CreateInvoicePage() {
     ) {
       if (
         parsedAmountPaid <=
-          0 ||
+        0 ||
         parsedAmountPaid >=
-          total
+        total
       ) {
         setError(
           "A partially paid invoice must have a payment greater than zero and less than the total.",
@@ -1180,24 +1180,24 @@ export default function CreateInvoicePage() {
       const itemDiscount =
         items.length > 0
           ? parsedDiscount /
-            items.length
+          items.length
           : 0;
 
       const itemTaxableAmount =
         items.length > 0
           ? Math.max(
-              0,
-              subtotal -
-                parsedDiscount,
-            ) /
-            items.length
+            0,
+            subtotal -
+            parsedDiscount,
+          ) /
+          items.length
           : 0;
 
       const itemTaxRate =
         itemTaxableAmount > 0
           ? (parsedTax /
-              itemTaxableAmount) *
-            100
+            itemTaxableAmount) *
+          100
           : 0;
 
       const response =
@@ -1238,10 +1238,10 @@ export default function CreateInvoicePage() {
                       itemTaxRate,
                     )
                       ? Number(
-                          itemTaxRate.toFixed(
-                            4,
-                          ),
-                        )
+                        itemTaxRate.toFixed(
+                          4,
+                        ),
+                      )
                       : 0,
                 }),
               ),
@@ -1254,6 +1254,11 @@ export default function CreateInvoicePage() {
               status:
                 toBackendStatus(
                   finalStatus,
+                ),
+
+              amountPaid:
+                roundMoney(
+                  parsedAmountPaid,
                 ),
 
               notes:
@@ -1269,7 +1274,7 @@ export default function CreateInvoicePage() {
       if (!response.ok) {
         throw new Error(
           result.message ??
-            "Unable to create invoice.",
+          "Unable to create invoice.",
         );
       }
 
@@ -1427,7 +1432,7 @@ export default function CreateInvoicePage() {
 
                   <div className="max-h-64 overflow-y-auto p-1">
                     {filteredCustomers.length ===
-                    0 ? (
+                      0 ? (
                       <div className="px-3 py-6 text-center text-sm text-muted-foreground">
                         No customers found.
                       </div>
@@ -1616,13 +1621,12 @@ export default function CreateInvoicePage() {
                     {!isPincodeLoading &&
                       pincodeMessage && (
                         <p
-                          className={`mt-1.5 text-xs ${
-                            pincodeMessage.startsWith(
-                              "City found:",
-                            )
+                          className={`mt-1.5 text-xs ${pincodeMessage.startsWith(
+                            "City found:",
+                          )
                               ? "text-green-600 dark:text-green-400"
                               : "text-muted-foreground"
-                          }`}
+                            }`}
                         >
                           {
                             pincodeMessage
@@ -1884,11 +1888,11 @@ export default function CreateInvoicePage() {
                             Number(
                               item.quantity,
                             ) ||
-                              0,
+                            0,
                           ) *
-                            parseAmount(
-                              item.unitPrice,
-                            ),
+                          parseAmount(
+                            item.unitPrice,
+                          ),
                         )}
                       </p>
                     </div>
@@ -2216,7 +2220,7 @@ export default function CreateInvoicePage() {
                 className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ||
-                isSavingCustomerAddress ? (
+                  isSavingCustomerAddress ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
                     {isSavingCustomerAddress
