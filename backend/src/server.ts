@@ -24,6 +24,7 @@ import dashboardRoutes from "./routes/dashboard.routes";
 import documentRoutes from "./routes/document.routes";
 
 import { errorMiddleware } from "./middleware/error.middleware";
+import { csrfProtection } from "./middleware/csrf.middleware";
 
 import {
   runWarrantyNotificationCheck,
@@ -31,8 +32,15 @@ import {
 
 const app = express();
 
+/**
+ * BillNest is deployed behind platforms/proxies
+ * such as Vercel/Render/etc.
+ */
 app.set("trust proxy", 1);
 
+/**
+ * Security headers.
+ */
 app.use(
   helmet({
     crossOriginResourcePolicy: {
@@ -41,6 +49,12 @@ app.use(
   }),
 );
 
+/**
+ * CORS
+ *
+ * Only the configured frontend origin is
+ * allowed to make credentialed browser requests.
+ */
 app.use(
   cors({
     origin: env.FRONTEND_URL,
@@ -48,6 +62,9 @@ app.use(
   }),
 );
 
+/**
+ * Request body limits.
+ */
 app.use(
   express.json({
     limit: "1mb",
@@ -61,8 +78,25 @@ app.use(
   }),
 );
 
+/**
+ * Cookie parsing.
+ */
 app.use(cookieParser());
 
+/**
+ * CSRF protection.
+ *
+ * Must run after cookie/body parsing and before
+ * application routes.
+ */
+app.use(csrfProtection);
+
+/**
+ * General API rate limiter.
+ *
+ * Authentication routes have additional,
+ * stricter rate limits inside their own routes.
+ */
 const generalRateLimiter =
   rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -73,6 +107,12 @@ const generalRateLimiter =
 
 app.use(generalRateLimiter);
 
+/**
+ * Health check.
+ *
+ * Kept outside authentication so hosting
+ * platforms can verify the backend is alive.
+ */
 app.get("/health", (_req, res) => {
   res.status(200).json({
     success: true,
@@ -80,6 +120,9 @@ app.get("/health", (_req, res) => {
   });
 });
 
+/**
+ * Authentication.
+ */
 app.use(
   "/api/auth",
   authRoutes,
@@ -90,6 +133,9 @@ app.use(
   passwordResetRoutes,
 );
 
+/**
+ * Shopkeeper APIs.
+ */
 app.use(
   "/api/shops",
   shopRoutes,
@@ -98,21 +144,6 @@ app.use(
 app.use(
   "/api/customers",
   customerRoutes,
-);
-
-app.use(
-  "/api/customer",
-  customerPortalRoutes,
-);
-
-app.use(
-  "/api/customer/account",
-  customerAccountRoutes,
-);
-
-app.use(
-  "/api/customer/notifications",
-  customerNotificationRoutes,
 );
 
 app.use(
@@ -131,11 +162,6 @@ app.use(
 );
 
 app.use(
-  "/api/notifications",
-  notificationRoutes,
-);
-
-app.use(
   "/api/dashboard",
   dashboardRoutes,
 );
@@ -145,8 +171,42 @@ app.use(
   documentRoutes,
 );
 
+app.use(
+  "/api/notifications",
+  notificationRoutes,
+);
+
+/**
+ * Customer APIs.
+ */
+app.use(
+  "/api/customer",
+  customerPortalRoutes,
+);
+
+app.use(
+  "/api/customer/account",
+  customerAccountRoutes,
+);
+
+app.use(
+  "/api/customer/notifications",
+  customerNotificationRoutes,
+);
+
+/**
+ * Global error handler.
+ *
+ * This must remain after all routes.
+ */
 app.use(errorMiddleware);
 
+/**
+ * Warranty notification scheduler.
+ *
+ * Runs once when the server starts and then
+ * once every hour.
+ */
 const WARRANTY_NOTIFICATION_INTERVAL_MS =
   60 * 60 * 1000;
 
@@ -159,10 +219,21 @@ function startWarrantyNotificationScheduler() {
       console.log(
         "[Warranty Notifications]",
         {
+          statusUpdated:
+            result.statusUpdated,
+
           expiringCreated:
             result.expiringCreated,
+
+          customerExpiringCreated:
+            result.customerExpiringCreated,
+
           expiredCreated:
             result.expiredCreated,
+
+          customerExpiredCreated:
+            result.customerExpiredCreated,
+
           checkedAt:
             result.checkedAt.toISOString(),
         },
@@ -175,13 +246,23 @@ function startWarrantyNotificationScheduler() {
     }
   };
 
+  /**
+   * Run immediately when the server starts.
+   */
   void runCheck();
 
+  /**
+   * Continue checking every hour.
+   */
   return setInterval(() => {
     void runCheck();
   }, WARRANTY_NOTIFICATION_INTERVAL_MS);
 }
 
+/**
+ * Start the BillNest backend only after the
+ * database connection succeeds.
+ */
 async function startServer() {
   await connectDatabase();
 

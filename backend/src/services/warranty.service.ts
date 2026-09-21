@@ -180,6 +180,103 @@ function validateStartDate(
   }
 }
 
+/**
+ * Re-validates the immutable ownership
+ * relationships of an existing warranty.
+ *
+ * A warranty is permanently associated with:
+ *
+ *   shop
+ *      ↓
+ *   customer
+ *      ↓
+ *   invoice
+ *      ↓
+ *   invoice item
+ *
+ * Updates must never allow these relationships
+ * to become inconsistent.
+ */
+async function validateExistingWarrantyReferences(
+  shopId: string,
+  warranty: {
+    customerId: {
+      toString(): string;
+    };
+    invoiceId: {
+      toString(): string;
+    };
+    invoiceItemId: {
+      toString(): string;
+    };
+  },
+) {
+  const customer =
+    await findCustomerByIdForShop(
+      warranty.customerId.toString(),
+      shopId,
+    );
+
+  if (!customer) {
+    throw new ApiError(
+      404,
+      "Warranty customer was not found in this shop.",
+      "WARRANTY_CUSTOMER_NOT_FOUND",
+    );
+  }
+
+  const invoice =
+    await findInvoiceByIdForShop(
+      warranty.invoiceId.toString(),
+      shopId,
+    );
+
+  if (!invoice) {
+    throw new ApiError(
+      404,
+      "Warranty invoice was not found in this shop.",
+      "WARRANTY_INVOICE_NOT_FOUND",
+    );
+  }
+
+  if (
+    invoice.customerId.toString() !==
+    customer._id.toString()
+  ) {
+    throw new ApiError(
+      409,
+      "Warranty customer does not match the invoice customer.",
+      "WARRANTY_CUSTOMER_INVOICE_MISMATCH",
+    );
+  }
+
+  const invoiceItems =
+    await findInvoiceItems(
+      invoice._id.toString(),
+    );
+
+  const invoiceItem =
+    invoiceItems.find(
+      (item) =>
+        item._id.toString() ===
+        warranty.invoiceItemId.toString(),
+    );
+
+  if (!invoiceItem) {
+    throw new ApiError(
+      404,
+      "Warranty invoice item was not found.",
+      "WARRANTY_INVOICE_ITEM_NOT_FOUND",
+    );
+  }
+
+  return {
+    customer,
+    invoice,
+    invoiceItem,
+  };
+}
+
 export async function createWarrantyForOwner(
   ownerId: string,
   input: CreateWarrantyInput,
@@ -269,12 +366,8 @@ export async function createWarrantyForOwner(
   }
 
   /*
-   * Use the actual product name from the
-   * invoice item when possible.
-   *
-   * This prevents a warranty from being
-   * accidentally attached to a different
-   * product name than the purchased item.
+   * Warranty product must always match
+   * the purchased invoice item.
    */
   if (
     productName !==
@@ -388,10 +481,6 @@ export async function getWarrantiesForOwner(
   const skip =
     (page - 1) * limit;
 
-  /*
-   * Fetch one extra record to determine
-   * whether another page exists.
-   */
   const warranties =
     await findWarrantiesByShopId(
       shop._id.toString(),
@@ -475,6 +564,53 @@ export async function updateWarrantyForOwner(
     );
   }
 
+  /*
+   * SECURITY / DATA-INTEGRITY CHECK
+   *
+   * Re-resolve the warranty's customer,
+   * invoice and invoice item from the
+   * authenticated shop.
+   *
+   * This guarantees that an update cannot
+   * leave the warranty attached to an
+   * inconsistent purchase record.
+   */
+  const {
+    invoiceItem,
+  } =
+    await validateExistingWarrantyReferences(
+      shop._id.toString(),
+      existingWarranty,
+    );
+
+  /*
+   * The invoice item's product name is
+   * authoritative.
+   */
+  const invoiceProductName =
+    invoiceItem.productName.trim();
+
+  if (
+    input.productName !== undefined
+  ) {
+    const requestedProductName =
+      validateText(
+        input.productName,
+        "Product name",
+      );
+
+    if (
+      requestedProductName !==
+      invoiceProductName
+    ) {
+      throw new ApiError(
+        400,
+        "Warranty product name must match the invoice item.",
+        "PRODUCT_NAME_MISMATCH",
+      );
+    }
+  }
+
   if (
     input.warrantyPeriodMonths !==
     undefined
@@ -489,15 +625,6 @@ export async function updateWarrantyForOwner(
   ) {
     validateStartDate(
       input.startDate,
-    );
-  }
-
-  if (
-    input.productName !== undefined
-  ) {
-    validateText(
-      input.productName,
-      "Product name",
     );
   }
 
@@ -522,16 +649,22 @@ export async function updateWarrantyForOwner(
           expiryDate,
         );
 
+  /*
+   * Always persist the authoritative
+   * invoice-item product name rather than
+   * trusting client input.
+   *
+   * This also repairs any old inconsistent
+   * productName value when the warranty is
+   * edited.
+   */
   const updatedWarranty =
     await updateWarrantyByIdForShop(
       warrantyId,
       shop._id.toString(),
       {
-        ...(input.productName !==
-          undefined && {
-          productName:
-            input.productName.trim(),
-        }),
+        productName:
+          invoiceProductName,
 
         ...(input.serialNumber !==
           undefined && {
