@@ -1,4 +1,5 @@
 import { useState } from "react";
+
 import {
   Bell,
   Boxes,
@@ -14,11 +15,11 @@ import {
   PieChart,
   Settings,
   ShieldCheck,
-  ShoppingCart,
   Sun,
   Users,
   X,
 } from "lucide-react";
+
 import {
   NavLink,
   Outlet,
@@ -26,6 +27,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 
+import BillNestLogo from "@/components/branding/BillNestLogo";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/theme-context";
 
@@ -86,78 +88,116 @@ const secondaryNavigationItems: NavigationItem[] = [
   },
 ];
 
-function getInitials(name: string) {
+function getInitials(
+  name: string,
+) {
   return name
     .trim()
     .split(/\s+/)
     .slice(0, 2)
     .map(
       (part) =>
-        part[0]?.toUpperCase() ?? "",
+        part[0]?.toUpperCase() ??
+        "",
     )
     .join("");
 }
 
 export function ShopkeeperLayout() {
-  const { user, logout } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const {
+    user,
+    logout,
+  } = useAuth();
 
-  const location = useLocation();
-  const navigate = useNavigate();
+  const {
+    theme,
+    setTheme,
+  } = useTheme();
 
-  const [mobileOpen, setMobileOpen] =
-    useState(false);
+  const location =
+    useLocation();
+
+  const navigate =
+    useNavigate();
+
+  const [
+    mobileOpen,
+    setMobileOpen,
+  ] = useState(false);
 
   const [
     sidebarCollapsed,
     setSidebarCollapsed,
   ] = useState(false);
 
-  const [profileOpen, setProfileOpen] =
-    useState(false);
+  const [
+    profileOpen,
+    setProfileOpen,
+  ] = useState(false);
 
   const firstName =
     user?.name?.split(" ")[0] ??
     "Shopkeeper";
 
-  const initials = getInitials(
-    user?.name ?? "Shopkeeper",
-  );
+  const initials =
+    getInitials(
+      user?.name ??
+        "Shopkeeper",
+    );
 
   const isActiveRoute = (
     href: string,
   ) => {
-    if (href === "/shopkeeper") {
-      return location.pathname === href;
+    if (
+      href ===
+      "/shopkeeper"
+    ) {
+      return (
+        location.pathname ===
+        href
+      );
     }
 
     return (
-      location.pathname === href ||
+      location.pathname ===
+        href ||
       location.pathname.startsWith(
         `${href}/`,
       )
     );
   };
 
-  const handleLogout = async () => {
-    setProfileOpen(false);
-    setMobileOpen(false);
+  const handleLogout =
+    async () => {
+      setProfileOpen(false);
+      setMobileOpen(false);
 
-    await logout();
+      await logout();
 
-    navigate("/register", {
-      replace: true,
-    });
-  };
+      navigate(
+        "/register",
+        {
+          replace: true,
+        },
+      );
+    };
 
   const cycleTheme = () => {
-    if (theme === "light") {
+    if (
+      theme ===
+      "light"
+    ) {
       setTheme("dark");
+
       return;
     }
 
-    if (theme === "dark") {
+    if (
+      theme ===
+      "dark"
+    ) {
       setTheme("system");
+
       return;
     }
 
@@ -166,19 +206,24 @@ export function ShopkeeperLayout() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+
       {/* Mobile overlay */}
+
       {mobileOpen && (
         <button
           type="button"
           aria-label="Close navigation"
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
           onClick={() =>
-            setMobileOpen(false)
+            setMobileOpen(
+              false,
+            )
           }
         />
       )}
 
       {/* Sidebar */}
+
       <aside
         className={[
           "fixed inset-y-0 left-0 z-50 flex flex-col border-r",
@@ -193,15 +238,24 @@ export function ShopkeeperLayout() {
           "w-72",
         ].join(" ")}
       >
+
         {/* Logo */}
+
         <div className="flex h-16 shrink-0 items-center border-b px-4">
+
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-              <ShoppingCart className="size-5" />
+
+            <div className="flex size-10 shrink-0 items-center justify-center">
+              <BillNestLogo
+                variant="icon"
+                size={40}
+                className="h-10 w-10"
+              />
             </div>
 
             {!sidebarCollapsed && (
               <div className="min-w-0">
+
                 <p className="truncate text-base font-bold tracking-tight">
                   BillNest
                 </p>
@@ -209,24 +263,31 @@ export function ShopkeeperLayout() {
                 <p className="truncate text-[11px] text-muted-foreground">
                   Business management
                 </p>
+
               </div>
             )}
+
           </div>
 
           <button
             type="button"
             onClick={() =>
-              setMobileOpen(false)
+              setMobileOpen(
+                false,
+              )
             }
             className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
             aria-label="Close navigation"
           >
             <X className="size-5" />
           </button>
+
         </div>
 
         {/* Navigation */}
+
         <div className="flex-1 overflow-y-auto px-3 py-5">
+
           <p
             className={[
               "mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground",
@@ -239,9 +300,11 @@ export function ShopkeeperLayout() {
           </p>
 
           <nav className="space-y-1">
+
             {navigationItems.map(
               (item) => {
-                const Icon = item.icon;
+                const Icon =
+                  item.icon;
 
                 const active =
                   isActiveRoute(
@@ -289,6 +352,7 @@ export function ShopkeeperLayout() {
                 );
               },
             )}
+
           </nav>
 
           <div className="my-5 border-t" />
@@ -305,9 +369,11 @@ export function ShopkeeperLayout() {
           </p>
 
           <nav className="space-y-1">
+
             {secondaryNavigationItems.map(
               (item) => {
-                const Icon = item.icon;
+                const Icon =
+                  item.icon;
 
                 const active =
                   isActiveRoute(
@@ -355,11 +421,15 @@ export function ShopkeeperLayout() {
                 );
               },
             )}
+
           </nav>
+
         </div>
 
         {/* Sidebar footer */}
+
         <div className="border-t p-3">
+
           <div
             className={[
               "flex items-center rounded-xl bg-muted/50 p-2",
@@ -368,12 +438,14 @@ export function ShopkeeperLayout() {
                 : "gap-3",
             ].join(" ")}
           >
+
             <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
               {initials}
             </div>
 
             {!sidebarCollapsed && (
               <div className="min-w-0 flex-1">
+
                 <p className="truncate text-sm font-medium">
                   {user?.name ??
                     "Shopkeeper"}
@@ -382,15 +454,18 @@ export function ShopkeeperLayout() {
                 <p className="truncate text-xs text-muted-foreground">
                   {user?.email ?? ""}
                 </p>
+
               </div>
             )}
+
           </div>
 
           <button
             type="button"
             onClick={() =>
               setSidebarCollapsed(
-                (value) => !value,
+                (value) =>
+                  !value,
               )
             }
             className="mt-2 hidden w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:flex"
@@ -413,10 +488,13 @@ export function ShopkeeperLayout() {
               </>
             )}
           </button>
+
         </div>
+
       </aside>
 
       {/* Main area */}
+
       <div
         className={[
           "min-h-screen transition-[padding] duration-300",
@@ -425,12 +503,17 @@ export function ShopkeeperLayout() {
             : "lg:pl-64",
         ].join(" ")}
       >
+
         {/* Top bar */}
+
         <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+
           <button
             type="button"
             onClick={() =>
-              setMobileOpen(true)
+              setMobileOpen(
+                true,
+              )
             }
             className="mr-3 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
             aria-label="Open navigation"
@@ -439,16 +522,23 @@ export function ShopkeeperLayout() {
           </button>
 
           <div className="min-w-0 flex-1">
+
             <p className="truncate text-sm text-muted-foreground">
+
               Welcome back,{" "}
+
               <span className="font-medium text-foreground">
                 {firstName}
               </span>
+
             </p>
+
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2">
+
             {/* Theme */}
+
             <button
               type="button"
               onClick={cycleTheme}
@@ -456,7 +546,8 @@ export function ShopkeeperLayout() {
               aria-label={`Current theme: ${theme}. Change theme`}
               title={`Theme: ${theme}`}
             >
-              {theme === "dark" ? (
+              {theme ===
+              "dark" ? (
                 <Moon className="size-[18px]" />
               ) : (
                 <Sun className="size-[18px]" />
@@ -464,6 +555,7 @@ export function ShopkeeperLayout() {
             </button>
 
             {/* Notifications */}
+
             <NavLink
               to="/shopkeeper/notifications"
               className="relative rounded-xl p-2.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -473,18 +565,24 @@ export function ShopkeeperLayout() {
             </NavLink>
 
             {/* Profile */}
+
             <div className="relative ml-1">
+
               <button
                 type="button"
                 onClick={() =>
                   setProfileOpen(
-                    (value) => !value,
+                    (value) =>
+                      !value,
                   )
                 }
                 className="flex items-center gap-2 rounded-xl p-1.5 transition-colors hover:bg-muted"
-                aria-expanded={profileOpen}
+                aria-expanded={
+                  profileOpen
+                }
                 aria-haspopup="menu"
               >
+
                 <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                   {initials}
                 </div>
@@ -497,6 +595,7 @@ export function ShopkeeperLayout() {
                       : "",
                   ].join(" ")}
                 />
+
               </button>
 
               {profileOpen && (
@@ -516,7 +615,9 @@ export function ShopkeeperLayout() {
                     className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border bg-popover p-1.5 shadow-lg"
                     role="menu"
                   >
+
                     <div className="border-b px-3 py-3">
+
                       <p className="truncate text-sm font-semibold">
                         {user?.name ??
                           "Shopkeeper"}
@@ -525,6 +626,7 @@ export function ShopkeeperLayout() {
                       <p className="mt-0.5 truncate text-xs text-muted-foreground">
                         {user?.email ?? ""}
                       </p>
+
                     </div>
 
                     <NavLink
@@ -538,6 +640,7 @@ export function ShopkeeperLayout() {
                       role="menuitem"
                     >
                       <Settings className="size-4" />
+
                       Settings
                     </NavLink>
 
@@ -550,19 +653,26 @@ export function ShopkeeperLayout() {
                       role="menuitem"
                     >
                       <LogOut className="size-4" />
+
                       Sign out
                     </button>
+
                   </div>
                 </>
               )}
+
             </div>
+
           </div>
+
         </header>
 
         {/* Page content */}
+
         <main className="min-h-[calc(100vh-4rem)]">
           <Outlet />
         </main>
+
       </div>
     </div>
   );

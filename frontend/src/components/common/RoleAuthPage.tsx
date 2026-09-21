@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,16 +13,27 @@ import {
   Store,
   UserRound,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
 
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
+
+import BillNestLogo from "@/components/branding/BillNestLogo";
 import { ThemeSelector } from "@/components/common/theme-selector";
 import { useAuth } from "@/context/AuthContext";
 
 const API_URL =
-  import.meta.env.VITE_API_URL ?? "http://localhost:5001/api";
+  import.meta.env.VITE_API_URL ??
+  "http://localhost:5001/api";
 
-type UserRole = "shopkeeper" | "customer";
-type AuthMode = "login" | "register";
+type UserRole =
+  | "shopkeeper"
+  | "customer";
+
+type AuthMode =
+  | "login"
+  | "register";
 
 interface RoleAuthPageProps {
   role: UserRole;
@@ -78,12 +90,21 @@ export default function RoleAuthPage({
   mode,
 }: RoleAuthPageProps) {
   const navigate = useNavigate();
-  const { refreshUser } = useAuth();
 
-  const isLogin = mode === "login";
-  const config = roleConfig[role];
-  const RoleIcon = config.icon;
-  const isBlue = config.accent === "blue";
+  const { refreshUser } =
+    useAuth();
+
+  const isLogin =
+    mode === "login";
+
+  const config =
+    roleConfig[role];
+
+  const RoleIcon =
+    config.icon;
+
+  const isBlue =
+    config.accent === "blue";
 
   const loginPath =
     role === "shopkeeper"
@@ -100,20 +121,37 @@ export default function RoleAuthPage({
       ? "/shopkeeper"
       : "/customer";
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] =
+  const [name, setName] =
     useState("");
 
-  const [showPassword, setShowPassword] =
-    useState(false);
+  const [email, setEmail] =
+    useState("");
 
-  const [showConfirmPassword, setShowConfirmPassword] =
-    useState(false);
+  const [password, setPassword] =
+    useState("");
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [
+    confirmPassword,
+    setConfirmPassword,
+  ] = useState("");
+
+  const [
+    showPassword,
+    setShowPassword,
+  ] = useState(false);
+
+  const [
+    showConfirmPassword,
+    setShowConfirmPassword,
+  ] = useState(false);
+
+  const [
+    isLoading,
+    setIsLoading,
+  ] = useState(false);
+
+  const [error, setError] =
+    useState("");
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
@@ -126,20 +164,30 @@ export default function RoleAuthPage({
       email.trim().toLowerCase();
 
     if (!normalizedEmail) {
-      setError("Please enter your email address.");
+      setError(
+        "Please enter your email address.",
+      );
+
       return;
     }
 
     if (!password) {
-      setError("Please enter your password.");
+      setError(
+        "Please enter your password.",
+      );
+
       return;
     }
 
     if (!isLogin) {
-      const normalizedName = name.trim();
+      const normalizedName =
+        name.trim();
 
       if (!normalizedName) {
-        setError("Please enter your name.");
+        setError(
+          "Please enter your name.",
+        );
+
         return;
       }
 
@@ -147,11 +195,18 @@ export default function RoleAuthPage({
         setError(
           "Password must be at least 8 characters.",
         );
+
         return;
       }
 
-      if (password !== confirmPassword) {
-        setError("Passwords do not match.");
+      if (
+        password !==
+        confirmPassword
+      ) {
+        setError(
+          "Passwords do not match.",
+        );
+
         return;
       }
     }
@@ -159,30 +214,41 @@ export default function RoleAuthPage({
     setIsLoading(true);
 
     try {
-      const endpoint = isLogin
-        ? `${API_URL}/auth/login`
-        : `${API_URL}/auth/register`;
+      const endpoint =
+        isLogin
+          ? `${API_URL}/auth/login`
+          : `${API_URL}/auth/register`;
 
-      const body = isLogin
-        ? {
-            email: normalizedEmail,
-            password,
-          }
-        : {
-            name: name.trim(),
-            email: normalizedEmail,
-            password,
-            role,
-          };
+      const body =
+        isLogin
+          ? {
+              email:
+                normalizedEmail,
+              password,
+            }
+          : {
+              name: name.trim(),
+              email:
+                normalizedEmail,
+              password,
+              role,
+            };
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
+      const response =
+        await fetch(
+          endpoint,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            credentials:
+              "include",
+            body:
+              JSON.stringify(body),
+          },
+        );
 
       const result =
         (await response
@@ -209,7 +275,10 @@ export default function RoleAuthPage({
 
         if (
           !loggedInUser?.role ||
-          !["shopkeeper", "customer"].includes(
+          ![
+            "shopkeeper",
+            "customer",
+          ].includes(
             loggedInUser.role,
           )
         ) {
@@ -218,9 +287,13 @@ export default function RoleAuthPage({
           );
         }
 
-        if (loggedInUser.role !== role) {
+        if (
+          loggedInUser.role !==
+          role
+        ) {
           const actualRole =
-            loggedInUser.role === "shopkeeper"
+            loggedInUser.role ===
+            "shopkeeper"
               ? "Shopkeeper"
               : "Customer";
 
@@ -233,20 +306,27 @@ export default function RoleAuthPage({
 
         await refreshUser();
 
-        navigate(dashboardPath, {
-          replace: true,
-        });
+        navigate(
+          dashboardPath,
+          {
+            replace: true,
+          },
+        );
 
         return;
       }
 
-      navigate(loginPath, {
-        replace: true,
-        state: {
-          registered: true,
-          email: normalizedEmail,
+      navigate(
+        loginPath,
+        {
+          replace: true,
+          state: {
+            registered: true,
+            email:
+              normalizedEmail,
+          },
         },
-      });
+      );
     } catch (err) {
       setError(
         err instanceof Error
@@ -261,17 +341,20 @@ export default function RoleAuthPage({
   }
 
   function goToForgotPassword() {
-    navigate("/forgot-password", {
-      state: {
-        role,
+    navigate(
+      "/forgot-password",
+      {
+        state: {
+          role,
+        },
       },
-    });
+    );
   }
 
   return (
     <main className="min-h-screen overflow-hidden bg-background text-foreground transition-colors duration-300">
 
-      {/* ================= BACKGROUND ================= */}
+      {/* Background */}
 
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div
@@ -287,31 +370,24 @@ export default function RoleAuthPage({
         />
       </div>
 
-      {/* ================= PAGE ================= */}
+      {/* Page */}
 
       <div className="mx-auto flex min-h-screen w-full max-w-[1080px] flex-col px-5 py-3 sm:px-8">
 
-        {/* ================= HEADER ================= */}
+        {/* Header */}
 
         <header className="flex shrink-0 items-center justify-between">
 
           <Link
             to="/"
-            className="flex items-center gap-2.5"
+            className="flex items-center"
+            aria-label="Go to BillNest home"
           >
-            <span className="flex size-9 items-center justify-center rounded-lg bg-blue-500 text-lg font-bold text-slate-950 shadow-lg shadow-blue-500/20">
-              B
-            </span>
-
-            <div>
-              <p className="text-[16px] font-bold leading-4.5">
-                BillNest
-              </p>
-
-              <p className="text-[8px] leading-3 text-muted-foreground">
-                Every bill. One organized home.
-              </p>
-            </div>
+            <BillNestLogo
+              variant="full"
+              size={76}
+              className="h-[76px] w-[76px]"
+            />
           </Link>
 
           <div className="rounded-lg border border-border bg-card">
@@ -320,7 +396,7 @@ export default function RoleAuthPage({
 
         </header>
 
-        {/* ================= CENTER ================= */}
+        {/* Center */}
 
         <div className="flex flex-1 flex-col items-center justify-center">
 
@@ -333,12 +409,13 @@ export default function RoleAuthPage({
               className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               <ArrowLeft className="size-3.5" />
+
               Back to Home
             </Link>
 
           </div>
 
-          {/* ================= LOGIN CARD ================= */}
+          {/* Login card */}
 
           <section
             className={[
@@ -354,11 +431,9 @@ export default function RoleAuthPage({
             ].join(" ")}
           >
 
-            {/* ================= CARD HEADER ================= */}
+            {/* Card header */}
 
             <div className="flex items-start justify-between">
-
-              {/* Icon */}
 
               <div
                 className={[
@@ -379,8 +454,6 @@ export default function RoleAuthPage({
               >
                 <RoleIcon className="size-6" />
               </div>
-
-              {/* Badge */}
 
               <span
                 className={[
@@ -406,7 +479,7 @@ export default function RoleAuthPage({
 
             </div>
 
-            {/* ================= TITLE ================= */}
+            {/* Title */}
 
             <div className="mt-3.5">
 
@@ -428,7 +501,7 @@ export default function RoleAuthPage({
 
             </div>
 
-            {/* ================= ERROR ================= */}
+            {/* Error */}
 
             {error && (
               <div
@@ -439,14 +512,12 @@ export default function RoleAuthPage({
               </div>
             )}
 
-            {/* ================= FORM ================= */}
+            {/* Form */}
 
             <form
               onSubmit={handleSubmit}
               className="mt-4 space-y-3"
             >
-
-              {/* NAME */}
 
               {!isLogin && (
                 <div>
@@ -464,7 +535,9 @@ export default function RoleAuthPage({
                     autoComplete="name"
                     value={name}
                     onChange={(event) =>
-                      setName(event.target.value)
+                      setName(
+                        event.target.value,
+                      )
                     }
                     placeholder="Enter your name"
                     disabled={isLoading}
@@ -473,8 +546,6 @@ export default function RoleAuthPage({
 
                 </div>
               )}
-
-              {/* EMAIL */}
 
               <div>
 
@@ -495,7 +566,9 @@ export default function RoleAuthPage({
                     autoComplete="email"
                     value={email}
                     onChange={(event) =>
-                      setEmail(event.target.value)
+                      setEmail(
+                        event.target.value,
+                      )
                     }
                     placeholder="you@example.com"
                     disabled={isLoading}
@@ -505,8 +578,6 @@ export default function RoleAuthPage({
                 </div>
 
               </div>
-
-              {/* PASSWORD */}
 
               <div>
 
@@ -522,7 +593,9 @@ export default function RoleAuthPage({
                   {isLogin && (
                     <button
                       type="button"
-                      onClick={goToForgotPassword}
+                      onClick={
+                        goToForgotPassword
+                      }
                       className={[
                         "text-[11px] font-medium hover:underline",
                         isBlue
@@ -554,7 +627,9 @@ export default function RoleAuthPage({
                     }
                     value={password}
                     onChange={(event) =>
-                      setPassword(event.target.value)
+                      setPassword(
+                        event.target.value,
+                      )
                     }
                     placeholder="Enter your password"
                     disabled={isLoading}
@@ -565,7 +640,8 @@ export default function RoleAuthPage({
                     type="button"
                     onClick={() =>
                       setShowPassword(
-                        (current) => !current,
+                        (current) =>
+                          !current,
                       )
                     }
                     className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
@@ -585,8 +661,6 @@ export default function RoleAuthPage({
                 </div>
 
               </div>
-
-              {/* CONFIRM PASSWORD */}
 
               {!isLogin && (
                 <div>
@@ -610,7 +684,9 @@ export default function RoleAuthPage({
                           : "password"
                       }
                       autoComplete="new-password"
-                      value={confirmPassword}
+                      value={
+                        confirmPassword
+                      }
                       onChange={(event) =>
                         setConfirmPassword(
                           event.target.value,
@@ -625,7 +701,8 @@ export default function RoleAuthPage({
                       type="button"
                       onClick={() =>
                         setShowConfirmPassword(
-                          (current) => !current,
+                          (current) =>
+                            !current,
                         )
                       }
                       className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
@@ -646,8 +723,6 @@ export default function RoleAuthPage({
 
                 </div>
               )}
-
-              {/* BUTTON */}
 
               <button
                 type="submit"
@@ -673,7 +748,6 @@ export default function RoleAuthPage({
                       ].join(" "),
                 ].join(" ")}
               >
-
                 {isLoading && (
                   <Loader2 className="size-3.5 animate-spin" />
                 )}
@@ -682,15 +756,15 @@ export default function RoleAuthPage({
                   ? "Sign in"
                   : "Create an account"}
 
-                {!isLoading && isLogin && (
-                  <ArrowRight className="size-3.5" />
-                )}
-
+                {!isLoading &&
+                  isLogin && (
+                    <ArrowRight className="size-3.5" />
+                  )}
               </button>
 
             </form>
 
-            {/* ================= DIVIDER ================= */}
+            {/* Divider */}
 
             <div className="my-3 flex items-center gap-3">
 
@@ -704,7 +778,7 @@ export default function RoleAuthPage({
 
             </div>
 
-            {/* ================= REGISTER ================= */}
+            {/* Register */}
 
             <p className="text-center text-[11px] text-muted-foreground">
 
@@ -732,7 +806,7 @@ export default function RoleAuthPage({
 
             </p>
 
-            {/* ================= FEATURES ================= */}
+            {/* Features */}
 
             {isLogin && (
               <div
@@ -744,14 +818,12 @@ export default function RoleAuthPage({
                     : "border-violet-500/15 bg-violet-500/[0.035]",
                 ].join(" ")}
               >
-
                 {config.features.map(
                   (feature) => (
                     <div
                       key={feature}
                       className="flex items-center justify-center gap-1.5"
                     >
-
                       <span
                         className={[
                           "flex size-4 shrink-0",
@@ -768,17 +840,13 @@ export default function RoleAuthPage({
                       <span className="text-center text-[8px] text-muted-foreground">
                         {feature}
                       </span>
-
                     </div>
                   ),
                 )}
-
               </div>
             )}
 
           </section>
-
-          {/* ================= FOOTER ================= */}
 
           <p className="mt-2 text-center text-[8px] text-muted-foreground">
             © 2026 BillNest. All rights reserved.

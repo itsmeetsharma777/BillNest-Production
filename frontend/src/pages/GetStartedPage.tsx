@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+import BillNestLogo from "@/components/branding/BillNestLogo";
 import { ThemeSelector } from "@/components/common/theme-selector";
 
 type AccountCardProps = {
@@ -54,7 +55,6 @@ function AccountCard({
             : "border-blue-500/70 shadow-[0_20px_60px_rgba(37,99,235,0.05)] hover:shadow-[0_25px_70px_rgba(37,99,235,0.12)]",
         ].join(" ")}
       >
-        {/* Glow */}
         <div
           className={[
             "pointer-events-none absolute bottom-[-130px] size-[350px] rounded-full blur-[110px]",
@@ -65,7 +65,6 @@ function AccountCard({
         />
 
         <div className="relative">
-          {/* Top */}
           <div className="flex items-start justify-between">
             <div
               className={[
@@ -94,7 +93,6 @@ function AccountCard({
             </span>
           </div>
 
-          {/* Heading */}
           <h1 className="mt-5 text-[25px] font-bold tracking-tight">
             Welcome back
           </h1>
@@ -103,9 +101,7 @@ function AccountCard({
             {description}
           </p>
 
-          {/* Compact login preview */}
           <div className="mt-5 grid gap-3">
-            {/* Email */}
             <div>
               <p className="mb-1.5 text-xs font-medium">
                 Email address
@@ -127,7 +123,6 @@ function AccountCard({
               </div>
             </div>
 
-            {/* Password */}
             <div>
               <div className="mb-1.5 flex items-center justify-between">
                 <p className="text-xs font-medium">
@@ -166,7 +161,6 @@ function AccountCard({
               </div>
             </div>
 
-            {/* Login */}
             <div
               className={[
                 "flex h-11 items-center justify-center rounded-lg text-xs font-semibold text-white shadow-lg",
@@ -176,11 +170,11 @@ function AccountCard({
               ].join(" ")}
             >
               Sign in
+
               <ArrowRight className="ml-2 size-3.5" />
             </div>
           </div>
 
-          {/* Divider */}
           <div className="mt-4 flex items-center gap-3">
             <div className="h-px flex-1 bg-border" />
 
@@ -191,9 +185,9 @@ function AccountCard({
             <div className="h-px flex-1 bg-border" />
           </div>
 
-          {/* Account */}
           <p className="mt-3 text-center text-xs text-muted-foreground">
             Don't have a BillNest account?{" "}
+
             <span
               className={[
                 "font-semibold",
@@ -206,7 +200,6 @@ function AccountCard({
             </span>
           </p>
 
-          {/* Benefits */}
           <div className="mt-4 grid grid-cols-3 gap-1.5 rounded-lg border border-border bg-muted/30 p-2.5">
             {features.map((feature) => (
               <div
@@ -241,7 +234,6 @@ export default function GetStartedPage() {
 
   return (
     <main className="min-h-screen overflow-hidden bg-background text-foreground transition-colors duration-300">
-      {/* Background */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute left-[20%] top-[20%] size-[400px] rounded-full bg-violet-600/[0.035] blur-[130px] dark:bg-violet-600/[0.09]" />
 
@@ -255,21 +247,14 @@ export default function GetStartedPage() {
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="flex items-center gap-3"
+              className="flex items-center"
+              aria-label="Go to BillNest home"
             >
-              <span className="flex size-10 items-center justify-center rounded-xl bg-blue-500 text-lg font-bold text-slate-950 shadow-lg shadow-blue-500/20">
-                B
-              </span>
-
-              <div className="text-left">
-                <p className="text-[17px] font-bold">
-                  BillNest
-                </p>
-
-                <p className="text-[10px] text-muted-foreground">
-                  Every bill. One organized home.
-                </p>
-              </div>
+              <BillNestLogo
+                variant="full"
+                size={82}
+                className="h-[82px] w-[82px]"
+              />
             </button>
 
             <div className="rounded-xl border border-border bg-card">

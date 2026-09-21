@@ -1,21 +1,42 @@
 import React from "react";
-import logo from "../../assets/images/billnest-logo.png";
+
+import darkLogo from "../../assets/images/billnest-logo-dark.png";
+import lightLogo from "../../assets/images/billnest-logo-light.png";
+import iconLogo from "../../assets/images/billnest-icon.png";
+
+import { useTheme } from "@/context/theme-context";
 
 interface BillNestLogoProps {
-  size?: number;
+  variant?: "full" | "icon";
+  size?: number | string;
   className?: string;
 }
 
 const BillNestLogo: React.FC<BillNestLogoProps> = ({
-  size = 56,
+  variant = "full",
+  size,
   className = "",
 }) => {
+  const { resolvedTheme } = useTheme();
+
+  const source =
+    variant === "icon"
+      ? iconLogo
+      : resolvedTheme === "dark"
+        ? darkLogo
+        : lightLogo;
+
+  const dimension =
+    typeof size === "number"
+      ? `${size}px`
+      : size;
+
   return (
     <img
-      src={logo}
+      src={source}
       alt="BillNest"
-      width={size}
-      height={size}
+      width={dimension}
+      height={dimension}
       className={`object-contain ${className}`}
     />
   );
