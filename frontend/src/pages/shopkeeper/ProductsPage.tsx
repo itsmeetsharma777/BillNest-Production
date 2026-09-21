@@ -17,6 +17,10 @@ import {
   X,
 } from "lucide-react";
 
+const API_URL =
+  import.meta.env.VITE_API_URL ??
+  "http://localhost:5001/api";
+
 interface Product {
   _id: string;
   name: string;
@@ -99,7 +103,7 @@ function isLowStock(product: Product) {
   return (
     product.isActive &&
     product.stockQuantity <=
-      product.lowStockThreshold
+    product.lowStockThreshold
   );
 }
 
@@ -158,7 +162,7 @@ export default function ProductsPage() {
       }
 
       const response = await fetch(
-        "/api/products?limit=100",
+        `${API_URL}/products?limit=100`,
         {
           credentials: "include",
         },
@@ -172,7 +176,7 @@ export default function ProductsPage() {
       if (!response.ok) {
         throw new Error(
           data?.message ??
-            "Unable to load products.",
+          "Unable to load products.",
         );
       }
 
@@ -182,12 +186,12 @@ export default function ProductsPage() {
           : Array.isArray(data?.products)
             ? data.products
             : Array.isArray(
-                  data?.data?.products,
-                )
+              data?.data?.products,
+            )
               ? data.data.products
               : Array.isArray(
-                    data?.data,
-                  )
+                data?.data,
+              )
                 ? data.data
                 : [];
 
@@ -409,8 +413,8 @@ export default function ProductsPage() {
       };
 
       const url = editingProduct
-        ? `/api/products/${editingProduct._id}`
-        : "/api/products";
+        ? `${API_URL}/products/${editingProduct._id}`
+        : `${API_URL}/products`;
 
       const method = editingProduct
         ? "PATCH"
@@ -437,11 +441,13 @@ export default function ProductsPage() {
       if (!response.ok) {
         throw new Error(
           data?.message ??
-            "Unable to save product.",
+          "Unable to save product.",
         );
       }
 
-      closeModal();
+      setModalOpen(false);
+      setEditingProduct(null);
+      setFormError("");
 
       await loadProducts(true);
     } catch (requestError) {
@@ -462,7 +468,7 @@ export default function ProductsPage() {
       setDeleting(true);
 
       const response = await fetch(
-        `/api/products/${product._id}`,
+        `${API_URL}/products/${product._id}`,
         {
           method: "DELETE",
           credentials: "include",
@@ -477,7 +483,7 @@ export default function ProductsPage() {
       if (!response.ok) {
         throw new Error(
           data?.message ??
-            "Unable to deactivate product.",
+          "Unable to deactivate product.",
         );
       }
 
@@ -646,7 +652,7 @@ export default function ProductsPage() {
                   className={[
                     "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
                     statusFilter ===
-                    value
+                      value
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground",
                   ].join(" ")}
@@ -689,17 +695,17 @@ export default function ProductsPage() {
 
             {products.length ===
               0 && (
-              <button
-                type="button"
-                onClick={
-                  openCreateModal
-                }
-                className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-              >
-                <Plus className="size-4" />
-                Add your first product
-              </button>
-            )}
+                <button
+                  type="button"
+                  onClick={
+                    openCreateModal
+                  }
+                  className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  <Plus className="size-4" />
+                  Add your first product
+                </button>
+              )}
           </div>
         ) : (
           <>
@@ -818,7 +824,7 @@ export default function ProductsPage() {
 
                           <td className="px-5 py-4 text-muted-foreground">
                             {product.warrantyPeriodMonths >
-                            0
+                              0
                               ? `${product.warrantyPeriodMonths} months`
                               : "No warranty"}
                           </td>
@@ -945,7 +951,7 @@ export default function ProductsPage() {
                               label="Warranty"
                               value={
                                 product.warrantyPeriodMonths >
-                                0
+                                  0
                                   ? `${product.warrantyPeriodMonths} months`
                                   : "None"
                               }
