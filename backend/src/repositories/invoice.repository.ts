@@ -116,13 +116,6 @@ export async function createInvoice(
  *   product name
  *   selling price
  *   active status
- *
- * If there is no matching catalog product,
- * the item is treated as a manually entered
- * item/service and inventory is not changed.
- *
- * If multiple products have the exact same
- * name and selling price, we refuse to guess.
  */
 async function findCatalogProductForInvoiceItem(
   shopId: Types.ObjectId,
@@ -153,13 +146,6 @@ async function findCatalogProductForInvoiceItem(
     ).limit(2);
 
   if (products.length === 0) {
-    /*
-     * No catalog match.
-     *
-     * This is allowed because BillNest
-     * supports manually entered invoice items
-     * and services.
-     */
     return null;
   }
 
@@ -177,14 +163,8 @@ async function findCatalogProductForInvoiceItem(
 /**
  * Decrease catalog inventory for one invoice item.
  *
- * The update is intentionally atomic:
- *
- *   stockQuantity >= quantity
- *          ↓
- *   stockQuantity -= quantity
- *
- * This prevents two simultaneous invoices
- * from pushing inventory below zero.
+ * The update is atomic and only succeeds when
+ * enough stock exists.
  */
 async function decrementCatalogProductStock(
   shopId: Types.ObjectId,
@@ -210,13 +190,6 @@ async function decrementCatalogProductStock(
         _id: productId,
         shopId,
         isActive: true,
-
-        /*
-         * Critical inventory protection.
-         *
-         * MongoDB will only perform the
-         * decrement if enough stock exists.
-         */
         stockQuantity: {
           $gte: quantity,
         },
@@ -234,10 +207,6 @@ async function decrementCatalogProductStock(
     );
 
   if (!updatedProduct) {
-    /*
-     * Determine whether the product exists
-     * but simply doesn't have enough stock.
-     */
     const product =
       await ProductModel.findOne(
         {
@@ -280,6 +249,61 @@ async function decrementCatalogProductStock(
   return updatedProduct;
 }
 
+/**
+ * Restore catalog inventory for an invoice item.
+ *
+ * This is used when an invoice is cancelled.
+ *
+ * The update is intentionally atomic and is
+ * performed inside the same transaction as
+ * the invoice cancellation.
+ */
+export async function restoreCatalogProductStock(
+  shopId: Types.ObjectId,
+  productId: Types.ObjectId,
+  productName: string,
+  quantity: number,
+  session: ClientSession,
+) {
+  if (
+    !Number.isFinite(quantity) ||
+    quantity <= 0
+  ) {
+    throw new ApiError(
+      400,
+      `Invalid quantity while restoring stock for ${productName}.`,
+      "INVALID_RESTORE_QUANTITY",
+    );
+  }
+
+  const updatedProduct =
+    await ProductModel.findOneAndUpdate(
+      {
+        _id: productId,
+        shopId,
+      },
+      {
+        $inc: {
+          stockQuantity: quantity,
+        },
+      },
+      {
+        session,
+        returnDocument: "after",
+      },
+    );
+
+  if (!updatedProduct) {
+    throw new ApiError(
+      404,
+      `Product "${productName}" could not be found while restoring stock.`,
+      "PRODUCT_NOT_FOUND",
+    );
+  }
+
+  return updatedProduct;
+}
+
 export async function createInvoiceItems(
   items: Array<{
     invoiceId: string;
@@ -296,14 +320,6 @@ export async function createInvoiceItems(
   }>,
   session?: ClientSession,
 ) {
-  /*
-   * Inventory changes must happen inside
-   * the same MongoDB transaction as invoice
-   * creation.
-   *
-   * The current invoice service already
-   * passes a session here.
-   */
   if (!session) {
     return InvoiceItemModel.insertMany(
       items,
@@ -317,10 +333,6 @@ export async function createInvoiceItems(
     return [];
   }
 
-  /*
-   * Find the invoice so we can determine
-   * which shop owns these items.
-   */
   const invoice =
     await InvoiceModel.findById(
       items[0].invoiceId,
@@ -343,11 +355,6 @@ export async function createInvoiceItems(
   const shopId =
     invoice.shopId;
 
-  /*
-   * Keep the original invoice item data,
-   * but enrich catalog-backed items with
-   * productId.
-   */
   const invoiceItems = [];
 
   for (const item of items) {
@@ -371,18 +378,9 @@ export async function createInvoiceItems(
       item.sku?.trim();
 
     if (catalogProduct) {
-      /*
-       * We found the catalog product that
-       * corresponds to the selected item.
-       */
       productId =
         catalogProduct._id;
 
-      /*
-       * Use the catalog SKU as the
-       * authoritative historical SKU when
-       * available.
-       */
       if (
         catalogProduct.sku
       ) {
@@ -390,15 +388,6 @@ export async function createInvoiceItems(
           catalogProduct.sku;
       }
 
-      /*
-       * Decrease stock BEFORE inserting
-       * the invoice item.
-       *
-       * Both operations are inside the
-       * same transaction, so if invoice item
-       * creation fails, the stock decrement
-       * is also rolled back.
-       */
       await decrementCatalogProductStock(
         shopId,
         catalogProduct._id,
@@ -470,6 +459,27 @@ export async function findInvoiceItems(
   });
 }
 
+export async function findInvoiceItemsForCancellation(
+  invoiceId: string,
+  session: ClientSession,
+) {
+  return InvoiceItemModel.find(
+    {
+      invoiceId,
+    },
+    {
+      productId: 1,
+      productName: 1,
+      quantity: 1,
+    },
+    {
+      session,
+    },
+  ).sort({
+    createdAt: 1,
+  });
+}
+
 export async function updateInvoiceByIdForShop(
   invoiceId: string,
   shopId: string,
@@ -507,6 +517,49 @@ export async function updateInvoiceByIdForShop(
     {
       new: true,
       runValidators: true,
+    },
+  );
+}
+
+export async function updateInvoiceByIdForShopInTransaction(
+  invoiceId: string,
+  shopId: string,
+  data: Partial<{
+    status:
+      | "draft"
+      | "paid"
+      | "partially_paid"
+      | "cancelled";
+
+    paymentMethod:
+      | "cash"
+      | "upi"
+      | "card"
+      | "bank_transfer"
+      | "credit";
+
+    dueDate: Date;
+
+    amountPaid: number;
+
+    amountDue: number;
+
+    notes: string;
+  }>,
+  session: ClientSession,
+) {
+  return InvoiceModel.findOneAndUpdate(
+    {
+      _id: invoiceId,
+      shopId,
+    },
+    {
+      $set: data,
+    },
+    {
+      new: true,
+      runValidators: true,
+      session,
     },
   );
 }

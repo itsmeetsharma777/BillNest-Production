@@ -324,6 +324,12 @@ export default function InvoiceDetailsPage() {
     useState(false);
 
   const [
+    isPdfLoading,
+    setIsPdfLoading,
+  ] =
+    useState(false);
+
+  const [
     isPaymentModalOpen,
     setIsPaymentModalOpen,
   ] =
@@ -479,8 +485,99 @@ export default function InvoiceDetailsPage() {
     void loadPayments();
   }, [invoiceId]);
 
-  function printInvoice() {
-    window.print();
+  async function downloadInvoicePdf() {
+    if (
+      !invoiceId ||
+      isPdfLoading
+    ) {
+      return;
+    }
+
+    try {
+      setIsPdfLoading(true);
+      setError("");
+      setSuccessMessage("");
+
+      const response =
+        await fetch(
+          `${API_URL}/invoices/${invoiceId}/pdf`,
+          {
+            method: "GET",
+            credentials: "include",
+          },
+        );
+
+      if (!response.ok) {
+        let message =
+          "Unable to generate invoice PDF.";
+
+        try {
+          const result =
+            (await response.json()) as {
+              message?: string;
+            };
+
+          message =
+            result.message ??
+            message;
+        } catch {
+          // The server returned a non-JSON error.
+        }
+
+        throw new Error(message);
+      }
+
+      const blob =
+        await response.blob();
+
+      if (blob.size === 0) {
+        throw new Error(
+          "The generated invoice PDF is empty.",
+        );
+      }
+
+      const url =
+        URL.createObjectURL(blob);
+
+      const anchor =
+        document.createElement(
+          "a",
+        );
+
+      const invoiceNumber =
+        invoice?.invoiceNo ??
+        invoice?.invoiceNumber ??
+        `invoice-${invoiceId}`;
+
+      anchor.href = url;
+      anchor.download =
+        `${invoiceNumber}.pdf`;
+
+      document.body.appendChild(
+        anchor,
+      );
+
+      anchor.click();
+      anchor.remove();
+
+      window.setTimeout(() => {
+        URL.revokeObjectURL(
+          url,
+        );
+      }, 1000);
+
+      setSuccessMessage(
+        "Invoice PDF generated successfully.",
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to generate invoice PDF.",
+      );
+    } finally {
+      setIsPdfLoading(false);
+    }
   }
 
   async function performAction(
@@ -804,14 +901,24 @@ export default function InvoiceDetailsPage() {
           <div className="flex flex-wrap gap-2 print:hidden">
             <button
               type="button"
-              onClick={
-                printInvoice
+              onClick={() =>
+                void downloadInvoicePdf()
               }
-              className="inline-flex h-10 items-center gap-2 rounded-xl border bg-background px-4 text-sm font-semibold transition-colors hover:bg-muted"
+              disabled={
+                isPdfLoading ||
+                isActionLoading
+              }
+              className="inline-flex h-10 items-center gap-2 rounded-xl border bg-background px-4 text-sm font-semibold transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Printer className="size-4" />
+              {isPdfLoading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Printer className="size-4" />
+              )}
 
-              Print
+              {isPdfLoading
+                ? "Generating PDF..."
+                : "Print"}
             </button>
 
             {status !==
@@ -821,7 +928,8 @@ export default function InvoiceDetailsPage() {
                 <button
                   type="button"
                   disabled={
-                    isActionLoading
+                    isActionLoading ||
+                    isPdfLoading
                   }
                   onClick={() =>
                     setIsPaymentModalOpen(
@@ -843,7 +951,8 @@ export default function InvoiceDetailsPage() {
                 <button
                   type="button"
                   disabled={
-                    isActionLoading
+                    isActionLoading ||
+                    isPdfLoading
                   }
                   onClick={() =>
                     void performAction(
@@ -869,7 +978,8 @@ export default function InvoiceDetailsPage() {
                 <button
                   type="button"
                   disabled={
-                    isActionLoading
+                    isActionLoading ||
+                    isPdfLoading
                   }
                   onClick={() =>
                     void performAction(

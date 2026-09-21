@@ -6,8 +6,11 @@ import {
   findInvoiceByIdForShop,
   findInvoiceItems,
   findInvoiceItemsByInvoiceIds,
+  findInvoiceItemsForCancellation,
   findInvoicesByShopId,
+  restoreCatalogProductStock,
   updateInvoiceByIdForShop,
+  updateInvoiceByIdForShopInTransaction,
 } from "../repositories/invoice.repository";
 
 import { getNextSequence } from "../repositories/counter.repository";
@@ -265,7 +268,9 @@ function resolvePaymentState(
       );
     }
 
-    if (amountPaid > roundedTotal) {
+    if (
+      amountPaid > roundedTotal
+    ) {
       throw new ApiError(
         400,
         "Amount paid cannot exceed invoice total.",
@@ -755,12 +760,6 @@ export async function getInvoicesForOwner(
       shop._id.toString(),
       {
         skip,
-
-        /*
-         * Fetch one extra invoice so we
-         * can accurately determine whether
-         * another page exists.
-         */
         limit: limit + 1,
 
         ...(options?.status && {
@@ -781,11 +780,6 @@ export async function getInvoicesForOwner(
     invoices.pop();
   }
 
-  /*
-   * Load product names and customer names
-   * for the current page in two batch queries.
-   * This avoids an N+1 query for invoices.
-   */
   const invoiceIds =
     invoices.map((invoice) =>
       invoice._id.toString(),
@@ -922,11 +916,6 @@ export async function updateInvoiceForOwner(
     );
   }
 
-  /*
-   * If amountPaid is provided, the
-   * server determines the resulting
-   * payment state.
-   */
   if (
     input.amountPaid !== undefined
   ) {
@@ -999,9 +988,6 @@ export async function updateInvoiceForOwner(
     return updatedInvoice;
   }
 
-  /*
-   * Status-only update.
-   */
   if (
     input.status !== undefined
   ) {
@@ -1114,9 +1100,6 @@ export async function updateInvoiceForOwner(
     return updatedInvoice;
   }
 
-  /*
-   * Non-payment update.
-   */
   const updatedInvoice =
     await updateInvoiceByIdForShop(
       invoiceId,
@@ -1231,6 +1214,18 @@ export async function markInvoiceAsPaidForOwner(
   return updatedInvoice;
 }
 
+/**
+ * Cancel an invoice and restore the stock
+ * that was consumed when the invoice was created.
+ *
+ * Important:
+ * - Only catalog-backed invoice items are restored.
+ * - Manual invoice items are ignored.
+ * - The invoice cancellation and stock restoration
+ *   happen inside the same MongoDB transaction.
+ * - An already cancelled invoice can never restore
+ *   stock a second time.
+ */
 export async function cancelInvoiceForOwner(
   ownerId: string,
   invoiceId: string,
@@ -1262,27 +1257,121 @@ export async function cancelInvoiceForOwner(
     );
   }
 
-  const updatedInvoice =
-    await updateInvoiceByIdForShop(
-      invoiceId,
-      shop._id.toString(),
-      {
-        status: "cancelled",
+  const session =
+    await mongoose.startSession();
 
-        amountPaid: 0,
+  try {
+    const transactionResult =
+      await session.withTransaction(
+        async () => {
+          /*
+           * Re-read the invoice inside the
+           * transaction so cancellation is
+           * based on the latest database state.
+           */
+          const currentInvoice =
+            await findInvoiceByIdForShop(
+              invoiceId,
+              shop._id.toString(),
+            );
 
-        amountDue:
-          roundMoney(invoice.total),
-      },
-    );
+          if (!currentInvoice) {
+            throw new ApiError(
+              404,
+              "Invoice not found.",
+              "INVOICE_NOT_FOUND",
+            );
+          }
 
-  if (!updatedInvoice) {
-    throw new ApiError(
-      404,
-      "Invoice not found.",
-      "INVOICE_NOT_FOUND",
-    );
+          if (
+            currentInvoice.status ===
+            "cancelled"
+          ) {
+            throw new ApiError(
+              400,
+              "Invoice is already cancelled.",
+              "INVOICE_ALREADY_CANCELLED",
+            );
+          }
+
+          /*
+           * Load the invoice items that were
+           * created for this invoice.
+           */
+          const invoiceItems =
+            await findInvoiceItemsForCancellation(
+              invoiceId,
+              session,
+            );
+
+          /*
+           * Restore catalog stock.
+           *
+           * Items without productId are manual
+           * invoice items/services and therefore
+           * do not affect inventory.
+           */
+          for (
+            const item of invoiceItems
+          ) {
+            if (
+              !item.productId
+            ) {
+              continue;
+            }
+
+            await restoreCatalogProductStock(
+              shop._id,
+              item.productId,
+              item.productName,
+              item.quantity,
+              session,
+            );
+          }
+
+          /*
+           * Only after stock has been successfully
+           * restored do we cancel the invoice.
+           */
+          const updatedInvoice =
+            await updateInvoiceByIdForShopInTransaction(
+              invoiceId,
+              shop._id.toString(),
+              {
+                status: "cancelled",
+
+                amountPaid: 0,
+
+                amountDue:
+                  roundMoney(
+                    currentInvoice.total,
+                  ),
+              },
+              session,
+            );
+
+          if (!updatedInvoice) {
+            throw new ApiError(
+              404,
+              "Invoice could not be cancelled.",
+              "INVOICE_NOT_FOUND",
+            );
+          }
+
+          return updatedInvoice;
+        },
+      );
+
+    if (!transactionResult) {
+      throw new ApiError(
+        500,
+        "Invoice cancellation transaction failed.",
+        "INVOICE_CANCELLATION_TRANSACTION_FAILED",
+      );
+    }
+
+    return transactionResult;
+  } finally {
+    await session.endSession();
   }
-
-  return updatedInvoice;
 }
