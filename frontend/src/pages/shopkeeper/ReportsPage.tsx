@@ -135,6 +135,24 @@ function formatCurrency(value: number) {
   }).format(Number(value) || 0);
 }
 
+function formatCompactCurrency(value: number) {
+  const amount = Number(value) || 0;
+
+  if (amount >= 10000000) {
+    return `₹${(amount / 10000000).toFixed(1)}Cr`;
+  }
+
+  if (amount >= 100000) {
+    return `₹${(amount / 100000).toFixed(1)}L`;
+  }
+
+  if (amount >= 1000) {
+    return `₹${(amount / 1000).toFixed(1)}K`;
+  }
+
+  return `₹${Math.round(amount)}`;
+}
+
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-IN").format(
     Number(value) || 0,
@@ -168,9 +186,7 @@ function formatDate(value: string | null) {
 }
 
 function formatShortDate(value: string) {
-  const date = new Date(
-    `${value}T00:00:00`,
-  );
+  const date = new Date(`${value}T00:00:00`);
 
   if (Number.isNaN(date.getTime())) {
     return value;
@@ -191,9 +207,7 @@ function getDefaultStartDate() {
 }
 
 function getDefaultEndDate() {
-  return new Date()
-    .toISOString()
-    .slice(0, 10);
+  return new Date().toISOString().slice(0, 10);
 }
 
 function getStatusLabel(status: string) {
@@ -226,14 +240,10 @@ export default function ReportsPage() {
       setIsLoading(true);
       setError("");
 
-      const params =
-        new URLSearchParams();
+      const params = new URLSearchParams();
 
       if (startDate) {
-        params.set(
-          "startDate",
-          startDate,
-        );
+        params.set("startDate", startDate);
       }
 
       if (endDate) {
@@ -243,14 +253,13 @@ export default function ReportsPage() {
         );
       }
 
-      const response =
-        await fetch(
-          `${API_URL}/reports?${params.toString()}`,
-          {
-            method: "GET",
-            credentials: "include",
-          },
-        );
+      const response = await fetch(
+        `${API_URL}/reports?${params.toString()}`,
+        {
+          method: "GET",
+          credentials: "include",
+        },
+      );
 
       let result:
         | ReportsResponse
@@ -292,7 +301,7 @@ export default function ReportsPage() {
     void loadReports();
 
     // Initial load only.
-    // Filters are applied manually with the Apply button.
+    // Filters are applied manually with Apply.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -348,22 +357,21 @@ export default function ReportsPage() {
     );
   }, [report]);
 
-  const maxProductRevenue =
-    useMemo(() => {
-      if (
-        !report ||
-        report.topProducts.length === 0
-      ) {
-        return 1;
-      }
+  const maxProductRevenue = useMemo(() => {
+    if (
+      !report ||
+      report.topProducts.length === 0
+    ) {
+      return 1;
+    }
 
-      return Math.max(
-        ...report.topProducts.map(
-          (item) => item.revenue,
-        ),
-        1,
-      );
-    }, [report]);
+    return Math.max(
+      ...report.topProducts.map(
+        (item) => item.revenue,
+      ),
+      1,
+    );
+  }, [report]);
 
   const maxCustomerPurchases =
     useMemo(() => {
@@ -605,6 +613,34 @@ export default function ReportsPage() {
           </div>
 
           {/* ================================================= */}
+          {/* SALES PERFORMANCE CHART                           */}
+          {/* ================================================= */}
+
+          <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+            <div className="mb-6 flex flex-col gap-1">
+              <h2 className="font-semibold">
+                Sales Performance
+              </h2>
+
+              <p className="text-xs text-muted-foreground">
+                Daily sales performance during the selected
+                period.
+              </p>
+            </div>
+
+            {report.trends.sales.length === 0 ? (
+              <EmptySection message="No sales recorded during this period." />
+            ) : (
+              <div className="overflow-x-auto pb-2">
+                <SalesLineChart
+                  data={report.trends.sales}
+                  maxValue={maxSales}
+                />
+              </div>
+            )}
+          </section>
+
+          {/* ================================================= */}
           {/* SALES + COLLECTION                                  */}
           {/* ================================================= */}
 
@@ -629,24 +665,21 @@ export default function ReportsPage() {
                 <ReportRow
                   label="Subtotal"
                   value={formatCurrency(
-                    report.overview
-                      .totalSubtotal,
+                    report.overview.totalSubtotal,
                   )}
                 />
 
                 <ReportRow
                   label="Discount"
                   value={formatCurrency(
-                    report.overview
-                      .totalDiscount,
+                    report.overview.totalDiscount,
                   )}
                 />
 
                 <ReportRow
                   label="Tax"
                   value={formatCurrency(
-                    report.overview
-                      .totalTax,
+                    report.overview.totalTax,
                   )}
                 />
 
@@ -663,8 +696,7 @@ export default function ReportsPage() {
                 <ReportRow
                   label="Average Invoice"
                   value={formatCurrency(
-                    report.overview
-                      .averageInvoice,
+                    report.overview.averageInvoice,
                   )}
                 />
               </div>
@@ -722,94 +754,19 @@ export default function ReportsPage() {
                 <MiniMetric
                   label="Collected"
                   value={formatCurrency(
-                    report.overview
-                      .amountCollected,
+                    report.overview.amountCollected,
                   )}
                 />
 
                 <MiniMetric
                   label="Outstanding"
                   value={formatCurrency(
-                    report.overview
-                      .amountOutstanding,
+                    report.overview.amountOutstanding,
                   )}
                 />
               </div>
             </section>
           </div>
-
-          {/* ================================================= */}
-          {/* SALES TREND                                         */}
-          {/* ================================================= */}
-
-          <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
-            <div className="mb-6 flex flex-col gap-1">
-              <h2 className="font-semibold">
-                Sales Trend
-              </h2>
-
-              <p className="text-xs text-muted-foreground">
-                Daily sales performance during the selected
-                period.
-              </p>
-            </div>
-
-            {report.trends.sales.length === 0 ? (
-              <EmptySection message="No sales recorded during this period." />
-            ) : (
-              <div className="overflow-x-auto pb-2">
-                <div
-                  className="flex min-w-max items-end gap-3"
-                  style={{
-                    height: 260,
-                  }}
-                >
-                  {report.trends.sales.map(
-                    (item) => {
-                      const height =
-                        Math.max(
-                          8,
-                          (item.sales /
-                            maxSales) *
-                            210,
-                        );
-
-                      return (
-                        <div
-                          key={item.date}
-                          className="flex h-full w-12 flex-col items-center justify-end gap-2 sm:w-14"
-                        >
-                          <span className="max-w-20 truncate text-[10px] font-medium">
-                            {formatCurrency(
-                              item.sales,
-                            )}
-                          </span>
-
-                          <div
-                            className="w-full rounded-t-lg bg-primary/80 transition-all hover:bg-primary"
-                            style={{
-                              height,
-                            }}
-                            title={`${formatShortDate(
-                              item.date,
-                            )}: ${formatCurrency(
-                              item.sales,
-                            )}`}
-                          />
-
-                          <span className="text-[10px] text-muted-foreground">
-                            {formatShortDate(
-                              item.date,
-                            )}
-                          </span>
-                        </div>
-                      );
-                    },
-                  )}
-                </div>
-              </div>
-            )}
-          </section>
 
           {/* ================================================= */}
           {/* PAYMENT TREND + PAYMENT METHODS                    */}
@@ -831,48 +788,10 @@ export default function ReportsPage() {
               0 ? (
                 <EmptySection message="No payments recorded during this period." />
               ) : (
-                <div className="space-y-3">
-                  {report.trends.payments.map(
-                    (item) => {
-                      const percentage =
-                        Math.max(
-                          3,
-                          (item.amount /
-                            maxPayment) *
-                            100,
-                        );
-
-                      return (
-                        <div
-                          key={item.date}
-                        >
-                          <div className="mb-1.5 flex items-center justify-between gap-3">
-                            <span className="text-xs text-muted-foreground">
-                              {formatShortDate(
-                                item.date,
-                              )}
-                            </span>
-
-                            <span className="text-xs font-semibold">
-                              {formatCurrency(
-                                item.amount,
-                              )}
-                            </span>
-                          </div>
-
-                          <div className="h-2 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-primary"
-                              style={{
-                                width: `${percentage}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    },
-                  )}
-                </div>
+                <PaymentBarChart
+                  data={report.trends.payments}
+                  maxValue={maxPayment}
+                />
               )}
             </section>
 
@@ -887,66 +806,17 @@ export default function ReportsPage() {
                 </p>
               </div>
 
-              {report.payments.byMethod
-                .length === 0 ? (
+              {report.payments.byMethod.length ===
+              0 ? (
                 <EmptySection message="No payment data for this period." />
               ) : (
-                <div className="space-y-4">
-                  {report.payments.byMethod.map(
-                    (item) => {
-                      const percentage =
-                        report.payments
-                          .totalCollected >
-                        0
-                          ? (
-                              (item.amount /
-                                report
-                                  .payments
-                                  .totalCollected) *
-                              100
-                            )
-                          : 0;
-
-                      return (
-                        <div
-                          key={item.method}
-                        >
-                          <div className="mb-2 flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-medium">
-                                {formatPaymentMethod(
-                                  item.method,
-                                )}
-                              </p>
-
-                              <p className="text-xs text-muted-foreground">
-                                {item.count} payment
-                                {item.count === 1
-                                  ? ""
-                                  : "s"}
-                              </p>
-                            </div>
-
-                            <p className="text-sm font-semibold">
-                              {formatCurrency(
-                                item.amount,
-                              )}
-                            </p>
-                          </div>
-
-                          <div className="h-2 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-primary"
-                              style={{
-                                width: `${percentage}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    },
-                  )}
-                </div>
+                <PaymentMethodChart
+                  data={report.payments.byMethod}
+                  total={
+                    report.payments
+                      .totalCollected
+                  }
+                />
               )}
             </section>
           </div>
@@ -980,8 +850,7 @@ export default function ReportsPage() {
               <StatusCard
                 label="Partially Paid"
                 value={
-                  report.invoices
-                    .partiallyPaid
+                  report.invoices.partiallyPaid
                 }
               />
 
@@ -1000,228 +869,209 @@ export default function ReportsPage() {
           </section>
 
           {/* ================================================= */}
-          {/* TOP PRODUCTS                                       */}
+          {/* TOP PRODUCTS + CUSTOMERS                           */}
           {/* ================================================= */}
 
-          <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="font-semibold">
-                  Top Products
-                </h2>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+              <div className="mb-6 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="font-semibold">
+                    Top Products
+                  </h2>
 
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Products generating the most revenue.
-                </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Products generating the most revenue.
+                  </p>
+                </div>
+
+                <Package className="size-5 text-primary" />
               </div>
 
-              <Package className="size-5 text-primary" />
-            </div>
+              {report.topProducts.length ===
+              0 ? (
+                <EmptySection message="No product sales recorded during this period." />
+              ) : (
+                <div className="space-y-4">
+                  {report.topProducts.map(
+                    (product, index) => {
+                      const percentage =
+                        Math.max(
+                          4,
+                          (product.revenue /
+                            maxProductRevenue) *
+                            100,
+                        );
 
-            {report.topProducts.length ===
-            0 ? (
-              <EmptySection message="No product sales recorded during this period." />
-            ) : (
-              <div className="space-y-4">
-                {report.topProducts.map(
-                  (product, index) => {
-                    const percentage =
-                      Math.max(
-                        4,
-                        (product.revenue /
-                          maxProductRevenue) *
-                          100,
-                      );
-
-                    return (
-                      <div
-                        key={
-                          product.id ??
-                          `${product.productName}-${index}`
-                        }
-                        className="rounded-xl bg-muted/30 p-3 sm:p-4"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
-                            {index + 1}
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold">
-                                  {
-                                    product.productName
-                                  }
-                                </p>
-
-                                {product.sku && (
-                                  <p className="text-xs text-muted-foreground">
-                                    SKU:{" "}
-                                    {
-                                      product.sku
-                                    }
-                                  </p>
-                                )}
-                              </div>
-
-                              <div className="shrink-0 text-left sm:text-right">
-                                <p className="text-sm font-bold">
-                                  {formatCurrency(
-                                    product.revenue,
-                                  )}
-                                </p>
-
-                                <p className="text-xs text-muted-foreground">
-                                  {formatNumber(
-                                    product.quantity,
-                                  )}{" "}
-                                  sold
-                                </p>
-                              </div>
+                      return (
+                        <div
+                          key={
+                            product.id ??
+                            `${product.productName}-${index}`
+                          }
+                          className="rounded-xl bg-muted/30 p-3 sm:p-4"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
+                              {index + 1}
                             </div>
 
-                            <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-                              <div
-                                className="h-full rounded-full bg-primary"
-                                style={{
-                                  width: `${percentage}%`,
-                                }}
-                              />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-semibold">
+                                    {
+                                      product.productName
+                                    }
+                                  </p>
+
+                                  {product.sku && (
+                                    <p className="text-xs text-muted-foreground">
+                                      SKU:{" "}
+                                      {
+                                        product.sku
+                                      }
+                                    </p>
+                                  )}
+                                </div>
+
+                                <div className="shrink-0 text-left sm:text-right">
+                                  <p className="text-sm font-bold">
+                                    {formatCurrency(
+                                      product.revenue,
+                                    )}
+                                  </p>
+
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatNumber(
+                                      product.quantity,
+                                    )}{" "}
+                                    sold
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                                <div
+                                  className="h-full rounded-full bg-primary transition-all duration-500"
+                                  style={{
+                                    width: `${percentage}%`,
+                                  }}
+                                />
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  },
-                )}
-              </div>
-            )}
-          </section>
+                      );
+                    },
+                  )}
+                </div>
+              )}
+            </section>
 
-          {/* ================================================= */}
-          {/* TOP CUSTOMERS                                      */}
-          {/* ================================================= */}
+            <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+              <div className="mb-6 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="font-semibold">
+                    Top Customers
+                  </h2>
 
-          <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="font-semibold">
-                  Top Customers
-                </h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Customers with the highest purchase value.
+                  </p>
+                </div>
 
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Customers with the highest purchase value.
-                </p>
+                <Users className="size-5 text-primary" />
               </div>
 
-              <Users className="size-5 text-primary" />
-            </div>
-
-            {report.topCustomers.length ===
-            0 ? (
-              <EmptySection message="No customer purchases recorded during this period." />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[720px]">
-                  <thead>
-                    <tr className="border-b text-left text-xs text-muted-foreground">
-                      <th className="pb-3 pr-4 font-medium">
-                        Customer
-                      </th>
-
-                      <th className="pb-3 px-4 font-medium">
-                        Invoices
-                      </th>
-
-                      <th className="pb-3 px-4 font-medium">
-                        Purchases
-                      </th>
-
-                      <th className="pb-3 px-4 font-medium">
-                        Paid
-                      </th>
-
-                      <th className="pb-3 pl-4 text-right font-medium">
-                        Due
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {report.topCustomers.map(
-                      (customer) => {
+              {report.topCustomers.length ===
+              0 ? (
+                <EmptySection message="No customer purchases recorded during this period." />
+              ) : (
+                <div className="space-y-3">
+                  {report.topCustomers
+                    .slice(0, 8)
+                    .map(
+                      (customer, index) => {
                         const percentage =
                           Math.max(
-                            3,
+                            4,
                             (customer.totalPurchases /
                               maxCustomerPurchases) *
                               100,
                           );
 
                         return (
-                          <tr
+                          <div
                             key={
                               customer.id ??
-                              customer.name
+                              `${customer.name}-${index}`
                             }
-                            className="border-b last:border-0"
+                            className="rounded-xl bg-muted/30 p-3 transition hover:bg-muted/50"
                           >
-                            <td className="py-4 pr-4">
-                              <p className="text-sm font-semibold">
-                                {
-                                  customer.name
-                                }
-                              </p>
-
-                              <p className="mt-0.5 text-xs text-muted-foreground">
-                                {customer.email ??
-                                  customer.phone ??
-                                  "No contact information"}
-                              </p>
-
-                              <div className="mt-2 h-1.5 max-w-48 overflow-hidden rounded-full bg-muted">
-                                <div
-                                  className="h-full rounded-full bg-primary"
-                                  style={{
-                                    width: `${percentage}%`,
-                                  }}
-                                />
+                            <div className="flex items-center gap-3">
+                              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                                {index + 1}
                               </div>
-                            </td>
 
-                            <td className="px-4 py-4 text-sm">
-                              {
-                                customer.invoiceCount
-                              }
-                            </td>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold">
+                                      {
+                                        customer.name
+                                      }
+                                    </p>
 
-                            <td className="px-4 py-4 text-sm font-semibold">
-                              {formatCurrency(
-                                customer.totalPurchases,
-                              )}
-                            </td>
+                                    <p className="truncate text-[11px] text-muted-foreground">
+                                      {
+                                        customer.invoiceCount
+                                      }{" "}
+                                      invoice
+                                      {customer.invoiceCount ===
+                                      1
+                                        ? ""
+                                        : "s"}
+                                    </p>
+                                  </div>
 
-                            <td className="px-4 py-4 text-sm">
-                              {formatCurrency(
-                                customer.totalPaid,
-                              )}
-                            </td>
+                                  <div className="shrink-0 text-right">
+                                    <p className="text-sm font-bold">
+                                      {formatCompactCurrency(
+                                        customer.totalPurchases,
+                                      )}
+                                    </p>
 
-                            <td className="py-4 pl-4 text-right text-sm font-semibold">
-                              {formatCurrency(
-                                customer.totalDue,
-                              )}
-                            </td>
-                          </tr>
+                                    {customer.totalDue >
+                                      0 && (
+                                      <p className="text-[11px] text-destructive">
+                                        Due{" "}
+                                        {formatCompactCurrency(
+                                          customer.totalDue,
+                                        )}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                                  <div
+                                    className="h-full rounded-full bg-primary transition-all duration-500"
+                                    style={{
+                                      width: `${percentage}%`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         );
                       },
                     )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+                </div>
+              )}
+            </section>
+          </div>
 
           {/* ================================================= */}
           {/* OUTSTANDING INVOICES                               */}
@@ -1238,8 +1088,8 @@ export default function ReportsPage() {
               </p>
             </div>
 
-            {report.outstandingInvoices
-              .length === 0 ? (
+            {report.outstandingInvoices.length ===
+            0 ? (
               <EmptySection message="There are no outstanding invoices for this period." />
             ) : (
               <div className="overflow-x-auto">
@@ -1440,8 +1290,7 @@ export default function ReportsPage() {
                 <StatusCard
                   label="Expiring Soon"
                   value={
-                    report.warranties
-                      .expiringSoon
+                    report.warranties.expiringSoon
                   }
                 />
 
@@ -1476,6 +1325,473 @@ export default function ReportsPage() {
 }
 
 /* ========================================================= */
+/* SALES LINE CHART                                          */
+/* ========================================================= */
+
+function SalesLineChart({
+  data,
+  maxValue,
+}: {
+  data: ReportData["trends"]["sales"];
+  maxValue: number;
+}) {
+  const width = 1000;
+  const height = 350;
+
+  const paddingLeft = 72;
+  const paddingRight = 24;
+  const paddingTop = 30;
+  const paddingBottom = 55;
+
+  const chartWidth =
+    width -
+    paddingLeft -
+    paddingRight;
+
+  const chartHeight =
+    height -
+    paddingTop -
+    paddingBottom;
+
+  const getX = (index: number) => {
+    if (data.length === 1) {
+      return (
+        paddingLeft +
+        chartWidth / 2
+      );
+    }
+
+    return (
+      paddingLeft +
+      (index /
+        (data.length - 1)) *
+        chartWidth
+    );
+  };
+
+  const getY = (value: number) => {
+    return (
+      paddingTop +
+      chartHeight -
+      (value / Math.max(maxValue, 1)) *
+        chartHeight
+    );
+  };
+
+  const points = data.map(
+    (item, index) => ({
+      ...item,
+      x: getX(index),
+      y: getY(item.sales),
+    }),
+  );
+
+  const linePath = points
+    .map(
+      (point, index) =>
+        `${index === 0 ? "M" : "L"} ${
+          point.x
+        } ${point.y}`,
+    )
+    .join(" ");
+
+  const areaPath =
+    points.length > 0
+      ? [
+          `M ${points[0].x} ${
+            paddingTop +
+            chartHeight
+          }`,
+          ...points.map(
+            (point) =>
+              `L ${point.x} ${point.y}`,
+          ),
+          `L ${
+            points[points.length - 1].x
+          } ${
+            paddingTop +
+            chartHeight
+          }`,
+          "Z",
+        ].join(" ")
+      : "";
+
+  const gridValues = [
+    1,
+    0.75,
+    0.5,
+    0.25,
+    0,
+  ];
+
+  return (
+    <div className="min-w-[680px]">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-[350px] w-full"
+        role="img"
+        aria-label="Sales performance chart"
+      >
+        <defs>
+          <linearGradient
+            id="billnest-sales-gradient"
+            x1="0"
+            y1="0"
+            x2="0"
+            y2="1"
+          >
+            <stop
+              offset="0%"
+              className="stop-primary"
+              stopOpacity="0.25"
+            />
+
+            <stop
+              offset="100%"
+              className="stop-primary"
+              stopOpacity="0"
+            />
+          </linearGradient>
+        </defs>
+
+        {gridValues.map(
+          (ratio) => {
+            const y =
+              paddingTop +
+              chartHeight -
+              ratio * chartHeight;
+
+            return (
+              <g key={ratio}>
+                <line
+                  x1={paddingLeft}
+                  x2={
+                    width -
+                    paddingRight
+                  }
+                  y1={y}
+                  y2={y}
+                  className="stroke-border"
+                  strokeWidth="1"
+                  strokeDasharray="5 6"
+                />
+
+                <text
+                  x={paddingLeft - 12}
+                  y={y + 4}
+                  textAnchor="end"
+                  className="fill-muted-foreground"
+                  fontSize="11"
+                >
+                  {formatCompactCurrency(
+                    maxValue * ratio,
+                  )}
+                </text>
+              </g>
+            );
+          },
+        )}
+
+        <path
+          d={areaPath}
+          fill="url(#billnest-sales-gradient)"
+        />
+
+        <path
+          d={linePath}
+          fill="none"
+          className="stroke-primary"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {points.map(
+          (point, index) => (
+            <g
+              key={`${point.date}-${index}`}
+            >
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r="5"
+                className="fill-background stroke-primary"
+                strokeWidth="3"
+              />
+
+              <title>
+                {`${formatShortDate(
+                  point.date,
+                )}: ${formatCurrency(
+                  point.sales,
+                )} • ${
+                  point.invoices
+                } invoice${
+                  point.invoices === 1
+                    ? ""
+                    : "s"
+                }`}
+              </title>
+
+              {(
+                data.length <= 12 ||
+                index === 0 ||
+                index === data.length - 1 ||
+                index %
+                  Math.ceil(
+                    data.length / 8,
+                  ) ===
+                  0
+              ) && (
+                <text
+                  x={point.x}
+                  y={height - 18}
+                  textAnchor="middle"
+                  className="fill-muted-foreground"
+                  fontSize="11"
+                >
+                  {formatShortDate(
+                    point.date,
+                  )}
+                </text>
+              )}
+            </g>
+          ),
+        )}
+      </svg>
+    </div>
+  );
+}
+
+/* ========================================================= */
+/* PAYMENT BAR CHART                                         */
+/* ========================================================= */
+
+function PaymentBarChart({
+  data,
+  maxValue,
+}: {
+  data: ReportData["trends"]["payments"];
+  maxValue: number;
+}) {
+  return (
+    <div className="space-y-3">
+      {data.map((item) => {
+        const percentage =
+          Math.max(
+            3,
+            (item.amount /
+              Math.max(maxValue, 1)) *
+              100,
+          );
+
+        return (
+          <div
+            key={item.date}
+            className="group"
+          >
+            <div className="mb-1.5 flex items-center justify-between gap-3">
+              <span className="text-xs text-muted-foreground">
+                {formatShortDate(
+                  item.date,
+                )}
+              </span>
+
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] text-muted-foreground">
+                  {item.payments} payment
+                  {item.payments === 1
+                    ? ""
+                    : "s"}
+                </span>
+
+                <span className="text-xs font-semibold">
+                  {formatCurrency(
+                    item.amount,
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <div className="h-3 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-500 group-hover:opacity-80"
+                style={{
+                  width: `${percentage}%`,
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ========================================================= */
+/* PAYMENT METHOD DONUT                                     */
+/* ========================================================= */
+
+function PaymentMethodChart({
+  data,
+  total,
+}: {
+  data: ReportData["payments"]["byMethod"];
+  total: number;
+}) {
+  const radius = 76;
+
+  const circumference =
+    2 * Math.PI * radius;
+
+  let currentOffset = 0;
+
+  const segments = data.map(
+    (item) => {
+      const ratio =
+        total > 0
+          ? item.amount / total
+          : 0;
+
+      const dash =
+        ratio * circumference;
+
+      const result = {
+        ...item,
+        ratio,
+        dash,
+        offset: currentOffset,
+      };
+
+      currentOffset += dash;
+
+      return result;
+    },
+  );
+
+  return (
+    <div className="grid items-center gap-6 sm:grid-cols-[190px_1fr]">
+      <div className="relative mx-auto size-[190px]">
+        <svg
+          viewBox="0 0 190 190"
+          className="size-full -rotate-90"
+          role="img"
+          aria-label="Payment method distribution"
+        >
+          <circle
+            cx="95"
+            cy="95"
+            r={radius}
+            fill="none"
+            className="stroke-muted"
+            strokeWidth="20"
+          />
+
+          {segments.map(
+            (segment, index) => (
+              <circle
+                key={
+                  segment.method
+                }
+                cx="95"
+                cy="95"
+                r={radius}
+                fill="none"
+                className={
+                  index % 4 === 0
+                    ? "stroke-primary"
+                    : index % 4 === 1
+                      ? "stroke-primary/70"
+                      : index % 4 === 2
+                        ? "stroke-primary/45"
+                        : "stroke-primary/25"
+                }
+                strokeWidth="20"
+                strokeDasharray={`${segment.dash} ${
+                  circumference -
+                  segment.dash
+                }`}
+                strokeDashoffset={
+                  -segment.offset
+                }
+              >
+                <title>
+                  {`${formatPaymentMethod(
+                    segment.method,
+                  )}: ${formatCurrency(
+                    segment.amount,
+                  )}`}
+                </title>
+              </circle>
+            ),
+          )}
+        </svg>
+
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xl font-bold">
+            {formatCompactCurrency(
+              total,
+            )}
+          </span>
+
+          <span className="text-[11px] text-muted-foreground">
+            collected
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {segments.map(
+          (segment, index) => (
+            <div
+              key={
+                segment.method
+              }
+              className="flex items-center justify-between gap-3"
+            >
+              <div className="flex min-w-0 items-center gap-2">
+                <span
+                  className={`size-2.5 shrink-0 rounded-full ${
+                    index % 4 === 0
+                      ? "bg-primary"
+                      : index % 4 === 1
+                        ? "bg-primary/70"
+                        : index % 4 === 2
+                          ? "bg-primary/45"
+                          : "bg-primary/25"
+                  }`}
+                />
+
+                <span className="truncate text-sm">
+                  {formatPaymentMethod(
+                    segment.method,
+                  )}
+                </span>
+              </div>
+
+              <div className="shrink-0 text-right">
+                <p className="text-sm font-semibold">
+                  {formatCurrency(
+                    segment.amount,
+                  )}
+                </p>
+
+                <p className="text-[11px] text-muted-foreground">
+                  {(
+                    segment.ratio * 100
+                  ).toFixed(1)}
+                  %
+                </p>
+              </div>
+            </div>
+          ),
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================= */
 /* COMPONENTS                                                */
 /* ========================================================= */
 
@@ -1491,7 +1807,7 @@ function MetricCard({
   icon: typeof BarChart3;
 }) {
   return (
-    <div className="rounded-2xl border bg-card p-5 shadow-sm">
+    <div className="rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm text-muted-foreground">
@@ -1577,24 +1893,16 @@ function StatusCard({
   value: number;
 }) {
   return (
-    <div className="rounded-xl bg-muted/40 p-4">
+    <div className="rounded-xl bg-muted/40 p-4 transition hover:bg-muted/60">
       <p className="text-xs text-muted-foreground">
         {label}
       </p>
 
       <p className="mt-1 text-xl font-bold">
-        {formatStatusValue(value)}
+        {formatNumber(value)}
       </p>
     </div>
   );
-}
-
-function formatStatusValue(
-  value: number,
-) {
-  return new Intl.NumberFormat(
-    "en-IN",
-  ).format(Number(value) || 0);
 }
 
 function EmptySection({
