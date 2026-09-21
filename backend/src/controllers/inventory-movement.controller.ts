@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import {
   getInventoryMovementsForOwner,
   getProductInventoryMovementsForOwner,
+  getInventoryValuationForOwner,
 } from "../services/inventory-movement.service";
 
 import {
@@ -100,5 +101,31 @@ export async function getProductInventoryMovements(
     success: true,
 
     data: result,
+  });
+}
+
+/**
+ * ============================================================
+ * GET /api/inventory/valuation
+ * ============================================================
+ *
+ * Returns the authoritative inventory valuation for the
+ * authenticated shop.
+ */
+export async function getInventoryValuation(
+  req: AuthenticatedRequest,
+  res: Response,
+) {
+  const result =
+    await getInventoryValuationForOwner(
+      req.user.id,
+    );
+
+  res.status(200).json({
+    success: true,
+
+    data: {
+      valuation: result,
+    },
   });
 }

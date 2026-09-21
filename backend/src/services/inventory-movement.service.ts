@@ -7,6 +7,10 @@ import {
 } from "../repositories/inventory-movement.repository";
 
 import {
+  getInventoryValuationByShopId,
+} from "../repositories/inventory-valuation.repository";
+
+import {
   findProductByIdForShop,
 } from "../repositories/product.repository";
 
@@ -292,4 +296,32 @@ export async function getProductInventoryMovementsForOwner(
       productId,
     },
   );
+}
+
+/**
+ * ============================================================
+ * INVENTORY VALUATION
+ * ============================================================
+ *
+ * Calculates valuation for ALL active products belonging to
+ * the authenticated shop.
+ *
+ * This intentionally uses the database aggregation rather
+ * than the frontend product list, so valuation is not limited
+ * to the first 100 products returned by the products API.
+ */
+export async function getInventoryValuationForOwner(
+  ownerId: string,
+) {
+  const shop =
+    await getShopForOwner(
+      ownerId,
+    );
+
+  const valuation =
+    await getInventoryValuationByShopId(
+      shop._id.toString(),
+    );
+
+  return valuation;
 }

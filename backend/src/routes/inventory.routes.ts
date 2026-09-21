@@ -5,6 +5,7 @@ import {
 import {
   getInventoryMovements,
   getProductInventoryMovements,
+  getInventoryValuation,
 } from "../controllers/inventory-movement.controller";
 
 import {
@@ -33,6 +34,30 @@ router.use(
 router.use(
   requireRole(
     "shopkeeper",
+  ),
+);
+
+/**
+ * ============================================================
+ * INVENTORY VALUATION
+ * ============================================================
+ *
+ * IMPORTANT:
+ * This route must come before:
+ *
+ * /products/:productId/...
+ *
+ * so "valuation" is never interpreted as a product ID.
+ */
+
+/**
+ * GET
+ * /api/inventory/valuation
+ */
+router.get(
+  "/valuation",
+  asyncHandler(
+    getInventoryValuation,
   ),
 );
 
