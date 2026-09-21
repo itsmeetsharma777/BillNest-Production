@@ -1,4 +1,10 @@
-import { ProductModel } from "../models/product.model";
+import {
+  type ClientSession,
+} from "mongoose";
+
+import {
+  ProductModel,
+} from "../models/product.model";
 
 interface ProductFilters {
   search?: string;
@@ -58,6 +64,22 @@ function buildProductFilter(
   return filter;
 }
 
+/**
+ * ============================================================
+ * CREATE PRODUCT
+ * ============================================================
+ *
+ * The optional MongoDB session allows product creation to
+ * participate in a larger transaction.
+ *
+ * Feature 20.3 uses this to make:
+ *
+ *     product creation
+ *     +
+ *     initial inventory movement
+ *
+ * atomic.
+ */
 export async function createProduct(
   data: {
     shopId: string;
@@ -71,8 +93,23 @@ export async function createProduct(
     warrantyPeriodMonths: number;
     description?: string;
   },
+  session?: ClientSession,
 ) {
-  return ProductModel.create(data);
+  if (!session) {
+    return ProductModel.create(
+      data,
+    );
+  }
+
+  const [product] =
+    await ProductModel.create(
+      [data],
+      {
+        session,
+      },
+    );
+
+  return product;
 }
 
 export async function findProductsByShopId(

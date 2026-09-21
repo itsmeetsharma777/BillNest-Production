@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 import {
   countProductsByShopId,
   createProduct,
@@ -6,6 +8,10 @@ import {
   findProductsByShopId,
   updateProductByIdForShop,
 } from "../repositories/product.repository";
+
+import {
+  createInventoryMovement,
+} from "../repositories/inventory-movement.repository";
 
 import {
   getShopForOwner,
@@ -37,6 +43,27 @@ function isDuplicateKeyError(
   );
 }
 
+/**
+ * ============================================================
+ * CREATE PRODUCT
+ * ============================================================
+ *
+ * Feature 20.3:
+ *
+ * Product creation and initial inventory movement happen
+ * inside the SAME MongoDB transaction.
+ *
+ * Example:
+ *
+ *     Product stock = 4
+ *
+ * Movement:
+ *
+ *     initial_stock
+ *     quantity = 4
+ *     previousStock = 0
+ *     newStock = 4
+ */
 export async function createProductForOwner(
   ownerId: string,
   input: {
@@ -56,44 +83,136 @@ export async function createProductForOwner(
       ownerId,
     );
 
+  const session =
+    await mongoose.startSession();
+
   try {
-    return await createProduct({
-      shopId:
-        shop._id.toString(),
+    const result =
+      await session.withTransaction(
+        async () => {
+          /**
+           * Create the product inside the
+           * transaction.
+           */
+          const product =
+            await createProduct(
+              {
+                shopId:
+                  shop._id.toString(),
 
-      name:
-        input.name.trim(),
+                name:
+                  input.name.trim(),
 
-      sku:
-        cleanOptionalText(
-          input.sku,
-        ),
+                sku:
+                  cleanOptionalText(
+                    input.sku,
+                  ),
 
-      category:
-        cleanOptionalText(
-          input.category,
-        ),
+                category:
+                  cleanOptionalText(
+                    input.category,
+                  ),
 
-      purchasePrice:
-        input.purchasePrice,
+                purchasePrice:
+                  input.purchasePrice,
 
-      sellingPrice:
-        input.sellingPrice,
+                sellingPrice:
+                  input.sellingPrice,
 
-      stockQuantity:
-        input.stockQuantity,
+                stockQuantity:
+                  input.stockQuantity,
 
-      lowStockThreshold:
-        input.lowStockThreshold,
+                lowStockThreshold:
+                  input.lowStockThreshold,
 
-      warrantyPeriodMonths:
-        input.warrantyPeriodMonths,
+                warrantyPeriodMonths:
+                  input.warrantyPeriodMonths,
 
-      description:
-        cleanOptionalText(
-          input.description,
-        ),
-    });
+                description:
+                  cleanOptionalText(
+                    input.description,
+                  ),
+              },
+              session,
+            );
+
+          /**
+           * ======================================================
+           * INITIAL STOCK MOVEMENT
+           * ======================================================
+           *
+           * Only create a movement when the product
+           * actually starts with stock.
+           *
+           * A product created with stock = 0 does not
+           * need an initial movement because no inventory
+           * entered the shop.
+           */
+          let movement = null;
+
+          if (
+            input.stockQuantity > 0
+          ) {
+            movement =
+              await createInventoryMovement(
+                {
+                  shopId:
+                    shop._id.toString(),
+
+                  productId:
+                    product._id.toString(),
+
+                  productName:
+                    product.name,
+
+                  ...(product.sku && {
+                    sku:
+                      product.sku,
+                  }),
+
+                  movementType:
+                    "initial_stock",
+
+                  quantity:
+                    input.stockQuantity,
+
+                  previousStock: 0,
+
+                  newStock:
+                    input.stockQuantity,
+
+                  referenceType:
+                    "product_creation",
+
+                  referenceId:
+                    product._id.toString(),
+
+                  reason:
+                    "Initial stock recorded when product was created.",
+
+                  createdBy:
+                    ownerId,
+                },
+                session,
+              );
+          }
+
+          return {
+            product,
+            movement,
+          };
+        },
+      );
+
+    if (!result) {
+      throw new ApiError(
+        500,
+        "Product creation transaction failed.",
+        "PRODUCT_CREATION_TRANSACTION_FAILED",
+      );
+    }
+
+    return result;
   } catch (error) {
     if (
       isDuplicateKeyError(
@@ -108,9 +227,16 @@ export async function createProductForOwner(
     }
 
     throw error;
+  } finally {
+    await session.endSession();
   }
 }
 
+/**
+ * ============================================================
+ * GET PRODUCTS
+ * ============================================================
+ */
 export async function getProductsForOwner(
   ownerId: string,
   options: {
@@ -138,12 +264,16 @@ export async function getProductsForOwner(
       shop._id.toString(),
       {
         skip,
+
         limit:
           options.limit,
+
         search:
           options.search,
+
         category:
           options.category,
+
         isActive:
           options.isActive,
       },
@@ -154,8 +284,10 @@ export async function getProductsForOwner(
       {
         search:
           options.search,
+
         category:
           options.category,
+
         isActive:
           options.isActive,
       },
@@ -182,6 +314,11 @@ export async function getProductsForOwner(
   };
 }
 
+/**
+ * ============================================================
+ * GET ONE PRODUCT
+ * ============================================================
+ */
 export async function getProductForOwner(
   ownerId: string,
   productId: string,
@@ -208,6 +345,16 @@ export async function getProductForOwner(
   return product;
 }
 
+/**
+ * ============================================================
+ * UPDATE PRODUCT
+ * ============================================================
+ *
+ * stockQuantity is intentionally NOT accepted here.
+ *
+ * Inventory changes must go through Feature 20.2
+ * stock adjustment.
+ */
 export async function updateProductForOwner(
   ownerId: string,
   productId: string,
@@ -282,16 +429,6 @@ export async function updateProductForOwner(
               input.sellingPrice,
           }),
 
-          /*
-           * IMPORTANT:
-           *
-           * stockQuantity is intentionally
-           * not updated here.
-           *
-           * Use the inventory adjustment
-           * endpoint instead.
-           */
-
           ...(input.lowStockThreshold !==
             undefined && {
             lowStockThreshold:
@@ -344,6 +481,11 @@ export async function updateProductForOwner(
   }
 }
 
+/**
+ * ============================================================
+ * DEACTIVATE PRODUCT
+ * ============================================================
+ */
 export async function deleteProductForOwner(
   ownerId: string,
   productId: string,
