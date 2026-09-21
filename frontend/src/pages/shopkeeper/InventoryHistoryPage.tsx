@@ -21,7 +21,6 @@ import {
   RefreshCw,
   Search,
   X,
-  XCircle,
 } from "lucide-react";
 
 import InventoryAlerts from "@/components/inventory/InventoryAlerts";
