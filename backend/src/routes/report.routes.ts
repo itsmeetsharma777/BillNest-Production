@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   getReports,
+  downloadReportPdf,
 } from "../controllers/report.controller";
 
 import {
@@ -33,6 +34,13 @@ router.get(
   "/",
   asyncHandler(
     getReports,
+  ),
+);
+
+router.get(
+  "/pdf",
+  asyncHandler(
+    downloadReportPdf,
   ),
 );
 

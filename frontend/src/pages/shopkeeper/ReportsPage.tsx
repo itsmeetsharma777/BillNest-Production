@@ -2,6 +2,7 @@ import {
   BarChart3,
   CalendarDays,
   CircleDollarSign,
+  Download,
   FileText,
   Loader2,
   Package,
@@ -218,6 +219,412 @@ function getStatusLabel(status: string) {
     );
 }
 
+/* ========================================================= */
+/* CSV EXPORT — FEATURE 19.4.1                              */
+/* ========================================================= */
+
+function escapeCsvValue(value: unknown) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  const text = String(value);
+
+  if (
+    text.includes(",") ||
+    text.includes('"') ||
+    text.includes("\n") ||
+    text.includes("\r")
+  ) {
+    return `"${text.replaceAll('"', '""')}"`;
+  }
+
+  return text;
+}
+
+function csvRow(values: unknown[]) {
+  return values.map(escapeCsvValue).join(",");
+}
+
+function downloadCsvFile(
+  filename: string,
+  rows: unknown[][],
+) {
+  const csv = rows.map(csvRow).join("\r\n");
+
+  const blob = new Blob(["\uFEFF", csv], {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+
+  anchor.href = url;
+  anchor.download = filename;
+
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+
+  URL.revokeObjectURL(url);
+}
+
+function buildReportCsv(report: ReportData) {
+  const rows: unknown[][] = [];
+
+  /* ------------------------------------------------------- */
+  /* REPORT HEADER                                           */
+  /* ------------------------------------------------------- */
+
+  rows.push(["BillNest Reports & Analytics"]);
+
+  rows.push([
+    "Report Period",
+    report.period.startDate ?? "",
+    report.period.endDate ?? "",
+  ]);
+
+  rows.push([]);
+
+  /* ------------------------------------------------------- */
+  /* SUMMARY                                                 */
+  /* ------------------------------------------------------- */
+
+  rows.push(["Summary"]);
+
+  rows.push([
+    "Metric",
+    "Value",
+  ]);
+
+  rows.push([
+    "Total Invoices",
+    report.overview.totalInvoices,
+  ]);
+
+  rows.push([
+    "Total Sales",
+    report.overview.totalSales,
+  ]);
+
+  rows.push([
+    "Total Subtotal",
+    report.overview.totalSubtotal,
+  ]);
+
+  rows.push([
+    "Total Discount",
+    report.overview.totalDiscount,
+  ]);
+
+  rows.push([
+    "Total Tax",
+    report.overview.totalTax,
+  ]);
+
+  rows.push([
+    "Average Invoice",
+    report.overview.averageInvoice,
+  ]);
+
+  rows.push([
+    "Amount Collected",
+    report.overview.amountCollected,
+  ]);
+
+  rows.push([
+    "Amount Outstanding",
+    report.overview.amountOutstanding,
+  ]);
+
+  rows.push([
+    "Collection Rate (%)",
+    report.overview.collectionRate,
+  ]);
+
+  rows.push([
+    "Payment Count",
+    report.overview.paymentCount,
+  ]);
+
+  rows.push([]);
+
+  /* ------------------------------------------------------- */
+  /* INVOICE STATUS                                          */
+  /* ------------------------------------------------------- */
+
+  rows.push(["Invoice Status"]);
+
+  rows.push([
+    "Status",
+    "Count",
+  ]);
+
+  rows.push([
+    "Paid",
+    report.invoices.paid,
+  ]);
+
+  rows.push([
+    "Partially Paid",
+    report.invoices.partiallyPaid,
+  ]);
+
+  rows.push([
+    "Draft",
+    report.invoices.draft,
+  ]);
+
+  rows.push([
+    "Cancelled",
+    report.invoices.cancelled,
+  ]);
+
+  rows.push([
+    "Total",
+    report.invoices.total,
+  ]);
+
+  rows.push([]);
+
+  /* ------------------------------------------------------- */
+  /* PAYMENT METHODS                                         */
+  /* ------------------------------------------------------- */
+
+  rows.push(["Payment Methods"]);
+
+  rows.push([
+    "Payment Method",
+    "Count",
+    "Amount",
+  ]);
+
+  report.payments.byMethod.forEach((item) => {
+    rows.push([
+      formatPaymentMethod(item.method),
+      item.count,
+      item.amount,
+    ]);
+  });
+
+  rows.push([]);
+
+  /* ------------------------------------------------------- */
+  /* SALES TREND                                             */
+  /* ------------------------------------------------------- */
+
+  rows.push(["Sales Trend"]);
+
+  rows.push([
+    "Date",
+    "Sales",
+    "Invoices",
+  ]);
+
+  report.trends.sales.forEach((item) => {
+    rows.push([
+      item.date,
+      item.sales,
+      item.invoices,
+    ]);
+  });
+
+  rows.push([]);
+
+  /* ------------------------------------------------------- */
+  /* PAYMENT TREND                                           */
+  /* ------------------------------------------------------- */
+
+  rows.push(["Payment Trend"]);
+
+  rows.push([
+    "Date",
+    "Amount",
+    "Payments",
+  ]);
+
+  report.trends.payments.forEach((item) => {
+    rows.push([
+      item.date,
+      item.amount,
+      item.payments,
+    ]);
+  });
+
+  rows.push([]);
+
+  /* ------------------------------------------------------- */
+  /* TOP PRODUCTS                                            */
+  /* ------------------------------------------------------- */
+
+  rows.push(["Top Products"]);
+
+  rows.push([
+    "Product",
+    "SKU",
+    "Quantity",
+    "Revenue",
+  ]);
+
+  report.topProducts.forEach((item) => {
+    rows.push([
+      item.productName,
+      item.sku ?? "",
+      item.quantity,
+      item.revenue,
+    ]);
+  });
+
+  rows.push([]);
+
+  /* ------------------------------------------------------- */
+  /* TOP CUSTOMERS                                           */
+  /* ------------------------------------------------------- */
+
+  rows.push(["Top Customers"]);
+
+  rows.push([
+    "Customer",
+    "Email",
+    "Phone",
+    "Total Purchases",
+    "Invoice Count",
+    "Total Paid",
+    "Total Due",
+  ]);
+
+  report.topCustomers.forEach((item) => {
+    rows.push([
+      item.name,
+      item.email ?? "",
+      item.phone ?? "",
+      item.totalPurchases,
+      item.invoiceCount,
+      item.totalPaid,
+      item.totalDue,
+    ]);
+  });
+
+  rows.push([]);
+
+  /* ------------------------------------------------------- */
+  /* OUTSTANDING INVOICES                                    */
+  /* ------------------------------------------------------- */
+
+  rows.push(["Outstanding Invoices"]);
+
+  rows.push([
+    "Invoice",
+    "Customer",
+    "Issue Date",
+    "Due Date",
+    "Status",
+    "Total",
+    "Amount Paid",
+    "Amount Due",
+  ]);
+
+  report.outstandingInvoices.forEach((item) => {
+    rows.push([
+      item.invoiceNumber,
+      item.customerName,
+      item.issueDate ?? "",
+      item.dueDate ?? "",
+      getStatusLabel(item.status),
+      item.total,
+      item.amountPaid,
+      item.amountDue,
+    ]);
+  });
+
+  rows.push([]);
+
+  /* ------------------------------------------------------- */
+  /* INVENTORY                                               */
+  /* ------------------------------------------------------- */
+
+  rows.push(["Inventory Overview"]);
+
+  rows.push([
+    "Metric",
+    "Value",
+  ]);
+
+  rows.push([
+    "Total Products",
+    report.inventory.totalProducts,
+  ]);
+
+  rows.push([
+    "Active Products",
+    report.inventory.activeProducts,
+  ]);
+
+  rows.push([
+    "Inactive Products",
+    report.inventory.inactiveProducts,
+  ]);
+
+  rows.push([
+    "Total Stock Units",
+    report.inventory.totalStockUnits,
+  ]);
+
+  rows.push([
+    "Low Stock Products",
+    report.inventory.lowStockProducts,
+  ]);
+
+  rows.push([
+    "Out of Stock Products",
+    report.inventory.outOfStockProducts,
+  ]);
+
+  rows.push([]);
+
+  /* ------------------------------------------------------- */
+  /* WARRANTY                                                */
+  /* ------------------------------------------------------- */
+
+  rows.push(["Warranty Overview"]);
+
+  rows.push([
+    "Metric",
+    "Value",
+  ]);
+
+  rows.push([
+    "Total",
+    report.warranties.total,
+  ]);
+
+  rows.push([
+    "Active",
+    report.warranties.active,
+  ]);
+
+  rows.push([
+    "Expiring Soon",
+    report.warranties.expiringSoon,
+  ]);
+
+  rows.push([
+    "Expired",
+    report.warranties.expired,
+  ]);
+
+  rows.push([
+    "No Warranty",
+    report.warranties.noWarranty,
+  ]);
+
+  return rows;
+}
+
+/* ========================================================= */
+/* MAIN PAGE                                                 */
+/* ========================================================= */
+
 export default function ReportsPage() {
   const [report, setReport] =
     useState<ReportData | null>(null);
@@ -243,7 +650,10 @@ export default function ReportsPage() {
       const params = new URLSearchParams();
 
       if (startDate) {
-        params.set("startDate", startDate);
+        params.set(
+          "startDate",
+          startDate,
+        );
       }
 
       if (endDate) {
@@ -391,6 +801,36 @@ export default function ReportsPage() {
       );
     }, [report]);
 
+  function handleExportCsv() {
+    if (!report) {
+      return;
+    }
+
+    const periodStart =
+      report.period.startDate ??
+      startDate ??
+      "report";
+
+    const periodEnd =
+      report.period.endDate ??
+      endDate ??
+      "report";
+
+    const filename =
+      `billnest-report-${periodStart.slice(
+        0,
+        10,
+      )}-to-${periodEnd.slice(
+        0,
+        10,
+      )}.csv`;
+
+    downloadCsvFile(
+      filename,
+      buildReportCsv(report),
+    );
+  }
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
       {/* ===================================================== */}
@@ -416,22 +856,46 @@ export default function ReportsPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => void loadReports()}
-          disabled={isLoading}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border bg-card px-4 text-sm font-medium shadow-sm transition hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
-        >
-          <RefreshCw
-            className={`size-4 ${
-              isLoading
-                ? "animate-spin"
-                : ""
-            }`}
-          />
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {/* ================================================= */}
+          {/* CSV EXPORT                                        */}
+          {/* ================================================= */}
 
-          Refresh
-        </button>
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={
+              isLoading ||
+              !report
+            }
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border bg-card px-4 text-sm font-medium shadow-sm transition hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+          >
+            <Download className="size-4" />
+
+            Export CSV
+          </button>
+
+          {/* ================================================= */}
+          {/* REFRESH                                            */}
+          {/* ================================================= */}
+
+          <button
+            type="button"
+            onClick={() => void loadReports()}
+            disabled={isLoading}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border bg-card px-4 text-sm font-medium shadow-sm transition hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`size-4 ${
+                isLoading
+                  ? "animate-spin"
+                  : ""
+              }`}
+            />
+
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* ===================================================== */}
@@ -538,7 +1002,7 @@ export default function ReportsPage() {
       )}
 
       {/* ===================================================== */}
-      {/* LOADING                                                */}
+      {/* LOADING / EMPTY                                       */}
       {/* ===================================================== */}
 
       {isLoading ? (
@@ -613,7 +1077,7 @@ export default function ReportsPage() {
           </div>
 
           {/* ================================================= */}
-          {/* SALES PERFORMANCE CHART                           */}
+          {/* SALES PERFORMANCE                                 */}
           {/* ================================================= */}
 
           <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
@@ -641,7 +1105,7 @@ export default function ReportsPage() {
           </section>
 
           {/* ================================================= */}
-          {/* SALES + COLLECTION                                  */}
+          {/* SALES + COLLECTION                                */}
           {/* ================================================= */}
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -721,11 +1185,7 @@ export default function ReportsPage() {
               <div className="mb-6 flex items-end gap-4">
                 <div>
                   <p className="text-3xl font-bold">
-                    {
-                      report.overview
-                        .collectionRate
-                    }
-                    %
+                    {report.overview.collectionRate}%
                   </p>
 
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -739,18 +1199,17 @@ export default function ReportsPage() {
                   className="h-full rounded-full bg-primary transition-all duration-500"
                   style={{
                     width: `${Math.min(
-                      Math.max(
-                        report.overview
-                          .collectionRate,
-                        0,
-                      ),
                       100,
+                      Math.max(
+                        0,
+                        report.overview.collectionRate,
+                      ),
                     )}%`,
                   }}
                 />
               </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <MiniMetric
                   label="Collected"
                   value={formatCurrency(
@@ -769,23 +1228,26 @@ export default function ReportsPage() {
           </div>
 
           {/* ================================================= */}
-          {/* PAYMENT TREND + PAYMENT METHODS                    */}
+          {/* PAYMENT TREND + METHODS                           */}
           {/* ================================================= */}
 
           <div className="grid gap-6 lg:grid-cols-2">
             <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
-              <div className="mb-6">
-                <h2 className="font-semibold">
-                  Payment Trend
-                </h2>
+              <div className="mb-6 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="font-semibold">
+                    Payment Trend
+                  </h2>
 
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Daily payments received.
-                </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Daily collection activity.
+                  </p>
+                </div>
+
+                <WalletCards className="size-5 text-primary" />
               </div>
 
-              {report.trends.payments.length ===
-              0 ? (
+              {report.trends.payments.length === 0 ? (
                 <EmptySection message="No payments recorded during this period." />
               ) : (
                 <PaymentBarChart
@@ -796,52 +1258,57 @@ export default function ReportsPage() {
             </section>
 
             <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
-              <div className="mb-6">
-                <h2 className="font-semibold">
-                  Payment Methods
-                </h2>
+              <div className="mb-6 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="font-semibold">
+                    Payment Methods
+                  </h2>
 
-                <p className="mt-1 text-xs text-muted-foreground">
-                  How customers are paying.
-                </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    How customers are paying you.
+                  </p>
+                </div>
+
+                <WalletCards className="size-5 text-primary" />
               </div>
 
-              {report.payments.byMethod.length ===
-              0 ? (
-                <EmptySection message="No payment data for this period." />
+              {report.payments.byMethod.length === 0 ? (
+                <EmptySection message="No payment method data available." />
               ) : (
                 <PaymentMethodChart
                   data={report.payments.byMethod}
-                  total={
-                    report.payments
-                      .totalCollected
-                  }
+                  total={report.payments.totalCollected}
                 />
               )}
             </section>
           </div>
 
           {/* ================================================= */}
-          {/* INVOICE STATUS                                      */}
+          {/* INVOICE STATUS                                    */}
           {/* ================================================= */}
 
           <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
-            <div className="mb-5 flex items-center justify-between gap-4">
+            <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <h2 className="font-semibold">
                   Invoice Status
                 </h2>
 
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Current invoice distribution for the
-                  selected period.
+                  Current invoice distribution for the selected
+                  period.
                 </p>
               </div>
 
               <FileText className="size-5 text-primary" />
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <StatusCard
+                label="Total"
+                value={report.invoices.total}
+              />
+
               <StatusCard
                 label="Paid"
                 value={report.invoices.paid}
@@ -849,9 +1316,7 @@ export default function ReportsPage() {
 
               <StatusCard
                 label="Partially Paid"
-                value={
-                  report.invoices.partiallyPaid
-                }
+                value={report.invoices.partiallyPaid}
               />
 
               <StatusCard
@@ -861,263 +1326,240 @@ export default function ReportsPage() {
 
               <StatusCard
                 label="Cancelled"
-                value={
-                  report.invoices.cancelled
-                }
+                value={report.invoices.cancelled}
               />
             </div>
           </section>
 
           {/* ================================================= */}
-          {/* TOP PRODUCTS + CUSTOMERS                           */}
-          {/* ================================================= */}
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
-              <div className="mb-6 flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="font-semibold">
-                    Top Products
-                  </h2>
-
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Products generating the most revenue.
-                  </p>
-                </div>
-
-                <Package className="size-5 text-primary" />
-              </div>
-
-              {report.topProducts.length ===
-              0 ? (
-                <EmptySection message="No product sales recorded during this period." />
-              ) : (
-                <div className="space-y-4">
-                  {report.topProducts.map(
-                    (product, index) => {
-                      const percentage =
-                        Math.max(
-                          4,
-                          (product.revenue /
-                            maxProductRevenue) *
-                            100,
-                        );
-
-                      return (
-                        <div
-                          key={
-                            product.id ??
-                            `${product.productName}-${index}`
-                          }
-                          className="rounded-xl bg-muted/30 p-3 sm:p-4"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
-                              {index + 1}
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-semibold">
-                                    {
-                                      product.productName
-                                    }
-                                  </p>
-
-                                  {product.sku && (
-                                    <p className="text-xs text-muted-foreground">
-                                      SKU:{" "}
-                                      {
-                                        product.sku
-                                      }
-                                    </p>
-                                  )}
-                                </div>
-
-                                <div className="shrink-0 text-left sm:text-right">
-                                  <p className="text-sm font-bold">
-                                    {formatCurrency(
-                                      product.revenue,
-                                    )}
-                                  </p>
-
-                                  <p className="text-xs text-muted-foreground">
-                                    {formatNumber(
-                                      product.quantity,
-                                    )}{" "}
-                                    sold
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-                                <div
-                                  className="h-full rounded-full bg-primary transition-all duration-500"
-                                  style={{
-                                    width: `${percentage}%`,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    },
-                  )}
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
-              <div className="mb-6 flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="font-semibold">
-                    Top Customers
-                  </h2>
-
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Customers with the highest purchase value.
-                  </p>
-                </div>
-
-                <Users className="size-5 text-primary" />
-              </div>
-
-              {report.topCustomers.length ===
-              0 ? (
-                <EmptySection message="No customer purchases recorded during this period." />
-              ) : (
-                <div className="space-y-3">
-                  {report.topCustomers
-                    .slice(0, 8)
-                    .map(
-                      (customer, index) => {
-                        const percentage =
-                          Math.max(
-                            4,
-                            (customer.totalPurchases /
-                              maxCustomerPurchases) *
-                              100,
-                          );
-
-                        return (
-                          <div
-                            key={
-                              customer.id ??
-                              `${customer.name}-${index}`
-                            }
-                            className="rounded-xl bg-muted/30 p-3 transition hover:bg-muted/50"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                                {index + 1}
-                              </div>
-
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <p className="truncate text-sm font-semibold">
-                                      {
-                                        customer.name
-                                      }
-                                    </p>
-
-                                    <p className="truncate text-[11px] text-muted-foreground">
-                                      {
-                                        customer.invoiceCount
-                                      }{" "}
-                                      invoice
-                                      {customer.invoiceCount ===
-                                      1
-                                        ? ""
-                                        : "s"}
-                                    </p>
-                                  </div>
-
-                                  <div className="shrink-0 text-right">
-                                    <p className="text-sm font-bold">
-                                      {formatCompactCurrency(
-                                        customer.totalPurchases,
-                                      )}
-                                    </p>
-
-                                    {customer.totalDue >
-                                      0 && (
-                                      <p className="text-[11px] text-destructive">
-                                        Due{" "}
-                                        {formatCompactCurrency(
-                                          customer.totalDue,
-                                        )}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                                  <div
-                                    className="h-full rounded-full bg-primary transition-all duration-500"
-                                    style={{
-                                      width: `${percentage}%`,
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      },
-                    )}
-                </div>
-              )}
-            </section>
-          </div>
-
-          {/* ================================================= */}
-          {/* OUTSTANDING INVOICES                               */}
+          {/* TOP PRODUCTS                                     */}
           {/* ================================================= */}
 
           <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
-            <div className="mb-6">
-              <h2 className="font-semibold">
-                Outstanding Invoices
-              </h2>
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-semibold">
+                  Top Products
+                </h2>
 
-              <p className="mt-1 text-xs text-muted-foreground">
-                Invoices with an unpaid balance.
-              </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Products generating the most revenue.
+                </p>
+              </div>
+
+              <Package className="size-5 text-primary" />
             </div>
 
-            {report.outstandingInvoices.length ===
-            0 ? (
-              <EmptySection message="There are no outstanding invoices for this period." />
+            {report.topProducts.length === 0 ? (
+              <EmptySection message="No product sales recorded during this period." />
+            ) : (
+              <div className="space-y-4">
+                {report.topProducts.map(
+                  (product, index) => {
+                    const percentage =
+                      Math.max(
+                        3,
+                        (product.revenue /
+                          maxProductRevenue) *
+                          100,
+                      );
+
+                    return (
+                      <div
+                        key={
+                          product.id ??
+                          `${product.productName}-${index}`
+                        }
+                      >
+                        <div className="mb-2 flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                                {index + 1}
+                              </span>
+
+                              <span className="truncate text-sm font-medium">
+                                {product.productName}
+                              </span>
+                            </div>
+
+                            <div className="mt-1 pl-9 text-xs text-muted-foreground">
+                              {product.sku
+                                ? `SKU: ${product.sku} • `
+                                : ""}
+                              {formatNumber(
+                                product.quantity,
+                              )}{" "}
+                              units
+                            </div>
+                          </div>
+
+                          <span className="shrink-0 text-sm font-bold">
+                            {formatCurrency(
+                              product.revenue,
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="ml-9 h-2 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{
+                              width: `${percentage}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  },
+                )}
+              </div>
+            )}
+          </section>
+
+          {/* ================================================= */}
+          {/* TOP CUSTOMERS                                    */}
+          {/* ================================================= */}
+
+          <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-semibold">
+                  Top Customers
+                </h2>
+
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Customers with the highest purchase value.
+                </p>
+              </div>
+
+              <Users className="size-5 text-primary" />
+            </div>
+
+            {report.topCustomers.length === 0 ? (
+              <EmptySection message="No customer purchase data available." />
+            ) : (
+              <div className="space-y-4">
+                {report.topCustomers.map(
+                  (customer, index) => {
+                    const percentage =
+                      Math.max(
+                        3,
+                        (customer.totalPurchases /
+                          maxCustomerPurchases) *
+                          100,
+                      );
+
+                    return (
+                      <div
+                        key={
+                          customer.id ??
+                          `${customer.name}-${index}`
+                        }
+                      >
+                        <div className="mb-2 flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                                {index + 1}
+                              </span>
+
+                              <span className="truncate text-sm font-medium">
+                                {customer.name}
+                              </span>
+                            </div>
+
+                            <div className="mt-1 pl-9 text-xs text-muted-foreground">
+                              {customer.email ??
+                                customer.phone ??
+                                "No contact information"}
+                              {" • "}
+                              {formatNumber(
+                                customer.invoiceCount,
+                              )}{" "}
+                              invoice
+                              {customer.invoiceCount ===
+                              1
+                                ? ""
+                                : "s"}
+                            </div>
+                          </div>
+
+                          <span className="shrink-0 text-sm font-bold">
+                            {formatCurrency(
+                              customer.totalPurchases,
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="ml-9 h-2 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{
+                              width: `${percentage}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  },
+                )}
+              </div>
+            )}
+          </section>
+
+          {/* ================================================= */}
+          {/* OUTSTANDING INVOICES                             */}
+          {/* ================================================= */}
+
+          <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-semibold">
+                  Outstanding Invoices
+                </h2>
+
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Invoices with an unpaid balance.
+                </p>
+              </div>
+
+              <CircleDollarSign className="size-5 text-primary" />
+            </div>
+
+            {report.outstandingInvoices.length === 0 ? (
+              <EmptySection message="No outstanding invoices for this period." />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[780px]">
+                <table className="w-full min-w-[850px]">
                   <thead>
-                    <tr className="border-b text-left text-xs text-muted-foreground">
-                      <th className="pb-3 pr-4 font-medium">
+                    <tr className="border-b text-left">
+                      <th className="px-4 pb-3 text-xs font-semibold text-muted-foreground">
                         Invoice
                       </th>
 
-                      <th className="pb-3 px-4 font-medium">
+                      <th className="px-4 pb-3 text-xs font-semibold text-muted-foreground">
                         Customer
                       </th>
 
-                      <th className="pb-3 px-4 font-medium">
+                      <th className="px-4 pb-3 text-xs font-semibold text-muted-foreground">
+                        Issue Date
+                      </th>
+
+                      <th className="px-4 pb-3 text-xs font-semibold text-muted-foreground">
                         Due Date
                       </th>
 
-                      <th className="pb-3 px-4 font-medium">
+                      <th className="px-4 pb-3 text-xs font-semibold text-muted-foreground">
                         Status
                       </th>
 
-                      <th className="pb-3 px-4 font-medium">
+                      <th className="px-4 pb-3 text-xs font-semibold text-muted-foreground">
                         Total
                       </th>
 
-                      <th className="pb-3 pl-4 text-right font-medium">
-                        Outstanding
+                      <th className="px-4 pb-3 text-right text-xs font-semibold text-muted-foreground">
+                        Amount Due
                       </th>
                     </tr>
                   </thead>
@@ -1132,28 +1574,21 @@ export default function ReportsPage() {
                           }
                           className="border-b last:border-0"
                         >
-                          <td className="py-4 pr-4">
-                            <p className="text-sm font-semibold">
-                              {
-                                invoice.invoiceNumber
-                              }
-                            </p>
-
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              Issued{" "}
-                              {formatDate(
-                                invoice.issueDate,
-                              )}
-                            </p>
+                          <td className="px-4 py-4 text-sm font-semibold">
+                            {invoice.invoiceNumber}
                           </td>
 
                           <td className="px-4 py-4 text-sm">
-                            {
-                              invoice.customerName
-                            }
+                            {invoice.customerName}
                           </td>
 
-                          <td className="px-4 py-4 text-sm">
+                          <td className="px-4 py-4 text-sm text-muted-foreground">
+                            {formatDate(
+                              invoice.issueDate,
+                            )}
+                          </td>
+
+                          <td className="px-4 py-4 text-sm text-muted-foreground">
                             {formatDate(
                               invoice.dueDate,
                             )}
@@ -1188,7 +1623,7 @@ export default function ReportsPage() {
           </section>
 
           {/* ================================================= */}
-          {/* INVENTORY + WARRANTY                               */}
+          {/* INVENTORY + WARRANTY                              */}
           {/* ================================================= */}
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -1373,7 +1808,8 @@ function SalesLineChart({
     return (
       paddingTop +
       chartHeight -
-      (value / Math.max(maxValue, 1)) *
+      (value /
+        Math.max(maxValue, 1)) *
         chartHeight
     );
   };
@@ -1459,7 +1895,8 @@ function SalesLineChart({
             const y =
               paddingTop +
               chartHeight -
-              ratio * chartHeight;
+              ratio *
+                chartHeight;
 
             return (
               <g key={ratio}>
@@ -1477,7 +1914,9 @@ function SalesLineChart({
                 />
 
                 <text
-                  x={paddingLeft - 12}
+                  x={
+                    paddingLeft - 12
+                  }
                   y={y + 4}
                   textAnchor="end"
                   className="fill-muted-foreground"
@@ -1533,16 +1972,15 @@ function SalesLineChart({
                 }`}
               </title>
 
-              {(
-                data.length <= 12 ||
+              {(data.length <= 12 ||
                 index === 0 ||
-                index === data.length - 1 ||
+                index ===
+                  data.length - 1 ||
                 index %
                   Math.ceil(
                     data.length / 8,
                   ) ===
-                  0
-              ) && (
+                  0) && (
                 <text
                   x={point.x}
                   y={height - 18}
@@ -1581,7 +2019,10 @@ function PaymentBarChart({
           Math.max(
             3,
             (item.amount /
-              Math.max(maxValue, 1)) *
+              Math.max(
+                maxValue,
+                1,
+              )) *
               100,
           );
 
@@ -1778,7 +2219,8 @@ function PaymentMethodChart({
 
                 <p className="text-[11px] text-muted-foreground">
                   {(
-                    segment.ratio * 100
+                    segment.ratio *
+                    100
                   ).toFixed(1)}
                   %
                 </p>
@@ -1792,7 +2234,7 @@ function PaymentMethodChart({
 }
 
 /* ========================================================= */
-/* COMPONENTS                                                */
+/* METRIC CARD                                               */
 /* ========================================================= */
 
 function MetricCard({
@@ -1831,6 +2273,10 @@ function MetricCard({
   );
 }
 
+/* ========================================================= */
+/* MINI METRIC                                               */
+/* ========================================================= */
+
 function MiniMetric({
   label,
   value,
@@ -1850,6 +2296,10 @@ function MiniMetric({
     </div>
   );
 }
+
+/* ========================================================= */
+/* REPORT ROW                                                */
+/* ========================================================= */
 
 function ReportRow({
   label,
@@ -1885,6 +2335,10 @@ function ReportRow({
   );
 }
 
+/* ========================================================= */
+/* STATUS CARD                                               */
+/* ========================================================= */
+
 function StatusCard({
   label,
   value,
@@ -1904,6 +2358,10 @@ function StatusCard({
     </div>
   );
 }
+
+/* ========================================================= */
+/* EMPTY SECTION                                             */
+/* ========================================================= */
 
 function EmptySection({
   message,
