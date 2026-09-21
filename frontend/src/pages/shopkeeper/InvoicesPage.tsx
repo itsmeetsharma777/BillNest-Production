@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock3,
+  Download,
   FileText,
   Loader2,
   MoreHorizontal,
@@ -94,6 +95,11 @@ interface InvoicesResponse {
     invoices?: InvoiceApiRecord[];
     total?: number;
   };
+  message?: string;
+}
+
+interface ActionResponse {
+  success?: boolean;
   message?: string;
 }
 
@@ -317,10 +323,6 @@ export default function InvoicesPage() {
     "ALL" | InvoiceStatus
   >("ALL");
 
-  /*
-   * There is now ONLY ONE action menu
-   * for the entire page.
-   */
   const [
     actionInvoiceId,
     setActionInvoiceId,
@@ -342,6 +344,11 @@ export default function InvoicesPage() {
     useState<HTMLButtonElement | null>(
       null,
     );
+
+  const [
+    isActionLoading,
+    setIsActionLoading,
+  ] = useState(false);
 
   const loadInvoices =
     useCallback(async () => {
@@ -473,19 +480,17 @@ export default function InvoicesPage() {
           "DRAFT",
     ).length;
 
-  /*
-   * Close the global menu.
-   */
   const closeActionMenu =
     useCallback(() => {
+      if (isActionLoading) {
+        return;
+      }
+
       setActionInvoiceId(null);
       setActionMenuPosition(null);
       setActionButtonElement(null);
-    }, []);
+    }, [isActionLoading]);
 
-  /*
-   * Calculate where the ONE global menu should appear.
-   */
   const calculateMenuPosition =
     useCallback(
       (
@@ -494,8 +499,8 @@ export default function InvoicesPage() {
         const rect =
           button.getBoundingClientRect();
 
-        const menuWidth = 192;
-        const menuHeight = 190;
+        const menuWidth = 210;
+        const menuHeight = 210;
         const gap = 6;
         const padding = 8;
 
@@ -542,6 +547,17 @@ export default function InvoicesPage() {
           : rect.bottom +
             gap;
 
+        if (
+          top + menuHeight >
+          window.innerHeight -
+            padding
+        ) {
+          top =
+            window.innerHeight -
+            menuHeight -
+            padding;
+        }
+
         top = Math.max(
           padding,
           top,
@@ -555,19 +571,16 @@ export default function InvoicesPage() {
       [],
     );
 
-  /*
-   * Open the ONE global menu.
-   */
   const openActionMenu =
     useCallback(
       (
         invoiceId: string,
         button: HTMLButtonElement,
       ) => {
-        /*
-         * Clicking the currently-open button
-         * closes the menu.
-         */
+        if (isActionLoading) {
+          return;
+        }
+
         if (
           actionInvoiceId ===
           invoiceId
@@ -597,12 +610,10 @@ export default function InvoicesPage() {
         actionInvoiceId,
         calculateMenuPosition,
         closeActionMenu,
+        isActionLoading,
       ],
     );
 
-  /*
-   * Keep the single menu aligned with its button.
-   */
   useEffect(() => {
     if (
       !actionInvoiceId ||
@@ -618,7 +629,15 @@ export default function InvoicesPage() {
             actionButtonElement,
           )
         ) {
-          closeActionMenu();
+          setActionInvoiceId(
+            null,
+          );
+          setActionMenuPosition(
+            null,
+          );
+          setActionButtonElement(
+            null,
+          );
           return;
         }
 
@@ -656,12 +675,8 @@ export default function InvoicesPage() {
     actionInvoiceId,
     actionButtonElement,
     calculateMenuPosition,
-    closeActionMenu,
   ]);
 
-  /*
-   * Close menu if user clicks outside.
-   */
   useEffect(() => {
     if (!actionInvoiceId) {
       return;
@@ -685,7 +700,19 @@ export default function InvoicesPage() {
           return;
         }
 
-        closeActionMenu();
+        if (!isActionLoading) {
+          setActionInvoiceId(
+            null,
+          );
+
+          setActionMenuPosition(
+            null,
+          );
+
+          setActionButtonElement(
+            null,
+          );
+        }
       };
 
     document.addEventListener(
@@ -701,12 +728,9 @@ export default function InvoicesPage() {
     };
   }, [
     actionInvoiceId,
-    closeActionMenu,
+    isActionLoading,
   ]);
 
-  /*
-   * Currently selected invoice.
-   */
   const selectedInvoice =
     actionInvoiceId
       ? invoices.find(
@@ -715,6 +739,234 @@ export default function InvoicesPage() {
             actionInvoiceId,
         ) ?? null
       : null;
+
+  const handleDownloadPdf =
+    useCallback(
+      async (
+        invoice: Invoice,
+      ) => {
+        setIsActionLoading(true);
+        setError("");
+
+        try {
+          const response =
+            await fetch(
+              `${API_URL}/invoices/${invoice.id}/pdf`,
+              {
+                method: "GET",
+                credentials: "include",
+              },
+            );
+
+          if (!response.ok) {
+            let message =
+              "Unable to download invoice PDF.";
+
+            try {
+              const result =
+                (await response.json()) as {
+                  message?: string;
+                };
+
+              message =
+                result.message ??
+                message;
+            } catch {
+              // The server returned a non-JSON error.
+            }
+
+            throw new Error(
+              message,
+            );
+          }
+
+          const blob =
+            await response.blob();
+
+          const url =
+            URL.createObjectURL(
+              blob,
+            );
+
+          const anchor =
+            document.createElement(
+              "a",
+            );
+
+          anchor.href = url;
+          anchor.download = `${invoice.invoiceNo}.pdf`;
+
+          document.body.appendChild(
+            anchor,
+          );
+
+          anchor.click();
+
+          anchor.remove();
+
+          window.setTimeout(() => {
+            URL.revokeObjectURL(
+              url,
+            );
+          }, 1000);
+
+          setActionInvoiceId(
+            null,
+          );
+
+          setActionMenuPosition(
+            null,
+          );
+
+          setActionButtonElement(
+            null,
+          );
+        } catch (err) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to download invoice PDF.",
+          );
+        } finally {
+          setIsActionLoading(false);
+        }
+      },
+      [],
+    );
+
+  const handleMarkAsPaid =
+    useCallback(
+      async (
+        invoice: Invoice,
+      ) => {
+        const confirmed =
+          window.confirm(
+            `Mark ${invoice.invoiceNo} as fully paid?`,
+          );
+
+        if (!confirmed) {
+          return;
+        }
+
+        setIsActionLoading(true);
+        setError("");
+
+        try {
+          const response =
+            await fetch(
+              `${API_URL}/invoices/${invoice.id}/pay`,
+              {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+              },
+            );
+
+          const result =
+            (await response.json()) as ActionResponse;
+
+          if (!response.ok) {
+            throw new Error(
+              result.message ??
+                "Unable to mark invoice as paid.",
+            );
+          }
+
+          setActionInvoiceId(
+            null,
+          );
+
+          setActionMenuPosition(
+            null,
+          );
+
+          setActionButtonElement(
+            null,
+          );
+
+          await loadInvoices();
+        } catch (err) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to mark invoice as paid.",
+          );
+        } finally {
+          setIsActionLoading(false);
+        }
+      },
+      [loadInvoices],
+    );
+
+  const handleCancelInvoice =
+    useCallback(
+      async (
+        invoice: Invoice,
+      ) => {
+        const confirmed =
+          window.confirm(
+            `Cancel ${invoice.invoiceNo}? This action cannot be undone.`,
+          );
+
+        if (!confirmed) {
+          return;
+        }
+
+        setIsActionLoading(true);
+        setError("");
+
+        try {
+          const response =
+            await fetch(
+              `${API_URL}/invoices/${invoice.id}/cancel`,
+              {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+              },
+            );
+
+          const result =
+            (await response.json()) as ActionResponse;
+
+          if (!response.ok) {
+            throw new Error(
+              result.message ??
+                "Unable to cancel invoice.",
+            );
+          }
+
+          setActionInvoiceId(
+            null,
+          );
+
+          setActionMenuPosition(
+            null,
+          );
+
+          setActionButtonElement(
+            null,
+          );
+
+          await loadInvoices();
+        } catch (err) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to cancel invoice.",
+          );
+        } finally {
+          setIsActionLoading(false);
+        }
+      },
+      [loadInvoices],
+    );
 
   return (
     <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
@@ -725,7 +977,9 @@ export default function InvoicesPage() {
           <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
             <FileText className="size-4" />
 
-            <span>Invoices</span>
+            <span>
+              Invoices
+            </span>
           </div>
 
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
@@ -733,8 +987,9 @@ export default function InvoicesPage() {
           </h1>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Create, manage and track
-            your business invoices.
+            Create, manage and
+            track your business
+            invoices.
           </p>
         </div>
 
@@ -881,7 +1136,7 @@ export default function InvoicesPage() {
 
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-destructive">
-              Couldn't load invoices
+              Invoice action failed
             </p>
 
             <p className="mt-1 text-xs text-muted-foreground">
@@ -892,11 +1147,11 @@ export default function InvoicesPage() {
           <button
             type="button"
             onClick={() =>
-              void loadInvoices()
+              setError("")
             }
             className="shrink-0 text-xs font-semibold text-destructive hover:underline"
           >
-            Retry
+            Dismiss
           </button>
         </div>
       )}
@@ -914,8 +1169,8 @@ export default function InvoicesPage() {
               </p>
 
               <p className="mt-1 text-xs text-muted-foreground">
-                Fetching your invoice
-                records...
+                Fetching your
+                invoice records...
               </p>
             </div>
           </div>
@@ -1207,7 +1462,8 @@ export default function InvoicesPage() {
                           </p>
 
                           <p className="mt-0.5 text-sm font-medium">
-                            {invoice.productNames
+                            {invoice
+                              .productNames
                               .length >
                             0
                               ? invoice.productNames.join(
@@ -1300,9 +1556,7 @@ export default function InvoicesPage() {
           </>
         )}
 
-      {/* =================================================
-          ONE AND ONLY ONE ACTION MENU
-      ================================================= */}
+      {/* GLOBAL ACTION MENU */}
 
       {selectedInvoice &&
         actionMenuPosition &&
@@ -1318,12 +1572,46 @@ export default function InvoicesPage() {
               closeActionMenu
             }
             onView={() => {
-              closeActionMenu();
+              if (
+                isActionLoading
+              ) {
+                return;
+              }
+
+              setActionInvoiceId(
+                null,
+              );
+
+              setActionMenuPosition(
+                null,
+              );
+
+              setActionButtonElement(
+                null,
+              );
 
               navigate(
                 `/shopkeeper/invoices/${selectedInvoice.id}`,
               );
             }}
+            onDownload={() =>
+              void handleDownloadPdf(
+                selectedInvoice,
+              )
+            }
+            onMarkAsPaid={() =>
+              void handleMarkAsPaid(
+                selectedInvoice,
+              )
+            }
+            onCancelInvoice={() =>
+              void handleCancelInvoice(
+                selectedInvoice,
+              )
+            }
+            isActionLoading={
+              isActionLoading
+            }
           />,
           document.body,
         )}
@@ -1449,7 +1737,9 @@ function ActionButton({
       <MoreHorizontal className="size-4" />
 
       {fullWidth && (
-        <span>Actions</span>
+        <span>
+          Actions
+        </span>
       )}
     </button>
   );
@@ -1464,50 +1754,85 @@ function InvoiceActionMenu({
   position,
   onClose,
   onView,
+  onDownload,
+  onMarkAsPaid,
+  onCancelInvoice,
+  isActionLoading,
 }: {
   invoice: Invoice;
   position: MenuPosition;
   onClose: () => void;
   onView: () => void;
+  onDownload: () => void;
+  onMarkAsPaid: () => void;
+  onCancelInvoice: () => void;
+  isActionLoading: boolean;
 }) {
   return (
     <>
-      {/* Backdrop */}
+      {/* BACKDROP */}
 
       <button
         type="button"
-        className="fixed inset-0 z-[90] cursor-default"
+        className="fixed inset-0 z-[90] cursor-default bg-black/5"
         aria-label="Close invoice actions"
-        onClick={onClose}
+        onClick={() => {
+          if (
+            !isActionLoading
+          ) {
+            onClose();
+          }
+        }}
       />
 
-      {/* ONE menu */}
+      {/* MENU */}
 
       <div
         data-invoice-action-menu
-        className="fixed z-[100] w-48 overflow-hidden rounded-xl border bg-popover p-1 shadow-2xl"
+        className="fixed z-[100] w-[210px] overflow-hidden rounded-xl border bg-popover p-1.5 shadow-2xl"
         style={{
           top: `${position.top}px`,
           left: `${position.left}px`,
         }}
         role="menu"
+        aria-label={`Actions for ${invoice.invoiceNo}`}
       >
         <button
           type="button"
           onClick={onView}
-          className="w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted"
+          disabled={
+            isActionLoading
+          }
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           role="menuitem"
         >
-          View invoice
+          <FileText className="size-4 text-muted-foreground" />
+
+          <span>
+            View invoice
+          </span>
         </button>
 
         <button
           type="button"
-          onClick={onClose}
-          className="w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted"
+          onClick={onDownload}
+          disabled={
+            isActionLoading
+          }
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           role="menuitem"
         >
-          Download PDF
+          {isActionLoading ? (
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          ) : (
+            <Download className="size-4 text-muted-foreground" />
+          )}
+
+          <span>
+            {isActionLoading
+              ? "Processing..."
+              : "Download PDF"}
+          </span>
         </button>
 
         {invoice.status !==
@@ -1516,11 +1841,20 @@ function InvoiceActionMenu({
             "CANCELLED" && (
             <button
               type="button"
-              onClick={onClose}
-              className="w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted"
+              onClick={
+                onMarkAsPaid
+              }
+              disabled={
+                isActionLoading
+              }
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
               role="menuitem"
             >
-              Mark as paid
+              <CheckCircle2 className="size-4 text-green-600 dark:text-green-400" />
+
+              <span>
+                Mark as paid
+              </span>
             </button>
           )}
 
@@ -1528,11 +1862,20 @@ function InvoiceActionMenu({
           "CANCELLED" && (
           <button
             type="button"
-            onClick={onClose}
-            className="w-full rounded-lg px-3 py-2.5 text-left text-sm text-destructive transition-colors hover:bg-destructive/10"
+            onClick={
+              onCancelInvoice
+            }
+            disabled={
+              isActionLoading
+            }
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
             role="menuitem"
           >
-            Cancel invoice
+            <XCircle className="size-4" />
+
+            <span>
+              Cancel invoice
+            </span>
           </button>
         )}
       </div>

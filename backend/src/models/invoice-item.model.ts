@@ -1,4 +1,8 @@
-import { Schema, model, type InferSchemaType } from "mongoose";
+import {
+  Schema,
+  model,
+  type InferSchemaType,
+} from "mongoose";
 
 const invoiceItemSchema = new Schema(
   {
@@ -8,6 +12,27 @@ const invoiceItemSchema = new Schema(
       required: true,
     },
 
+    /*
+     * When an invoice item comes from the
+     * shop's product catalog, this stores
+     * the original Product document ID.
+     *
+     * It is optional because BillNest also
+     * supports manually entered services/items.
+     */
+    productId: {
+      type: Schema.Types.ObjectId,
+      ref: "Product",
+      index: true,
+    },
+
+    /*
+     * Historical snapshot of the product name.
+     *
+     * We intentionally keep this even when
+     * productId exists so old invoices remain
+     * unchanged if the product is edited later.
+     */
     productName: {
       type: String,
       required: true,
@@ -16,6 +41,9 @@ const invoiceItemSchema = new Schema(
       maxlength: 200,
     },
 
+    /*
+     * Historical snapshot of the SKU.
+     */
     sku: {
       type: String,
       trim: true,
@@ -76,10 +104,19 @@ const invoiceItemSchema = new Schema(
   },
 );
 
-invoiceItemSchema.index({ invoiceId: 1 });
+invoiceItemSchema.index({
+  invoiceId: 1,
+});
+
+invoiceItemSchema.index({
+  productId: 1,
+});
 
 export type InvoiceItem =
   InferSchemaType<typeof invoiceItemSchema>;
 
 export const InvoiceItemModel =
-  model("InvoiceItem", invoiceItemSchema);
+  model(
+    "InvoiceItem",
+    invoiceItemSchema,
+  );
