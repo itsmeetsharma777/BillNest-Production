@@ -16,6 +16,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type FormEvent,
 } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -28,6 +29,8 @@ const API_URL =
 const PINCODE_API_URL =
   "https://api.postalpincode.in/pincode";
 
+const PINCODE_REQUEST_TIMEOUT = 10000;
+
 const INDIAN_STATES_AND_UTS = [
   "Andhra Pradesh",
   "Arunachal Pradesh",
@@ -37,6 +40,7 @@ const INDIAN_STATES_AND_UTS = [
   "Goa",
   "Gujarat",
   "Haryana",
+  "Himachal Pradesh",
   "Jharkhand",
   "Karnataka",
   "Kerala",
@@ -179,16 +183,69 @@ function createEmptyAddress(): CustomerAddress {
   };
 }
 
+/*
+ * Normalize state names coming from:
+ *
+ * - MongoDB
+ * - old customer records
+ * - PIN code API
+ * - manually entered values
+ *
+ * Example:
+ * "madhya pradesh"
+ * "MADHYA PRADESH"
+ * "Madhya Pradesh"
+ *
+ * all become:
+ *
+ * "Madhya Pradesh"
+ */
+function normalizeStateName(
+  value?: string,
+): string {
+  const normalized =
+    value?.trim().toLowerCase() ?? "";
+
+  if (!normalized) {
+    return "";
+  }
+
+  const matchedState =
+    INDIAN_STATES_AND_UTS.find(
+      (state) =>
+        state.toLowerCase() ===
+        normalized,
+    );
+
+  return matchedState ?? value?.trim() ?? "";
+}
+
 function normalizeAddress(
   address?: ApiCustomer["address"],
 ): CustomerAddress {
   return {
-    line1: address?.line1 ?? "",
-    line2: address?.line2 ?? "",
-    city: address?.city ?? "",
-    state: address?.state ?? "",
-    postalCode: address?.postalCode ?? "",
-    country: address?.country ?? "India",
+    line1:
+      address?.line1?.trim() ?? "",
+
+    line2:
+      address?.line2?.trim() ?? "",
+
+    city:
+      address?.city?.trim() ?? "",
+
+    state:
+      normalizeStateName(
+        address?.state,
+      ),
+
+    postalCode:
+      address?.postalCode
+        ?.replace(/\D/g, "")
+        .slice(0, 6) ?? "",
+
+    country:
+      address?.country?.trim() ||
+      "India",
   };
 }
 
@@ -200,16 +257,23 @@ function normalizeCustomer(
       customer.id ??
       customer._id ??
       "",
+
     name: customer.name,
+
     phone: customer.phone,
+
     email: customer.email,
-    address: normalizeAddress(
-      customer.address,
-    ),
+
+    address:
+      normalizeAddress(
+        customer.address,
+      ),
   };
 }
 
-function formatCurrency(value: number) {
+function formatCurrency(
+  value: number,
+) {
   return new Intl.NumberFormat(
     "en-IN",
     {
@@ -339,6 +403,11 @@ export default function CreateInvoicePage() {
       null,
     );
 
+  const pincodeTimeoutRef =
+    useRef<ReturnType<
+      typeof setTimeout
+    > | null>(null);
+
   const [
     items,
     setItems,
@@ -396,9 +465,9 @@ export default function CreateInvoicePage() {
   ] = useState("");
 
   /*
-   * ------------------------------------------------------------
-   * Load customers
-   * ------------------------------------------------------------
+   * ============================================================
+   * LOAD CUSTOMERS
+   * ============================================================
    */
 
   const loadCustomers =
@@ -412,8 +481,7 @@ export default function CreateInvoicePage() {
             `${API_URL}/customers`,
             {
               method: "GET",
-              credentials:
-                "include",
+              credentials: "include",
             },
           );
 
@@ -431,7 +499,7 @@ export default function CreateInvoicePage() {
           result.data
             ?.customers ?? [];
 
-        const normalizedCustomers: Customer[] =
+        const normalizedCustomers =
           apiCustomers
             .map(
               normalizeCustomer,
@@ -464,13 +532,21 @@ export default function CreateInvoicePage() {
 
     return () => {
       pincodeRequestRef.current?.abort();
+
+      if (
+        pincodeTimeoutRef.current
+      ) {
+        clearTimeout(
+          pincodeTimeoutRef.current,
+        );
+      }
     };
   }, [loadCustomers]);
 
   /*
-   * ------------------------------------------------------------
-   * Selected customer
-   * ------------------------------------------------------------
+   * ============================================================
+   * SELECTED CUSTOMER
+   * ============================================================
    */
 
   const selectedCustomer =
@@ -518,9 +594,9 @@ export default function CreateInvoicePage() {
     ]);
 
   /*
-   * ------------------------------------------------------------
-   * Load complete customer details
-   * ------------------------------------------------------------
+   * ============================================================
+   * LOAD CUSTOMER DETAILS
+   * ============================================================
    */
 
   const loadCustomerDetails =
@@ -531,6 +607,7 @@ export default function CreateInvoicePage() {
         setIsLoadingCustomerAddress(
           true,
         );
+
         setError("");
         setPincodeMessage("");
 
@@ -593,7 +670,9 @@ export default function CreateInvoicePage() {
       setCustomerAddress(
         createEmptyAddress(),
       );
+
       setPincodeMessage("");
+
       return;
     }
 
@@ -606,9 +685,9 @@ export default function CreateInvoicePage() {
   ]);
 
   /*
-   * ------------------------------------------------------------
-   * Customer address handlers
-   * ------------------------------------------------------------
+   * ============================================================
+   * CUSTOMER ADDRESS
+   * ============================================================
    */
 
   function updateCustomerAddress(
@@ -618,7 +697,12 @@ export default function CreateInvoicePage() {
     setCustomerAddress(
       (currentAddress) => ({
         ...currentAddress,
-        [field]: value,
+        [field]:
+          field === "state"
+            ? normalizeStateName(
+                value,
+              )
+            : value,
       }),
     );
 
@@ -627,9 +711,9 @@ export default function CreateInvoicePage() {
   }
 
   /*
-   * ------------------------------------------------------------
-   * PIN code lookup
-   * ------------------------------------------------------------
+   * ============================================================
+   * PIN CODE LOOKUP
+   * ============================================================
    */
 
   async function lookupPincode(
@@ -641,17 +725,33 @@ export default function CreateInvoicePage() {
         .slice(0, 6);
 
     if (
-      cleanedPincode.length <
+      cleanedPincode.length !==
       6
     ) {
       setIsPincodeLoading(
         false,
       );
+
       setPincodeMessage("");
+
       return;
     }
 
+    /*
+     * Cancel previous request.
+     */
     pincodeRequestRef.current?.abort();
+
+    /*
+     * Clear previous timeout.
+     */
+    if (
+      pincodeTimeoutRef.current
+    ) {
+      clearTimeout(
+        pincodeTimeoutRef.current,
+      );
+    }
 
     const controller =
       new AbortController();
@@ -659,10 +759,17 @@ export default function CreateInvoicePage() {
     pincodeRequestRef.current =
       controller;
 
+    /*
+     * Hard timeout so the UI can never
+     * stay stuck on "Finding city..."
+     */
+    pincodeTimeoutRef.current =
+      setTimeout(() => {
+        controller.abort();
+      }, PINCODE_REQUEST_TIMEOUT);
+
     try {
-      setIsPincodeLoading(
-        true,
-      );
+      setIsPincodeLoading(true);
       setPincodeMessage("");
       setError("");
 
@@ -673,6 +780,10 @@ export default function CreateInvoicePage() {
             method: "GET",
             signal:
               controller.signal,
+            headers: {
+              Accept:
+                "application/json",
+            },
           },
         );
 
@@ -699,9 +810,14 @@ export default function CreateInvoicePage() {
         setPincodeMessage(
           "Postal code not found. Please check the PIN code.",
         );
+
         return;
       }
 
+      /*
+       * Prefer the first post office returned
+       * by the India Post API.
+       */
       const postOffice =
         data.PostOffice[0];
 
@@ -710,8 +826,9 @@ export default function CreateInvoicePage() {
         "";
 
       const state =
-        postOffice.State?.trim() ??
-        "";
+        normalizeStateName(
+          postOffice.State,
+        );
 
       const country =
         postOffice.Country?.trim() ||
@@ -720,36 +837,81 @@ export default function CreateInvoicePage() {
       setCustomerAddress(
         (currentAddress) => ({
           ...currentAddress,
-          city: district,
-          state,
+
+          city:
+            district ||
+            currentAddress.city,
+
+          state:
+            state ||
+            currentAddress.state,
+
           country,
+
           postalCode:
             cleanedPincode,
         }),
       );
 
-      setPincodeMessage(
-        district
-          ? `City found: ${district}`
-          : "Postal code found.",
-      );
+      if (district && state) {
+        setPincodeMessage(
+          `City: ${district} • State: ${state}`,
+        );
+      } else if (district) {
+        setPincodeMessage(
+          `City found: ${district}`,
+        );
+      } else if (state) {
+        setPincodeMessage(
+          `State found: ${state}`,
+        );
+      } else {
+        setPincodeMessage(
+          "Postal code found.",
+        );
+      }
     } catch (err) {
       if (
         err instanceof DOMException &&
-        err.name ===
-          "AbortError"
+        err.name === "AbortError"
       ) {
+        /*
+         * Abort can mean timeout or a newer
+         * PIN code request.
+         */
+        if (
+          controller.signal.aborted
+        ) {
+          setPincodeMessage(
+            "Postal code lookup timed out. You can enter the city and state manually.",
+          );
+        }
+
         return;
       }
 
       setPincodeMessage(
-        "Could not find this postal code. You can enter the city manually.",
+        "Could not find this postal code. You can enter the city and state manually.",
       );
     } finally {
       if (
-        !controller.signal
-          .aborted
+        pincodeTimeoutRef.current
       ) {
+        clearTimeout(
+          pincodeTimeoutRef.current,
+        );
+
+        pincodeTimeoutRef.current =
+          null;
+      }
+
+      if (
+        pincodeRequestRef.current ===
+        controller
+      ) {
+        pincodeRequestRef.current =
+          null;
+
         setIsPincodeLoading(
           false,
         );
@@ -772,20 +934,42 @@ export default function CreateInvoicePage() {
 
     setPincodeMessage("");
 
+    /*
+     * Cancel lookup if user changes
+     * the PIN before completing 6 digits.
+     */
     if (
-      digitsOnly.length ===
-      6
+      digitsOnly.length !== 6
     ) {
-      void lookupPincode(
-        digitsOnly,
+      pincodeRequestRef.current?.abort();
+
+      if (
+        pincodeTimeoutRef.current
+      ) {
+        clearTimeout(
+          pincodeTimeoutRef.current,
+        );
+
+        pincodeTimeoutRef.current =
+          null;
+      }
+
+      setIsPincodeLoading(
+        false,
       );
+
+      return;
     }
+
+    void lookupPincode(
+      digitsOnly,
+    );
   }
 
   /*
-   * ------------------------------------------------------------
-   * Invoice calculations
-   * ------------------------------------------------------------
+   * ============================================================
+   * INVOICE CALCULATIONS
+   * ============================================================
    */
 
   const subtotal =
@@ -819,9 +1003,7 @@ export default function CreateInvoicePage() {
 
   const safeDiscount =
     Math.min(
-      parseAmount(
-        discount,
-      ),
+      parseAmount(discount),
       subtotal,
     );
 
@@ -842,9 +1024,7 @@ export default function CreateInvoicePage() {
     );
 
   const enteredAmountPaid =
-    parseAmount(
-      amountPaid,
-    );
+    parseAmount(amountPaid);
 
   const safeAmountPaid =
     Math.min(
@@ -862,9 +1042,9 @@ export default function CreateInvoicePage() {
     );
 
   /*
-   * ------------------------------------------------------------
-   * Item handlers
-   * ------------------------------------------------------------
+   * ============================================================
+   * ITEM HANDLERS
+   * ============================================================
    */
 
   function updateItem(
@@ -979,9 +1159,9 @@ export default function CreateInvoicePage() {
   }
 
   /*
-   * ------------------------------------------------------------
-   * Validate customer address
-   * ------------------------------------------------------------
+   * ============================================================
+   * ADDRESS VALIDATION
+   * ============================================================
    */
 
   function validateCustomerAddress(): string {
@@ -1022,8 +1202,9 @@ export default function CreateInvoicePage() {
 
     if (
       customerAddress.postalCode.trim() &&
-      customerAddress.postalCode.trim()
-        .length !== 6
+      !/^\d{6}$/.test(
+        customerAddress.postalCode.trim(),
+      )
     ) {
       return "Postal code must contain 6 digits.";
     }
@@ -1039,9 +1220,9 @@ export default function CreateInvoicePage() {
   }
 
   /*
-   * ------------------------------------------------------------
-   * Save customer address
-   * ------------------------------------------------------------
+   * ============================================================
+   * SAVE CUSTOMER ADDRESS
+   * ============================================================
    */
 
   async function saveCustomerAddress() {
@@ -1077,7 +1258,9 @@ export default function CreateInvoicePage() {
           undefined,
 
         state:
-          customerAddress.state.trim() ||
+          normalizeStateName(
+            customerAddress.state,
+          ) ||
           undefined,
 
         postalCode:
@@ -1153,13 +1336,13 @@ export default function CreateInvoicePage() {
   }
 
   /*
-   * ------------------------------------------------------------
-   * Submit
-   * ------------------------------------------------------------
+   * ============================================================
+   * SUBMIT
+   * ============================================================
    */
 
   async function handleSubmit(
-    event: React.FormEvent<HTMLFormElement>,
+    event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
 
@@ -1173,6 +1356,7 @@ export default function CreateInvoicePage() {
       setError(
         "Please select a customer.",
       );
+
       return;
     }
 
@@ -1182,6 +1366,17 @@ export default function CreateInvoicePage() {
       setError(
         "Please wait while customer details are loading.",
       );
+
+      return;
+    }
+
+    if (
+      isPincodeLoading
+    ) {
+      setError(
+        "Please wait for the postal code lookup to finish.",
+      );
+
       return;
     }
 
@@ -1191,6 +1386,7 @@ export default function CreateInvoicePage() {
       setError(
         "Add at least one invoice item.",
       );
+
       return;
     }
 
@@ -1225,21 +1421,18 @@ export default function CreateInvoicePage() {
       setError(
         "Please complete every invoice item with a valid name, quantity and price.",
       );
+
       return;
     }
 
     const parsedDiscount =
-      parseAmount(
-        discount,
-      );
+      parseAmount(discount);
 
     const parsedTax =
       parseAmount(tax);
 
     const parsedAmountPaid =
-      parseAmount(
-        amountPaid,
-      );
+      parseAmount(amountPaid);
 
     if (
       parsedDiscount >
@@ -1248,6 +1441,7 @@ export default function CreateInvoicePage() {
       setError(
         "Discount cannot be greater than the subtotal.",
       );
+
       return;
     }
 
@@ -1258,6 +1452,7 @@ export default function CreateInvoicePage() {
       setError(
         "Amount paid cannot be greater than the invoice total.",
       );
+
       return;
     }
 
@@ -1274,6 +1469,7 @@ export default function CreateInvoicePage() {
         setError(
           "A paid invoice must have the full invoice amount paid.",
         );
+
         return;
       }
     }
@@ -1291,6 +1487,7 @@ export default function CreateInvoicePage() {
         setError(
           "A partially paid invoice must have a payment greater than zero and less than the total.",
         );
+
         return;
       }
     }
@@ -1309,6 +1506,7 @@ export default function CreateInvoicePage() {
       setError(
         addressError,
       );
+
       return;
     }
 
@@ -1324,8 +1522,7 @@ export default function CreateInvoicePage() {
        * Backend calculates invoice totals itself.
        *
        * Therefore discount and tax are represented
-       * through invoice items instead of sending
-       * unsupported top-level discount/tax fields.
+       * through invoice items.
        */
       const itemDiscount =
         items.length > 0
@@ -1458,9 +1655,9 @@ export default function CreateInvoicePage() {
   }
 
   /*
-   * ------------------------------------------------------------
-   * Render
-   * ------------------------------------------------------------
+   * ============================================================
+   * RENDER
+   * ============================================================
    */
 
   return (
@@ -1484,6 +1681,7 @@ export default function CreateInvoicePage() {
           <div>
             <div className="mb-1 flex items-center gap-2 text-sm text-muted-foreground">
               <Receipt className="size-4" />
+
               <span>
                 Invoices
               </span>
@@ -1510,6 +1708,7 @@ export default function CreateInvoicePage() {
       {successMessage && (
         <div className="mb-5 flex items-center gap-2 rounded-2xl border border-green-500/30 bg-green-500/5 p-4 text-sm text-green-700 dark:text-green-400">
           <Check className="size-4" />
+
           {successMessage}
         </div>
       )}
@@ -1695,11 +1894,13 @@ export default function CreateInvoicePage() {
                 <div className="flex min-h-32 items-center justify-center">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="size-4 animate-spin" />
+
                     Loading customer address...
                   </div>
                 </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
+                  {/* Address line 1 */}
                   <label className="block sm:col-span-2">
                     <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
                       Address Line 1
@@ -1723,6 +1924,7 @@ export default function CreateInvoicePage() {
                     />
                   </label>
 
+                  {/* Address line 2 */}
                   <label className="block sm:col-span-2">
                     <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
                       Address Line 2
@@ -1746,6 +1948,7 @@ export default function CreateInvoicePage() {
                     />
                   </label>
 
+                  {/* City */}
                   <label className="block">
                     <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
                       City
@@ -1775,6 +1978,7 @@ export default function CreateInvoicePage() {
                     {isPincodeLoading && (
                       <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
                         <Loader2 className="size-3 animate-spin" />
+
                         Looking up postal code...
                       </div>
                     )}
@@ -1784,7 +1988,13 @@ export default function CreateInvoicePage() {
                         <p
                           className={`mt-1.5 text-xs ${
                             pincodeMessage.startsWith(
+                              "City:",
+                            ) ||
+                            pincodeMessage.startsWith(
                               "City found:",
+                            ) ||
+                            pincodeMessage.startsWith(
+                              "State found:",
                             )
                               ? "text-green-600 dark:text-green-400"
                               : "text-muted-foreground"
@@ -1797,15 +2007,16 @@ export default function CreateInvoicePage() {
                       )}
                   </label>
 
+                  {/* State */}
                   <label className="block">
                     <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
                       State / UT
                     </span>
 
                     <select
-                      value={
-                        customerAddress.state
-                      }
+                      value={normalizeStateName(
+                        customerAddress.state,
+                      )}
                       onChange={(event) =>
                         updateCustomerAddress(
                           "state",
@@ -1832,6 +2043,7 @@ export default function CreateInvoicePage() {
                     </select>
                   </label>
 
+                  {/* Postal code */}
                   <label className="block">
                     <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
                       Postal Code
@@ -1856,6 +2068,7 @@ export default function CreateInvoicePage() {
                     />
                   </label>
 
+                  {/* Country */}
                   <label className="block">
                     <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
                       Country
@@ -1887,7 +2100,7 @@ export default function CreateInvoicePage() {
             </section>
           )}
 
-          {/* Items */}
+          {/* Invoice Items */}
           <section className="rounded-2xl border bg-card shadow-sm">
             <div className="flex items-center justify-between border-b p-5 sm:p-6">
               <div>
@@ -1906,6 +2119,7 @@ export default function CreateInvoicePage() {
                 className="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors hover:bg-muted"
               >
                 <Plus className="size-4" />
+
                 Add item
               </button>
             </div>
@@ -2082,6 +2296,7 @@ export default function CreateInvoicePage() {
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <Plus className="size-4" />
+
                 Add another item
               </button>
             </div>
@@ -2390,7 +2605,8 @@ export default function CreateInvoicePage() {
                 disabled={
                   isSubmitting ||
                   isLoadingCustomerAddress ||
-                  isSavingCustomerAddress
+                  isSavingCustomerAddress ||
+                  isPincodeLoading
                 }
                 className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -2406,6 +2622,7 @@ export default function CreateInvoicePage() {
                 ) : (
                   <>
                     <Receipt className="size-4" />
+
                     Create Invoice
                   </>
                 )}

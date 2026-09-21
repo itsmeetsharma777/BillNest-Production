@@ -1,11 +1,28 @@
 import { Types } from "mongoose";
 
-import { CustomerModel } from "../models/customer.model";
-import { InvoiceModel } from "../models/invoice.model";
-import { InvoiceItemModel } from "../models/invoice-item.model";
-import { WarrantyModel } from "../models/warranty.model";
-import { ShopModel } from "../models/shop.model";
-import { ApiError } from "../utils/api-error";
+import {
+  CustomerModel,
+} from "../models/customer.model";
+
+import {
+  InvoiceModel,
+} from "../models/invoice.model";
+
+import {
+  InvoiceItemModel,
+} from "../models/invoice-item.model";
+
+import {
+  WarrantyModel,
+} from "../models/warranty.model";
+
+import {
+  ShopModel,
+} from "../models/shop.model";
+
+import {
+  ApiError,
+} from "../utils/api-error";
 
 type InvoiceStatus =
   | "draft"
@@ -23,7 +40,11 @@ function toObjectId(
   value: string,
   fieldName: string,
 ): Types.ObjectId {
-  if (!Types.ObjectId.isValid(value)) {
+  if (
+    !Types.ObjectId.isValid(
+      value,
+    )
+  ) {
     throw new ApiError(
       400,
       `Invalid ${fieldName}.`,
@@ -31,24 +52,43 @@ function toObjectId(
     );
   }
 
-  return new Types.ObjectId(value);
+  return new Types.ObjectId(
+    value,
+  );
 }
 
-async function getCustomerForUser(
+/**
+ * Get ALL active customer profiles belonging
+ * to the authenticated BillNest user.
+ *
+ * One customer account can have:
+ *
+ * Shop A -> Profile A
+ * Shop B -> Profile B
+ * Shop C -> Profile C
+ */
+async function getCustomersForUser(
   userId: string,
 ) {
-  const userObjectId = toObjectId(
-    userId,
-    "user ID",
-  );
+  const userObjectId =
+    toObjectId(
+      userId,
+      "user ID",
+    );
 
-  const customer =
-    await CustomerModel.findOne({
+  const customers =
+    await CustomerModel.find({
       userId: userObjectId,
       isActive: true,
-    }).lean();
+    })
+      .sort({
+        createdAt: 1,
+      })
+      .lean();
 
-  if (!customer) {
+  if (
+    customers.length === 0
+  ) {
     throw new ApiError(
       404,
       "Customer profile not found.",
@@ -56,7 +96,7 @@ async function getCustomerForUser(
     );
   }
 
-  return customer;
+  return customers;
 }
 
 /**
@@ -65,29 +105,49 @@ async function getCustomerForUser(
 export async function getCustomerDashboard(
   userId: string,
 ) {
-  const customer =
-    await getCustomerForUser(userId);
+  const customers =
+    await getCustomersForUser(
+      userId,
+    );
 
-  const customerId = customer._id;
+  const customerIds =
+    customers.map(
+      (customer) =>
+        customer._id,
+    );
+
+  const shopIds = [
+    ...new Set(
+      customers.map(
+        (customer) =>
+          customer.shopId.toString(),
+      ),
+    ),
+  ];
 
   const [
-    shop,
+    shops,
     invoiceStats,
     invoices,
     warrantyStats,
     warranties,
   ] = await Promise.all([
-    ShopModel.findOne({
-      _id: customer.shopId,
+    ShopModel.find({
+      _id: {
+        $in: shopIds,
+      },
       isActive: true,
     }).lean(),
 
     InvoiceModel.aggregate([
       {
         $match: {
-          customerId,
+          customerId: {
+            $in: customerIds,
+          },
         },
       },
+
       {
         $group: {
           _id: null,
@@ -145,7 +205,10 @@ export async function getCustomerDashboard(
     ]),
 
     InvoiceModel.find({
-      customerId,
+      customerId: {
+        $in: customerIds,
+      },
+
       status: {
         $ne: "cancelled",
       },
@@ -160,10 +223,14 @@ export async function getCustomerDashboard(
     WarrantyModel.aggregate([
       {
         $match: {
-          customerId,
+          customerId: {
+            $in: customerIds,
+          },
+
           isActive: true,
         },
       },
+
       {
         $group: {
           _id: null,
@@ -224,7 +291,10 @@ export async function getCustomerDashboard(
     ]),
 
     WarrantyModel.find({
-      customerId,
+      customerId: {
+        $in: customerIds,
+      },
+
       isActive: true,
     })
       .sort({
@@ -250,43 +320,127 @@ export async function getCustomerDashboard(
       expired: 0,
     };
 
+  /*
+   * Keep `shop` for compatibility with the
+   * existing customer dashboard frontend.
+   *
+   * It represents the first shop.
+   *
+   * `shops` contains ALL shops.
+   */
+  const firstShop =
+    shops[0] ?? null;
+
   return {
     customer: {
-      id: customer._id,
-      name: customer.name,
-      email: customer.email,
-      phone: customer.phone,
-      address: customer.address,
+      id:
+        customers[0]._id,
+
+      name:
+        customers[0].name,
+
+      email:
+        customers[0].email,
+
+      phone:
+        customers[0].phone,
+
+      address:
+        customers[0].address,
     },
 
-    shop: shop
+    /*
+     * All customer profiles.
+     */
+    customerProfiles:
+      customers.map(
+        (customer) => ({
+          id:
+            customer._id,
+
+          shopId:
+            customer.shopId,
+
+          name:
+            customer.name,
+
+          email:
+            customer.email,
+
+          phone:
+            customer.phone,
+
+          address:
+            customer.address,
+        }),
+      ),
+
+    shop: firstShop
       ? {
-          id: shop._id,
-          name: shop.name,
-          phone: shop.phone,
-          email: shop.email,
-          address: shop.address,
-          logoUrl: shop.logoUrl,
+          id:
+            firstShop._id,
+
+          name:
+            firstShop.name,
+
+          phone:
+            firstShop.phone,
+
+          email:
+            firstShop.email,
+
+          address:
+            firstShop.address,
+
+          logoUrl:
+            firstShop.logoUrl,
         }
       : null,
 
+    /*
+     * ALL shops connected to this customer.
+     */
+    shops: shops.map(
+      (shop) => ({
+        id:
+          shop._id,
+
+        name:
+          shop.name,
+
+        phone:
+          shop.phone,
+
+        email:
+          shop.email,
+
+        address:
+          shop.address,
+
+        logoUrl:
+          shop.logoUrl,
+      }),
+    ),
+
     summary: {
-      invoices: invoiceSummary,
-      warranties: warrantySummary,
+      invoices:
+        invoiceSummary,
+
+      warranties:
+        warrantySummary,
     },
 
-    recentInvoices: invoices,
+    recentInvoices:
+      invoices,
 
-    upcomingWarranties: warranties,
+    upcomingWarranties:
+      warranties,
   };
 }
 
 /**
- * Get invoices belonging only to the
- * authenticated customer.
- *
- * Each invoice also includes the names of
- * the products contained in that invoice.
+ * Get ALL invoices belonging to the
+ * authenticated customer across ALL shops.
  */
 export async function getCustomerInvoices(
   userId: string,
@@ -296,8 +450,16 @@ export async function getCustomerInvoices(
     status?: InvoiceStatus;
   },
 ) {
-  const customer =
-    await getCustomerForUser(userId);
+  const customers =
+    await getCustomersForUser(
+      userId,
+    );
+
+  const customerIds =
+    customers.map(
+      (customer) =>
+        customer._id,
+    );
 
   const skip = Math.max(
     0,
@@ -313,21 +475,31 @@ export async function getCustomerInvoices(
   );
 
   const filter: {
-    customerId: Types.ObjectId;
+    customerId: {
+      $in: Types.ObjectId[];
+    };
+
     status?: InvoiceStatus;
   } = {
-    customerId: customer._id,
+    customerId: {
+      $in: customerIds,
+    },
   };
 
-  if (options?.status) {
-    filter.status = options.status;
+  if (
+    options?.status
+  ) {
+    filter.status =
+      options.status;
   }
 
   const [
     invoices,
     total,
   ] = await Promise.all([
-    InvoiceModel.find(filter)
+    InvoiceModel.find(
+      filter,
+    )
       .sort({
         issueDate: -1,
         createdAt: -1,
@@ -336,19 +508,19 @@ export async function getCustomerInvoices(
       .limit(limit)
       .lean(),
 
-    InvoiceModel.countDocuments(filter),
+    InvoiceModel.countDocuments(
+      filter,
+    ),
   ]);
 
   /*
-   * Load all invoice items for the invoices
-   * on this page in ONE database query.
-   *
-   * This avoids making one API/database request
-   * per invoice.
+   * Load invoice items in one query.
    */
-  const invoiceIds = invoices.map(
-    (invoice) => invoice._id,
-  );
+  const invoiceIds =
+    invoices.map(
+      (invoice) =>
+        invoice._id,
+    );
 
   const invoiceItems =
     invoiceIds.length > 0
@@ -364,12 +536,17 @@ export async function getCustomerInvoices(
       : [];
 
   /*
-   * Group product names by invoice.
+   * Product names by invoice.
    */
   const productNamesByInvoice =
-    new Map<string, string[]>();
+    new Map<
+      string,
+      string[]
+    >();
 
-  for (const item of invoiceItems) {
+  for (
+    const item of invoiceItems
+  ) {
     const invoiceId =
       item.invoiceId.toString();
 
@@ -379,6 +556,7 @@ export async function getCustomerInvoices(
       ) ?? [];
 
     if (
+      item.productName &&
       !existing.includes(
         item.productName,
       )
@@ -395,17 +573,118 @@ export async function getCustomerInvoices(
   }
 
   /*
-   * Attach productNames to every invoice.
+   * Add customer information.
+   *
+   * This also allows the frontend to know
+   * which customer profile the invoice belongs to.
    */
-  const invoicesWithProducts =
-    invoices.map((invoice) => ({
-      ...invoice,
+  const customerById =
+    new Map<
+      string,
+      (typeof customers)[number]
+    >();
 
-      productNames:
-        productNamesByInvoice.get(
-          invoice._id.toString(),
-        ) ?? [],
-    }));
+  for (
+    const customer of customers
+  ) {
+    customerById.set(
+      customer._id.toString(),
+      customer,
+    );
+  }
+
+  /*
+   * Load shops for invoices.
+   *
+   * This is useful when the same customer
+   * purchased from multiple shops.
+   */
+  const invoiceShopIds = [
+    ...new Set(
+      invoices.map(
+        (invoice) =>
+          invoice.shopId.toString(),
+      ),
+    ),
+  ];
+
+  const shops =
+    invoiceShopIds.length > 0
+      ? await ShopModel.find({
+          _id: {
+            $in: invoiceShopIds,
+          },
+          isActive: true,
+        }).lean()
+      : [];
+
+  const shopById =
+    new Map<
+      string,
+      (typeof shops)[number]
+    >();
+
+  for (
+    const shop of shops
+  ) {
+    shopById.set(
+      shop._id.toString(),
+      shop,
+    );
+  }
+
+  const invoicesWithProducts =
+    invoices.map(
+      (invoice) => {
+        const customer =
+          customerById.get(
+            invoice.customerId.toString(),
+          );
+
+        const shop =
+          shopById.get(
+            invoice.shopId.toString(),
+          );
+
+        return {
+          ...invoice,
+
+          productNames:
+            productNamesByInvoice.get(
+              invoice._id.toString(),
+            ) ?? [],
+
+          customerName:
+            customer?.name ??
+            "Customer",
+
+          customerId:
+            invoice.customerId,
+
+          shop: shop
+            ? {
+                id:
+                  shop._id,
+
+                name:
+                  shop.name,
+
+                phone:
+                  shop.phone,
+
+                email:
+                  shop.email,
+
+                address:
+                  shop.address,
+
+                logoUrl:
+                  shop.logoUrl,
+              }
+            : null,
+        };
+      },
+    );
 
   return {
     invoices:
@@ -413,28 +692,41 @@ export async function getCustomerInvoices(
 
     pagination: {
       page:
-        Math.floor(skip / limit) + 1,
+        Math.floor(
+          skip / limit,
+        ) + 1,
 
       limit,
 
       total,
 
       hasMore:
-        skip + invoices.length < total,
+        skip +
+          invoices.length <
+        total,
     },
   };
 }
 
 /**
- * Get one invoice only when it belongs
- * to the authenticated customer.
+ * Get one invoice belonging to ANY shop
+ * where the authenticated customer has
+ * a customer profile.
  */
 export async function getCustomerInvoice(
   userId: string,
   invoiceId: string,
 ) {
-  const customer =
-    await getCustomerForUser(userId);
+  const customers =
+    await getCustomersForUser(
+      userId,
+    );
+
+  const customerIds =
+    customers.map(
+      (customer) =>
+        customer._id,
+    );
 
   const invoiceObjectId =
     toObjectId(
@@ -444,8 +736,12 @@ export async function getCustomerInvoice(
 
   const invoice =
     await InvoiceModel.findOne({
-      _id: invoiceObjectId,
-      customerId: customer._id,
+      _id:
+        invoiceObjectId,
+
+      customerId: {
+        $in: customerIds,
+      },
     }).lean();
 
   if (!invoice) {
@@ -461,7 +757,8 @@ export async function getCustomerInvoice(
     shop,
   ] = await Promise.all([
     InvoiceItemModel.find({
-      invoiceId: invoice._id,
+      invoiceId:
+        invoice._id,
     })
       .sort({
         createdAt: 1,
@@ -469,7 +766,9 @@ export async function getCustomerInvoice(
       .lean(),
 
     ShopModel.findOne({
-      _id: invoice.shopId,
+      _id:
+        invoice.shopId,
+
       isActive: true,
     }).lean(),
   ]);
@@ -481,21 +780,34 @@ export async function getCustomerInvoice(
 
     shop: shop
       ? {
-          id: shop._id,
-          name: shop.name,
-          phone: shop.phone,
-          email: shop.email,
-          address: shop.address,
-          taxId: shop.taxId,
-          logoUrl: shop.logoUrl,
+          id:
+            shop._id,
+
+          name:
+            shop.name,
+
+          phone:
+            shop.phone,
+
+          email:
+            shop.email,
+
+          address:
+            shop.address,
+
+          taxId:
+            shop.taxId,
+
+          logoUrl:
+            shop.logoUrl,
         }
       : null,
   };
 }
 
 /**
- * Get warranties belonging only to the
- * authenticated customer.
+ * Get warranties belonging to the
+ * authenticated customer across ALL shops.
  */
 export async function getCustomerWarranties(
   userId: string,
@@ -505,8 +817,16 @@ export async function getCustomerWarranties(
     status?: WarrantyStatus;
   },
 ) {
-  const customer =
-    await getCustomerForUser(userId);
+  const customers =
+    await getCustomersForUser(
+      userId,
+    );
+
+  const customerIds =
+    customers.map(
+      (customer) =>
+        customer._id,
+    );
 
   const skip = Math.max(
     0,
@@ -522,23 +842,35 @@ export async function getCustomerWarranties(
   );
 
   const filter: {
-    customerId: Types.ObjectId;
+    customerId: {
+      $in: Types.ObjectId[];
+    };
+
     isActive: boolean;
+
     status?: WarrantyStatus;
   } = {
-    customerId: customer._id,
+    customerId: {
+      $in: customerIds,
+    },
+
     isActive: true,
   };
 
-  if (options?.status) {
-    filter.status = options.status;
+  if (
+    options?.status
+  ) {
+    filter.status =
+      options.status;
   }
 
   const [
     warranties,
     total,
   ] = await Promise.all([
-    WarrantyModel.find(filter)
+    WarrantyModel.find(
+      filter,
+    )
       .sort({
         expiryDate: 1,
       })
@@ -546,7 +878,9 @@ export async function getCustomerWarranties(
       .limit(limit)
       .lean(),
 
-    WarrantyModel.countDocuments(filter),
+    WarrantyModel.countDocuments(
+      filter,
+    ),
   ]);
 
   return {
@@ -554,28 +888,41 @@ export async function getCustomerWarranties(
 
     pagination: {
       page:
-        Math.floor(skip / limit) + 1,
+        Math.floor(
+          skip / limit,
+        ) + 1,
 
       limit,
 
       total,
 
       hasMore:
-        skip + warranties.length < total,
+        skip +
+          warranties.length <
+        total,
     },
   };
 }
 
 /**
- * Get one warranty only when it belongs
- * to the authenticated customer.
+ * Get one warranty belonging to ANY shop
+ * where the authenticated customer has
+ * a customer profile.
  */
 export async function getCustomerWarranty(
   userId: string,
   warrantyId: string,
 ) {
-  const customer =
-    await getCustomerForUser(userId);
+  const customers =
+    await getCustomersForUser(
+      userId,
+    );
+
+  const customerIds =
+    customers.map(
+      (customer) =>
+        customer._id,
+    );
 
   const warrantyObjectId =
     toObjectId(
@@ -585,8 +932,13 @@ export async function getCustomerWarranty(
 
   const warranty =
     await WarrantyModel.findOne({
-      _id: warrantyObjectId,
-      customerId: customer._id,
+      _id:
+        warrantyObjectId,
+
+      customerId: {
+        $in: customerIds,
+      },
+
       isActive: true,
     }).lean();
 
@@ -604,14 +956,19 @@ export async function getCustomerWarranty(
   ] = await Promise.all([
     warranty.invoiceId
       ? InvoiceModel.findOne({
-          _id: warranty.invoiceId,
-          customerId:
-            customer._id,
+          _id:
+            warranty.invoiceId,
+
+          customerId: {
+            $in: customerIds,
+          },
         }).lean()
       : null,
 
     ShopModel.findOne({
-      _id: warranty.shopId,
+      _id:
+        warranty.shopId,
+
       isActive: true,
     }).lean(),
   ]);
@@ -621,19 +978,27 @@ export async function getCustomerWarranty(
 
     invoice: invoice
       ? {
-          id: invoice._id,
+          id:
+            invoice._id,
+
           invoiceNumber:
             invoice.invoiceNumber,
+
           issueDate:
             invoice.issueDate,
+
           dueDate:
             invoice.dueDate,
+
           status:
             invoice.status,
+
           total:
             invoice.total,
+
           amountPaid:
             invoice.amountPaid,
+
           amountDue:
             invoice.amountDue,
         }
@@ -641,13 +1006,26 @@ export async function getCustomerWarranty(
 
     shop: shop
       ? {
-          id: shop._id,
-          name: shop.name,
-          phone: shop.phone,
-          email: shop.email,
-          address: shop.address,
-          taxId: shop.taxId,
-          logoUrl: shop.logoUrl,
+          id:
+            shop._id,
+
+          name:
+            shop.name,
+
+          phone:
+            shop.phone,
+
+          email:
+            shop.email,
+
+          address:
+            shop.address,
+
+          taxId:
+            shop.taxId,
+
+          logoUrl:
+            shop.logoUrl,
         }
       : null,
   };

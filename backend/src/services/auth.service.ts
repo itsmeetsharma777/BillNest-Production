@@ -40,41 +40,68 @@ interface LoginInput {
 }
 
 /**
- * After a customer creates a BillNest account,
- * automatically connect the account to a customer
- * profile that was previously created by a shopkeeper
- * using the same email address.
+ * Connect every existing customer profile
+ * using this email to the new BillNest customer
+ * account.
  *
- * We only auto-link when exactly one matching profile
- * exists. If multiple profiles use the same email,
- * we deliberately leave them unlinked rather than
- * attaching the account to the wrong shop.
+ * This is important because one customer can
+ * already exist in several different shops.
+ *
+ * Example:
+ *
+ * Shop A -> customer@example.com
+ * Shop B -> customer@example.com
+ * Shop C -> customer@example.com
+ *
+ * Customer creates one BillNest account.
+ *
+ * Result:
+ *
+ * User
+ *  ├── Shop A profile
+ *  ├── Shop B profile
+ *  └── Shop C profile
  */
-async function linkPreExistingCustomerProfile(
+async function linkPreExistingCustomerProfiles(
   userId: string,
   email: string,
 ) {
   const matchingCustomers =
-    await findUnlinkedCustomersByEmail(email);
+    await findUnlinkedCustomersByEmail(
+      email,
+    );
 
-  if (matchingCustomers.length !== 1) {
-    return;
+  /*
+   * Link EVERY matching profile.
+   *
+   * Previously the system deliberately avoided
+   * multiple profiles because it assumed one
+   * customer could belong to only one shop.
+   *
+   * That restriction is now removed.
+   */
+  for (
+    const customer of matchingCustomers
+  ) {
+    await linkCustomerToUser(
+      customer._id.toString(),
+      userId,
+    );
   }
-
-  await linkCustomerToUser(
-    matchingCustomers[0]._id.toString(),
-    userId,
-  );
 }
 
 export async function registerUser(
   input: RegisterInput,
 ) {
   const normalizedEmail =
-    input.email.trim().toLowerCase();
+    input.email
+      .trim()
+      .toLowerCase();
 
   const existingUser =
-    await findUserByEmail(normalizedEmail);
+    await findUserByEmail(
+      normalizedEmail,
+    );
 
   if (existingUser) {
     throw new ApiError(
@@ -85,24 +112,33 @@ export async function registerUser(
   }
 
   const passwordHash =
-    await hashPassword(input.password);
+    await hashPassword(
+      input.password,
+    );
 
-  const user = await createUser({
-    name: input.name.trim(),
-    email: normalizedEmail,
-    passwordHash,
-    role: input.role,
-  });
+  const user =
+    await createUser({
+      name:
+        input.name.trim(),
+
+      email:
+        normalizedEmail,
+
+      passwordHash,
+
+      role:
+        input.role,
+    });
 
   /*
-   * Only customer accounts participate in delayed
+   * Only customer accounts participate in
    * customer-profile linking.
-   *
-   * Shopkeeper registration remains completely
-   * independent from customer records.
    */
-  if (input.role === "customer") {
-    await linkPreExistingCustomerProfile(
+  if (
+    input.role ===
+    "customer"
+  ) {
+    await linkPreExistingCustomerProfiles(
       user._id.toString(),
       normalizedEmail,
     );
@@ -115,14 +151,19 @@ export async function loginUser(
   input: LoginInput,
 ) {
   const normalizedEmail =
-    input.email.trim().toLowerCase();
+    input.email
+      .trim()
+      .toLowerCase();
 
   const user =
     await findUserByEmailWithPassword(
       normalizedEmail,
     );
 
-  if (!user || !user.isActive) {
+  if (
+    !user ||
+    !user.isActive
+  ) {
     throw new ApiError(
       401,
       "Invalid email or password.",
@@ -148,21 +189,28 @@ export async function loginUser(
     generateSessionToken();
 
   const tokenHash =
-    hashSessionToken(sessionToken);
+    hashSessionToken(
+      sessionToken,
+    );
 
-  const expiresAt = new Date(
-    Date.now() +
-      SESSION_DURATION_MS,
-  );
+  const expiresAt =
+    new Date(
+      Date.now() +
+        SESSION_DURATION_MS,
+    );
 
   await createSession({
-    userId: user._id.toString(),
+    userId:
+      user._id.toString(),
+
     tokenHash,
+
     expiresAt,
   });
 
   return {
     user,
+
     sessionToken,
   };
 }
@@ -171,7 +219,9 @@ export async function deleteSession(
   sessionToken: string,
 ) {
   const tokenHash =
-    hashSessionToken(sessionToken);
+    hashSessionToken(
+      sessionToken,
+    );
 
   await deleteSessionByTokenHash(
     tokenHash,

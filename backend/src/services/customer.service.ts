@@ -1,7 +1,7 @@
 import {
   createCustomer,
   findCustomerByIdForShop,
-  findCustomerByUserId,
+  findCustomerByUserIdAndShop,
   findCustomersByShopId,
   updateCustomerByIdForShop,
   deleteCustomerByIdForShop,
@@ -44,9 +44,11 @@ export async function createCustomerForOwner(
   ownerId: string,
   input: CreateCustomerInput,
 ) {
-  const shop = await getShopForOwner(ownerId);
+  const shop =
+    await getShopForOwner(ownerId);
 
-  const name = input.name.trim();
+  const name =
+    input.name.trim();
 
   if (!name) {
     throw new ApiError(
@@ -56,15 +58,28 @@ export async function createCustomerForOwner(
     );
   }
 
-  const email = input.email?.trim().toLowerCase();
+  const email =
+    input.email
+      ?.trim()
+      .toLowerCase();
 
-  let linkedUserId: string | undefined;
+  let linkedUserId:
+    | string
+    | undefined;
 
   if (email) {
-    const existingUser = await findUserByEmail(email);
+    const existingUser =
+      await findUserByEmail(email);
 
     if (existingUser) {
-      if (existingUser.role !== "customer") {
+      /*
+       * Only customer accounts can be linked
+       * to customer profiles.
+       */
+      if (
+        existingUser.role !==
+        "customer"
+      ) {
         throw new ApiError(
           400,
           "This email belongs to a shopkeeper account and cannot be linked as a customer.",
@@ -80,24 +95,28 @@ export async function createCustomerForOwner(
         );
       }
 
-      const existingCustomer = await findCustomerByUserId(
-        existingUser._id.toString(),
-      );
-
-      if (
-        existingCustomer &&
-        existingCustomer.shopId.toString() !== shop._id.toString()
-      ) {
-        throw new ApiError(
-          409,
-          "This customer account is already linked to another shop.",
-          "CUSTOMER_ALREADY_LINKED",
+      /*
+       * IMPORTANT:
+       *
+       * We check the customer profile ONLY
+       * inside the CURRENT shop.
+       *
+       * Therefore:
+       *
+       * Shop A -> profile exists
+       * Shop B -> profile does not exist
+       *
+       * Shop B is allowed to create another
+       * customer profile linked to the same user.
+       */
+      const existingCustomerInThisShop =
+        await findCustomerByUserIdAndShop(
+          existingUser._id.toString(),
+          shop._id.toString(),
         );
-      }
 
       if (
-        existingCustomer &&
-        existingCustomer.shopId.toString() === shop._id.toString()
+        existingCustomerInThisShop
       ) {
         throw new ApiError(
           409,
@@ -106,59 +125,75 @@ export async function createCustomerForOwner(
         );
       }
 
-      linkedUserId = existingUser._id.toString();
+      /*
+       * Same customer account can now be linked
+       * to multiple shops.
+       */
+      linkedUserId =
+        existingUser._id.toString();
     }
   }
 
-  const customer = await createCustomer({
-    shopId: shop._id.toString(),
+  const customer =
+    await createCustomer({
+      shopId:
+        shop._id.toString(),
 
-    ...(linkedUserId && {
-      userId: linkedUserId,
-    }),
+      ...(linkedUserId && {
+        userId:
+          linkedUserId,
+      }),
 
-    name,
+      name,
 
-    ...(email && {
-      email,
-    }),
+      ...(email && {
+        email,
+      }),
 
-    ...(input.phone?.trim() && {
-      phone: input.phone.trim(),
-    }),
+      ...(input.phone?.trim() && {
+        phone:
+          input.phone.trim(),
+      }),
 
-    ...(input.address && {
-      address: {
-        ...(input.address.line1?.trim() && {
-          line1: input.address.line1.trim(),
-        }),
+      ...(input.address && {
+        address: {
+          ...(input.address.line1?.trim() && {
+            line1:
+              input.address.line1.trim(),
+          }),
 
-        ...(input.address.line2?.trim() && {
-          line2: input.address.line2.trim(),
-        }),
+          ...(input.address.line2?.trim() && {
+            line2:
+              input.address.line2.trim(),
+          }),
 
-        ...(input.address.city?.trim() && {
-          city: input.address.city.trim(),
-        }),
+          ...(input.address.city?.trim() && {
+            city:
+              input.address.city.trim(),
+          }),
 
-        ...(input.address.state?.trim() && {
-          state: input.address.state.trim(),
-        }),
+          ...(input.address.state?.trim() && {
+            state:
+              input.address.state.trim(),
+          }),
 
-        ...(input.address.postalCode?.trim() && {
-          postalCode: input.address.postalCode.trim(),
-        }),
+          ...(input.address.postalCode?.trim() && {
+            postalCode:
+              input.address.postalCode.trim(),
+          }),
 
-        ...(input.address.country?.trim() && {
-          country: input.address.country.trim(),
-        }),
-      },
-    }),
+          ...(input.address.country?.trim() && {
+            country:
+              input.address.country.trim(),
+          }),
+        },
+      }),
 
-    ...(input.notes?.trim() && {
-      notes: input.notes.trim(),
-    }),
-  });
+      ...(input.notes?.trim() && {
+        notes:
+          input.notes.trim(),
+      }),
+    });
 
   return customer;
 }
@@ -170,7 +205,8 @@ export async function getCustomersForOwner(
     limit?: number;
   },
 ) {
-  const shop = await getShopForOwner(ownerId);
+  const shop =
+    await getShopForOwner(ownerId);
 
   const page = Math.max(
     options?.page ?? 1,
@@ -178,21 +214,27 @@ export async function getCustomersForOwner(
   );
 
   const limit = Math.min(
-    Math.max(options?.limit ?? 20, 1),
+    Math.max(
+      options?.limit ?? 20,
+      1,
+    ),
     100,
   );
 
-  const skip = (page - 1) * limit;
+  const skip =
+    (page - 1) * limit;
 
-  const customers = await findCustomersByShopId(
-    shop._id.toString(),
-    {
-      skip,
-      limit: limit + 1,
-    },
-  );
+  const customers =
+    await findCustomersByShopId(
+      shop._id.toString(),
+      {
+        skip,
+        limit: limit + 1,
+      },
+    );
 
-  const hasMore = customers.length > limit;
+  const hasMore =
+    customers.length > limit;
 
   if (hasMore) {
     customers.pop();
@@ -200,6 +242,7 @@ export async function getCustomersForOwner(
 
   return {
     customers,
+
     pagination: {
       page,
       limit,
@@ -212,14 +255,19 @@ export async function getCustomerForOwner(
   ownerId: string,
   customerId: string,
 ) {
-  const shop = await getShopForOwner(ownerId);
+  const shop =
+    await getShopForOwner(ownerId);
 
-  const customer = await findCustomerByIdForShop(
-    customerId,
-    shop._id.toString(),
-  );
+  const customer =
+    await findCustomerByIdForShop(
+      customerId,
+      shop._id.toString(),
+    );
 
-  if (!customer || !customer.isActive) {
+  if (
+    !customer ||
+    !customer.isActive
+  ) {
     throw new ApiError(
       404,
       "Customer not found.",
@@ -235,7 +283,8 @@ export async function updateCustomerForOwner(
   customerId: string,
   input: UpdateCustomerInput,
 ) {
-  const shop = await getShopForOwner(ownerId);
+  const shop =
+    await getShopForOwner(ownerId);
 
   const existingCustomer =
     await findCustomerByIdForShop(
@@ -265,53 +314,82 @@ export async function updateCustomerForOwner(
     );
   }
 
-  const updateData: UpdateCustomerInput = {};
+  const updateData:
+    UpdateCustomerInput = {};
 
-  if (input.name !== undefined) {
-    updateData.name = input.name.trim();
+  if (
+    input.name !==
+    undefined
+  ) {
+    updateData.name =
+      input.name.trim();
   }
 
-  if (input.email !== undefined) {
+  if (
+    input.email !==
+    undefined
+  ) {
     updateData.email =
-      input.email.trim().toLowerCase();
+      input.email
+        .trim()
+        .toLowerCase();
   }
 
-  if (input.phone !== undefined) {
+  if (
+    input.phone !==
+    undefined
+  ) {
     updateData.phone =
       input.phone.trim();
   }
 
-  if (input.address !== undefined) {
+  if (
+    input.address !==
+    undefined
+  ) {
     updateData.address = {
-      ...(input.address.line1 !== undefined && {
-        line1: input.address.line1.trim(),
+      ...(input.address.line1 !==
+        undefined && {
+        line1:
+          input.address.line1.trim(),
       }),
 
-      ...(input.address.line2 !== undefined && {
-        line2: input.address.line2.trim(),
+      ...(input.address.line2 !==
+        undefined && {
+        line2:
+          input.address.line2.trim(),
       }),
 
-      ...(input.address.city !== undefined && {
-        city: input.address.city.trim(),
+      ...(input.address.city !==
+        undefined && {
+        city:
+          input.address.city.trim(),
       }),
 
-      ...(input.address.state !== undefined && {
-        state: input.address.state.trim(),
+      ...(input.address.state !==
+        undefined && {
+        state:
+          input.address.state.trim(),
       }),
 
-      ...(input.address.postalCode !== undefined && {
+      ...(input.address.postalCode !==
+        undefined && {
         postalCode:
           input.address.postalCode.trim(),
       }),
 
-      ...(input.address.country !== undefined && {
+      ...(input.address.country !==
+        undefined && {
         country:
           input.address.country.trim(),
       }),
     };
   }
 
-  if (input.notes !== undefined) {
+  if (
+    input.notes !==
+    undefined
+  ) {
     updateData.notes =
       input.notes.trim();
   }
@@ -338,7 +416,8 @@ export async function deactivateCustomerForOwner(
   ownerId: string,
   customerId: string,
 ) {
-  const shop = await getShopForOwner(ownerId);
+  const shop =
+    await getShopForOwner(ownerId);
 
   const customer =
     await findCustomerByIdForShop(
