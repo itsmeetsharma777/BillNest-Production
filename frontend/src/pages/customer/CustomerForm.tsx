@@ -1,4 +1,8 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   Loader2,
   Mail,
@@ -80,17 +84,56 @@ interface CustomerFormProps {
   mode?: "create" | "edit";
 }
 
-interface PostalApiResponse {
+/* =========================================================
+   POSTAL API TYPES
+   ========================================================= */
+
+interface IndiaPostOffice {
+  Name?: string;
+  District?: string;
+  State?: string;
+  Country?: string;
+  Pincode?: string;
+}
+
+interface IndiaPostResponse {
   Message?: string;
   Status?: string;
-  PostOffice?: Array<{
-    Name?: string;
-    District?: string;
-    State?: string;
-    Country?: string;
-    Pincode?: string;
-  }> | null;
+  PostOffice?: IndiaPostOffice[] | null;
 }
+
+interface GitHubPostalOffice {
+  officeName?: string;
+  officeType?: string;
+  deliveryStatus?: string;
+  circleName?: string;
+  regionName?: string;
+  divisionName?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+interface GitHubPostalResponse {
+  state?: string;
+  district?: string;
+  offices?: GitHubPostalOffice[];
+}
+
+/* =========================================================
+   CONSTANTS
+   ========================================================= */
+
+const INDIA_POST_API =
+  "https://api.postalpincode.in/pincode";
+
+const FALLBACK_POSTAL_API =
+  "https://aniket-thapa.github.io/india-pincode-api/pincodes";
+
+const POSTAL_REQUEST_TIMEOUT = 7000;
+
+/* =========================================================
+   DEFAULT VALUES
+   ========================================================= */
 
 const defaultValues: CustomerFormValues = {
   name: "",
@@ -103,6 +146,10 @@ const defaultValues: CustomerFormValues = {
   postalCode: "",
   country: "India",
 };
+
+/* =========================================================
+   CUSTOMER FORM
+   ========================================================= */
 
 export function CustomerForm({
   open,
@@ -118,6 +165,20 @@ export function CustomerForm({
   const [postalCodeMessage, setPostalCodeMessage] =
     useState("");
 
+  /*
+   * Used to cancel an older request when the user
+   * changes the PIN before the previous lookup finishes.
+   */
+  const postalLookupControllerRef =
+    useRef<AbortController | null>(null);
+
+  /*
+   * Keeps track of the latest PIN request.
+   * This prevents an older API response from
+   * overwriting a newer PIN.
+   */
+  const postalLookupRequestRef = useRef(0);
+
   const {
     register,
     handleSubmit,
@@ -127,11 +188,16 @@ export function CustomerForm({
     formState: { errors },
   } = useForm<CustomerFormValues>({
     resolver: zodResolver(customerFormSchema),
+
     defaultValues: {
       ...defaultValues,
       ...initialValues,
     },
   });
+
+  /* =======================================================
+     RESET FORM WHEN MODAL OPENS
+     ======================================================= */
 
   useEffect(() => {
     if (!open) {
@@ -144,7 +210,22 @@ export function CustomerForm({
     });
 
     setPostalCodeMessage("");
+    setIsLookingUpPostalCode(false);
   }, [open, initialValues, reset]);
+
+  /* =======================================================
+     CLEANUP API REQUESTS
+     ======================================================= */
+
+  useEffect(() => {
+    return () => {
+      postalLookupControllerRef.current?.abort();
+    };
+  }, []);
+
+  /* =======================================================
+     ESCAPE KEY
+     ======================================================= */
 
   useEffect(() => {
     if (!open) {
@@ -152,12 +233,19 @@ export function CustomerForm({
     }
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !isSubmitting) {
+      if (
+        event.key === "Escape" &&
+        !isSubmitting &&
+        !isLookingUpPostalCode
+      ) {
         onClose();
       }
     };
 
-    document.addEventListener("keydown", handleEscape);
+    document.addEventListener(
+      "keydown",
+      handleEscape,
+    );
 
     return () => {
       document.removeEventListener(
@@ -165,7 +253,145 @@ export function CustomerForm({
         handleEscape,
       );
     };
-  }, [open, isSubmitting, onClose]);
+  }, [
+    open,
+    isSubmitting,
+    isLookingUpPostalCode,
+    onClose,
+  ]);
+
+  /* =======================================================
+     FETCH WITH TIMEOUT
+     ======================================================= */
+
+  async function fetchWithTimeout(
+    url: string,
+    timeout = POSTAL_REQUEST_TIMEOUT,
+  ): Promise<Response> {
+    const controller = new AbortController();
+
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, timeout);
+
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        signal: controller.signal,
+        cache: "no-store",
+      });
+
+      return response;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
+  /* =======================================================
+     INDIA POST LOOKUP
+     ======================================================= */
+
+  async function lookupIndiaPost(
+    postalCode: string,
+  ): Promise<{
+    city: string;
+    state: string;
+    country: string;
+  } | null> {
+    const response = await fetchWithTimeout(
+      `${INDIA_POST_API}/${postalCode}`,
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `India Post returned HTTP ${response.status}`,
+      );
+    }
+
+    const result =
+      (await response.json()) as IndiaPostResponse[];
+
+    const postalData = result?.[0];
+
+    if (
+      !postalData ||
+      postalData.Status !== "Success" ||
+      !postalData.PostOffice ||
+      postalData.PostOffice.length === 0
+    ) {
+      return null;
+    }
+
+    const firstPostOffice =
+      postalData.PostOffice[0];
+
+    const city =
+      firstPostOffice?.District?.trim() ?? "";
+
+    const state =
+      firstPostOffice?.State?.trim() ?? "";
+
+    const country =
+      firstPostOffice?.Country?.trim() || "India";
+
+    if (!city && !state) {
+      return null;
+    }
+
+    return {
+      city,
+      state,
+      country,
+    };
+  }
+
+  /* =======================================================
+     FALLBACK LOOKUP
+     ======================================================= */
+
+  async function lookupFallbackPostalApi(
+    postalCode: string,
+  ): Promise<{
+    city: string;
+    state: string;
+    country: string;
+  } | null> {
+    const response = await fetchWithTimeout(
+      `${FALLBACK_POSTAL_API}/${postalCode}.json`,
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Fallback postal API returned HTTP ${response.status}`,
+      );
+    }
+
+    const result =
+      (await response.json()) as GitHubPostalResponse;
+
+    const city =
+      result?.district?.trim() ?? "";
+
+    const state =
+      result?.state?.trim() ?? "";
+
+    if (!city && !state) {
+      return null;
+    }
+
+    return {
+      city,
+      state,
+      country: "India",
+    };
+  }
+
+  /* =======================================================
+     MAIN POSTAL LOOKUP
+     ======================================================= */
 
   async function lookupPostalCode(
     postalCode: string,
@@ -173,140 +399,274 @@ export function CustomerForm({
     const normalizedPostalCode =
       postalCode.replace(/\D/g, "");
 
-    /*
-     * Only lookup after a complete Indian
-     * 6-digit PIN code has been entered.
-     */
     if (normalizedPostalCode.length !== 6) {
       setPostalCodeMessage("");
+      setIsLookingUpPostalCode(false);
 
       return;
     }
 
+    /*
+     * Cancel previous request.
+     */
+    postalLookupControllerRef.current?.abort();
+
+    const requestId =
+      ++postalLookupRequestRef.current;
+
     setIsLookingUpPostalCode(true);
     setPostalCodeMessage("");
 
-    try {
-      const response = await fetch(
-        `https://api.postalpincode.in/pincode/${normalizedPostalCode}`,
-      );
+    /*
+     * Clear previous location before
+     * looking up the new PIN.
+     */
+    setValue("city", "", {
+      shouldDirty: true,
+      shouldValidate: false,
+    });
 
-      if (!response.ok) {
-        throw new Error(
-          "Unable to look up this postal code.",
+    setValue("state", "", {
+      shouldDirty: true,
+      shouldValidate: false,
+    });
+
+    try {
+      let postalData:
+        | {
+            city: string;
+            state: string;
+            country: string;
+          }
+        | null = null;
+
+      /* ---------------------------------------------------
+         PRIMARY API
+         --------------------------------------------------- */
+
+      try {
+        postalData =
+          await lookupIndiaPost(
+            normalizedPostalCode,
+          );
+      } catch (error) {
+        /*
+         * India Post API can occasionally be unavailable,
+         * blocked, or slow from the browser.
+         *
+         * We intentionally fall back instead of
+         * leaving the user stuck on a spinner.
+         */
+
+        console.warn(
+          "India Post PIN lookup failed:",
+          error,
         );
       }
 
-      const result =
-        (await response.json()) as PostalApiResponse[];
+      /* ---------------------------------------------------
+         FALLBACK API
+         --------------------------------------------------- */
 
-      const postalData = result?.[0];
+      if (!postalData) {
+        try {
+          postalData =
+            await lookupFallbackPostalApi(
+              normalizedPostalCode,
+            );
+        } catch (error) {
+          console.warn(
+            "Fallback PIN lookup failed:",
+            error,
+          );
+        }
+      }
 
+      /*
+       * Ignore response if it belongs to an older
+       * PIN request.
+       */
       if (
-        !postalData ||
-        postalData.Status !== "Success" ||
-        !postalData.PostOffice ||
-        postalData.PostOffice.length === 0
+        requestId !==
+        postalLookupRequestRef.current
       ) {
+        return;
+      }
+
+      if (!postalData) {
         setValue("city", "");
         setValue("state", "");
 
         setPostalCodeMessage(
-          "Postal code not found. Please check the PIN code.",
+          "Postal code not found. You can enter the city and state manually.",
         );
 
         return;
       }
 
-      /*
-       * A PIN can have multiple post offices.
-       * District and State are shared location
-       * information for the returned postal records.
-       */
-      const firstPostOffice =
-        postalData.PostOffice[0];
+      /* ---------------------------------------------------
+         UPDATE CITY
+         --------------------------------------------------- */
 
-      const district =
-        firstPostOffice?.District?.trim() ?? "";
-
-      const state =
-        firstPostOffice?.State?.trim() ?? "";
-
-      const country =
-        firstPostOffice?.Country?.trim() ?? "";
-
-      setValue("city", district, {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-
-      setValue("state", state, {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-
-      if (country) {
-        setValue("country", country, {
-          shouldDirty: true,
-          shouldValidate: true,
-        });
+      if (postalData.city) {
+        setValue(
+          "city",
+          postalData.city,
+          {
+            shouldDirty: true,
+            shouldValidate: true,
+          },
+        );
       }
 
-      clearErrors(["city", "state"]);
+      /* ---------------------------------------------------
+         UPDATE STATE
+         --------------------------------------------------- */
+
+      if (postalData.state) {
+        setValue(
+          "state",
+          postalData.state,
+          {
+            shouldDirty: true,
+            shouldValidate: true,
+          },
+        );
+      }
+
+      /* ---------------------------------------------------
+         UPDATE COUNTRY
+         --------------------------------------------------- */
+
+      if (postalData.country) {
+        setValue(
+          "country",
+          postalData.country,
+          {
+            shouldDirty: true,
+            shouldValidate: true,
+          },
+        );
+      }
+
+      clearErrors([
+        "city",
+        "state",
+      ]);
+
+      if (
+        postalData.city &&
+        postalData.state
+      ) {
+        setPostalCodeMessage(
+          "City and state filled automatically.",
+        );
+      } else if (postalData.state) {
+        setPostalCodeMessage(
+          "State filled automatically. Please enter the city.",
+        );
+      } else {
+        setPostalCodeMessage(
+          "Postal code found. Please enter the city.",
+        );
+      }
+    } catch (error) {
+      /*
+       * Ignore aborts caused by a newer PIN request.
+       */
+      if (
+        error instanceof DOMException &&
+        error.name === "AbortError"
+      ) {
+        return;
+      }
+
+      console.error(
+        "Postal code lookup failed:",
+        error,
+      );
 
       setPostalCodeMessage(
-        district && state
-          ? "City and state filled automatically."
-          : "",
-      );
-    } catch {
-      setPostalCodeMessage(
-        "Unable to look up this postal code. Please try again.",
+        "Unable to look up this postal code. You can enter the city and state manually.",
       );
     } finally {
-      setIsLookingUpPostalCode(false);
+      /*
+       * Only the newest request is allowed to
+       * turn off the loader.
+       */
+      if (
+        requestId ===
+        postalLookupRequestRef.current
+      ) {
+        setIsLookingUpPostalCode(false);
+      }
     }
   }
+
+  /* =======================================================
+     POSTAL INPUT CHANGE
+     ======================================================= */
 
   function handlePostalCodeChange(
     event: React.ChangeEvent<HTMLInputElement>,
   ) {
-    const value = event.target.value;
-
-    /*
-     * Keep only numbers and limit the field
-     * to 6 digits.
-     */
     const normalizedValue =
-      value.replace(/\D/g, "").slice(0, 6);
+      event.target.value
+        .replace(/\D/g, "")
+        .slice(0, 6);
 
-    setValue("postalCode", normalizedValue, {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
+    setValue(
+      "postalCode",
+      normalizedValue,
+      {
+        shouldDirty: true,
+        shouldValidate: true,
+      },
+    );
 
     setPostalCodeMessage("");
 
     /*
-     * Clear automatically populated location
-     * fields while the user is changing the PIN.
+     * Cancel previous lookup when user changes
+     * the PIN.
      */
-    if (normalizedValue.length < 6) {
+    if (normalizedValue.length !== 6) {
+      postalLookupControllerRef.current?.abort();
+
+      ++postalLookupRequestRef.current;
+
+      setIsLookingUpPostalCode(false);
+
       setValue("city", "");
       setValue("state", "");
+
+      return;
     }
 
-    if (normalizedValue.length === 6) {
-      void lookupPostalCode(normalizedValue);
-    }
+    /*
+     * Start lookup when exactly 6 digits exist.
+     */
+    void lookupPostalCode(
+      normalizedValue,
+    );
   }
+
+  /* =======================================================
+     MODAL CLOSED
+     ======================================================= */
 
   if (!open) {
     return null;
   }
 
   const submitLabel =
-    mode === "edit" ? "Save Changes" : "Add Customer";
+    mode === "edit"
+      ? "Save Changes"
+      : "Add Customer";
+
+  /* =======================================================
+     UI
+     ======================================================= */
 
   return (
     <div
@@ -317,14 +677,18 @@ export function CustomerForm({
       onMouseDown={(event) => {
         if (
           event.target === event.currentTarget &&
-          !isSubmitting
+          !isSubmitting &&
+          !isLookingUpPostalCode
         ) {
           onClose();
         }
       }}
     >
       <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl">
-        {/* Header */}
+        {/* =================================================
+            HEADER
+            ================================================= */}
+
         <div className="flex shrink-0 items-center justify-between border-b px-5 py-4 sm:px-6">
           <div>
             <h2
@@ -354,13 +718,19 @@ export function CustomerForm({
           </button>
         </div>
 
-        {/* Form */}
+        {/* =================================================
+            FORM
+            ================================================= */}
+
         <form
           onSubmit={handleSubmit(onSubmit)}
           className="overflow-y-auto"
         >
           <div className="space-y-6 p-5 sm:p-6">
-            {/* Basic information */}
+            {/* =================================================
+                BASIC INFORMATION
+                ================================================= */}
+
             <section>
               <div className="mb-4 flex items-center gap-2">
                 <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -434,7 +804,10 @@ export function CustomerForm({
               </div>
             </section>
 
-            {/* Address */}
+            {/* =================================================
+                ADDRESS
+                ================================================= */}
+
             <section>
               <div className="mb-4 flex items-center gap-2">
                 <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -453,6 +826,8 @@ export function CustomerForm({
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
+                {/* ADDRESS LINE 1 */}
+
                 <FormField
                   label="Address line 1"
                   error={errors.line1?.message}
@@ -466,6 +841,8 @@ export function CustomerForm({
                     )}
                   />
                 </FormField>
+
+                {/* ADDRESS LINE 2 */}
 
                 <FormField
                   label="Address line 2"
@@ -481,13 +858,14 @@ export function CustomerForm({
                   />
                 </FormField>
 
+                {/* CITY */}
+
                 <FormField
                   label="City"
                   error={errors.city?.message}
                 >
                   <input
                     {...register("city")}
-                    readOnly
                     placeholder="Enter postal code"
                     className={`${inputClass(
                       Boolean(errors.city),
@@ -495,13 +873,14 @@ export function CustomerForm({
                   />
                 </FormField>
 
+                {/* STATE */}
+
                 <FormField
                   label="State"
                   error={errors.state?.message}
                 >
                   <input
                     {...register("state")}
-                    readOnly
                     placeholder="Enter postal code"
                     className={`${inputClass(
                       Boolean(errors.state),
@@ -509,26 +888,34 @@ export function CustomerForm({
                   />
                 </FormField>
 
+                {/* POSTAL CODE */}
+
                 <FormField
                   label="Postal code"
                   error={errors.postalCode?.message}
                 >
                   <div className="relative">
                     <input
-                      {...register("postalCode", {
-                        onChange:
-                          handlePostalCodeChange,
-                      })}
+                      {...register(
+                        "postalCode",
+                        {
+                          onChange:
+                            handlePostalCodeChange,
+                        },
+                      )}
                       inputMode="numeric"
                       maxLength={6}
+                      autoComplete="postal-code"
                       placeholder="6-digit PIN code"
-                      className={inputClass(
-                        Boolean(errors.postalCode),
-                      )}
+                      className={`${inputClass(
+                        Boolean(
+                          errors.postalCode,
+                        ),
+                      )} pr-10`}
                     />
 
                     {isLookingUpPostalCode && (
-                      <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                      <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-primary" />
                     )}
                   </div>
 
@@ -547,6 +934,8 @@ export function CustomerForm({
                   )}
                 </FormField>
 
+                {/* COUNTRY */}
+
                 <FormField
                   label="Country"
                   error={errors.country?.message}
@@ -563,7 +952,10 @@ export function CustomerForm({
             </section>
           </div>
 
-          {/* Footer */}
+          {/* =================================================
+              FOOTER
+              ================================================= */}
+
           <div className="flex shrink-0 flex-col-reverse gap-2 border-t bg-muted/20 p-4 sm:flex-row sm:justify-end sm:px-6">
             <button
               type="button"
@@ -599,6 +991,10 @@ export function CustomerForm({
   );
 }
 
+/* =========================================================
+   FORM FIELD
+   ========================================================= */
+
 function FormField({
   label,
   required,
@@ -618,7 +1014,9 @@ function FormField({
         {label}
 
         {required && (
-          <span className="ml-1 text-destructive">*</span>
+          <span className="ml-1 text-destructive">
+            *
+          </span>
         )}
       </label>
 
@@ -632,6 +1030,10 @@ function FormField({
     </div>
   );
 }
+
+/* =========================================================
+   INPUT STYLE
+   ========================================================= */
 
 function inputClass(hasError: boolean) {
   return [
