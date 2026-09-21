@@ -1,9 +1,15 @@
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import {
+  Navigate,
+  Outlet,
+  useLocation,
+} from "react-router-dom";
 
 import { useAuth } from "@/context/AuthContext";
 
 interface ProtectedRouteProps {
-  allowedRoles?: Array<"shopkeeper" | "customer">;
+  allowedRoles?: Array<
+    "shopkeeper" | "customer"
+  >;
 }
 
 export function ProtectedRoute({
@@ -27,11 +33,23 @@ export function ProtectedRoute({
   }
 
   if (!user) {
+    const isCustomerRoute =
+      location.pathname === "/customer" ||
+      location.pathname.startsWith(
+        "/customer/",
+      );
+
     return (
       <Navigate
-        to="/login"
+        to={
+          isCustomerRoute
+            ? "/customer/login"
+            : "/shopkeeper/login"
+        }
         replace
-        state={{ from: location }}
+        state={{
+          from: location,
+        }}
       />
     );
   }
@@ -40,8 +58,24 @@ export function ProtectedRoute({
     allowedRoles &&
     !allowedRoles.includes(user.role)
   ) {
-    return <Navigate to="/" replace />;
+    if (user.role === "customer") {
+      return (
+        <Navigate
+          to="/customer"
+          replace
+        />
+      );
+    }
+
+    return (
+      <Navigate
+        to="/shopkeeper"
+        replace
+      />
+    );
   }
 
   return <Outlet />;
 }
+
+export default ProtectedRoute;

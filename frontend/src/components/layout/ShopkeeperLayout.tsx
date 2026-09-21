@@ -95,6 +95,7 @@ function getInitials(name: string) {
 export function ShopkeeperLayout() {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -235,6 +236,7 @@ export function ShopkeeperLayout() {
             {navigationItems.map(
               (item) => {
                 const Icon = item.icon;
+
                 const active =
                   isActiveRoute(
                     item.href,
@@ -300,6 +302,7 @@ export function ShopkeeperLayout() {
             {secondaryNavigationItems.map(
               (item) => {
                 const Icon = item.icon;
+
                 const active =
                   isActiveRoute(
                     item.href,
@@ -389,6 +392,7 @@ export function ShopkeeperLayout() {
             {sidebarCollapsed ? (
               <>
                 <PanelLeftOpen className="size-4" />
+
                 <span className="sr-only">
                   Expand sidebar
                 </span>
@@ -396,6 +400,7 @@ export function ShopkeeperLayout() {
             ) : (
               <>
                 <PanelLeftClose className="size-4" />
+
                 <span>
                   Collapse sidebar
                 </span>
@@ -437,6 +442,7 @@ export function ShopkeeperLayout() {
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2">
+            {/* Theme */}
             <button
               type="button"
               onClick={cycleTheme}
@@ -451,6 +457,7 @@ export function ShopkeeperLayout() {
               )}
             </button>
 
+            {/* Notifications */}
             <NavLink
               to="/shopkeeper/notifications"
               className="relative rounded-xl p-2.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -459,6 +466,7 @@ export function ShopkeeperLayout() {
               <Bell className="size-[18px]" />
             </NavLink>
 
+            {/* Profile */}
             <div className="relative ml-1">
               <button
                 type="button"
@@ -545,6 +553,7 @@ export function ShopkeeperLayout() {
           </div>
         </header>
 
+        {/* Page content */}
         <main className="min-h-[calc(100vh-4rem)]">
           <Outlet />
         </main>
