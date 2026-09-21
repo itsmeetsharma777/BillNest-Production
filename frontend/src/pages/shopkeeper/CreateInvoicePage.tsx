@@ -19,8 +19,11 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 
+import ProductSelector from "@/components/shopkeeper/ProductSelector";
+
 const API_URL =
-  import.meta.env.VITE_API_URL ?? "http://localhost:5001/api";
+  import.meta.env.VITE_API_URL ??
+  "http://localhost:5001/api";
 
 const PINCODE_API_URL =
   "https://api.postalpincode.in/pincode";
@@ -34,7 +37,6 @@ const INDIAN_STATES_AND_UTS = [
   "Goa",
   "Gujarat",
   "Haryana",
-  "Himachal Pradesh",
   "Jharkhand",
   "Karnataka",
   "Kerala",
@@ -194,23 +196,33 @@ function normalizeCustomer(
   customer: ApiCustomer,
 ): Customer {
   return {
-    id: customer.id ?? customer._id ?? "",
+    id:
+      customer.id ??
+      customer._id ??
+      "",
     name: customer.name,
     phone: customer.phone,
     email: customer.email,
-    address: normalizeAddress(customer.address),
+    address: normalizeAddress(
+      customer.address,
+    ),
   };
 }
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 2,
-  }).format(value);
+  return new Intl.NumberFormat(
+    "en-IN",
+    {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 2,
+    },
+  ).format(value);
 }
 
-function parseAmount(value: string): number {
+function parseAmount(
+  value: string,
+): number {
   const parsed = Number(value);
 
   if (!Number.isFinite(parsed)) {
@@ -220,13 +232,25 @@ function parseAmount(value: string): number {
   return Math.max(0, parsed);
 }
 
-function roundMoney(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+function roundMoney(
+  value: number,
+): number {
+  return (
+    Math.round(
+      (value + Number.EPSILON) *
+        100,
+    ) / 100
+  );
 }
 
 function toBackendPaymentMethod(
   value: PaymentMethod,
-): "cash" | "upi" | "card" | "bank_transfer" | "credit" {
+):
+  | "cash"
+  | "upi"
+  | "card"
+  | "bank_transfer"
+  | "credit" {
   return value.toLowerCase() as
     | "cash"
     | "upi"
@@ -237,7 +261,10 @@ function toBackendPaymentMethod(
 
 function toBackendStatus(
   value: InvoiceStatus,
-): "draft" | "paid" | "partially_paid" {
+):
+  | "draft"
+  | "paid"
+  | "partially_paid" {
   switch (value) {
     case "PAID":
       return "paid";
@@ -252,57 +279,121 @@ function toBackendStatus(
 }
 
 export default function CreateInvoicePage() {
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [isLoadingCustomers, setIsLoadingCustomers] =
-    useState(true);
+  const [
+    customers,
+    setCustomers,
+  ] = useState<Customer[]>([]);
 
-  const [selectedCustomerId, setSelectedCustomerId] =
-    useState("");
+  const [
+    isLoadingCustomers,
+    setIsLoadingCustomers,
+  ] = useState(true);
 
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [showCustomerList, setShowCustomerList] =
-    useState(false);
+  const [
+    selectedCustomerId,
+    setSelectedCustomerId,
+  ] = useState("");
 
-  const [customerAddress, setCustomerAddress] =
-    useState<CustomerAddress>(createEmptyAddress());
+  const [
+    customerSearch,
+    setCustomerSearch,
+  ] = useState("");
 
-  const [isLoadingCustomerAddress, setIsLoadingCustomerAddress] =
-    useState(false);
+  const [
+    showCustomerList,
+    setShowCustomerList,
+  ] = useState(false);
 
-  const [isSavingCustomerAddress, setIsSavingCustomerAddress] =
-    useState(false);
+  const [
+    customerAddress,
+    setCustomerAddress,
+  ] = useState<CustomerAddress>(
+    createEmptyAddress(),
+  );
 
-  const [pincodeMessage, setPincodeMessage] =
-    useState("");
+  const [
+    isLoadingCustomerAddress,
+    setIsLoadingCustomerAddress,
+  ] = useState(false);
 
-  const [isPincodeLoading, setIsPincodeLoading] =
-    useState(false);
+  const [
+    isSavingCustomerAddress,
+    setIsSavingCustomerAddress,
+  ] = useState(false);
+
+  const [
+    pincodeMessage,
+    setPincodeMessage,
+  ] = useState("");
+
+  const [
+    isPincodeLoading,
+    setIsPincodeLoading,
+  ] = useState(false);
 
   const pincodeRequestRef =
-    useRef<AbortController | null>(null);
+    useRef<AbortController | null>(
+      null,
+    );
 
-  const [items, setItems] = useState<InvoiceItem[]>([
+  const [
+    items,
+    setItems,
+  ] = useState<InvoiceItem[]>([
     createItem(),
   ]);
 
-  const [discount, setDiscount] = useState("0");
-  const [tax, setTax] = useState("0");
+  const [
+    discount,
+    setDiscount,
+  ] = useState("0");
 
-  const [paymentMethod, setPaymentMethod] =
-    useState<PaymentMethod>("CASH");
+  const [
+    tax,
+    setTax,
+  ] = useState("0");
 
-  const [amountPaid, setAmountPaid] = useState("0");
+  const [
+    paymentMethod,
+    setPaymentMethod,
+  ] = useState<PaymentMethod>(
+    "CASH",
+  );
 
-  const [status, setStatus] =
-    useState<InvoiceStatus>("PAID");
+  const [
+    amountPaid,
+    setAmountPaid,
+  ] = useState("0");
 
-  const [notes, setNotes] = useState("");
+  const [
+    status,
+    setStatus,
+  ] = useState<InvoiceStatus>(
+    "PAID",
+  );
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [
+    notes,
+    setNotes,
+  ] = useState("");
+
+  const [
+    isSubmitting,
+    setIsSubmitting,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+  const [
+    successMessage,
+    setSuccessMessage,
+  ] = useState("");
 
   /*
    * ------------------------------------------------------------
@@ -310,51 +401,63 @@ export default function CreateInvoicePage() {
    * ------------------------------------------------------------
    */
 
-  const loadCustomers = useCallback(async () => {
-    setIsLoadingCustomers(true);
-    setError("");
+  const loadCustomers =
+    useCallback(async () => {
+      setIsLoadingCustomers(true);
+      setError("");
 
-    try {
-      const response = await fetch(
-        `${API_URL}/customers`,
-        {
-          method: "GET",
-          credentials: "include",
-        },
-      );
-
-      const result =
-        (await response.json()) as CustomersResponse;
-
-      if (!response.ok) {
-        throw new Error(
-          result.message ??
-          "Unable to load customers.",
-        );
-      }
-
-      const apiCustomers =
-        result.data?.customers ?? [];
-
-      const normalizedCustomers: Customer[] =
-        apiCustomers
-          .map(normalizeCustomer)
-          .filter(
-            (customer) =>
-              Boolean(customer.id),
+      try {
+        const response =
+          await fetch(
+            `${API_URL}/customers`,
+            {
+              method: "GET",
+              credentials:
+                "include",
+            },
           );
 
-      setCustomers(normalizedCustomers);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to load customers.",
-      );
-    } finally {
-      setIsLoadingCustomers(false);
-    }
-  }, []);
+        const result =
+          (await response.json()) as CustomersResponse;
+
+        if (!response.ok) {
+          throw new Error(
+            result.message ??
+              "Unable to load customers.",
+          );
+        }
+
+        const apiCustomers =
+          result.data
+            ?.customers ?? [];
+
+        const normalizedCustomers: Customer[] =
+          apiCustomers
+            .map(
+              normalizeCustomer,
+            )
+            .filter(
+              (customer) =>
+                Boolean(
+                  customer.id,
+                ),
+            );
+
+        setCustomers(
+          normalizedCustomers,
+        );
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load customers.",
+        );
+      } finally {
+        setIsLoadingCustomers(
+          false,
+        );
+      }
+    }, []);
 
   useEffect(() => {
     void loadCustomers();
@@ -370,37 +473,49 @@ export default function CreateInvoicePage() {
    * ------------------------------------------------------------
    */
 
-  const selectedCustomer = useMemo(
-    () =>
-      customers.find(
-        (customer) =>
-          customer.id === selectedCustomerId,
-      ),
-    [customers, selectedCustomerId],
-  );
-
-  const filteredCustomers = useMemo(() => {
-    const query =
-      customerSearch.trim().toLowerCase();
-
-    if (!query) {
-      return customers;
-    }
-
-    return customers.filter((customer) =>
-      [
-        customer.name,
-        customer.phone,
-        customer.email,
-      ]
-        .filter(Boolean)
-        .some((value) =>
-          String(value)
-            .toLowerCase()
-            .includes(query),
+  const selectedCustomer =
+    useMemo(
+      () =>
+        customers.find(
+          (customer) =>
+            customer.id ===
+            selectedCustomerId,
         ),
+      [
+        customers,
+        selectedCustomerId,
+      ],
     );
-  }, [customers, customerSearch]);
+
+  const filteredCustomers =
+    useMemo(() => {
+      const query =
+        customerSearch
+          .trim()
+          .toLowerCase();
+
+      if (!query) {
+        return customers;
+      }
+
+      return customers.filter(
+        (customer) =>
+          [
+            customer.name,
+            customer.phone,
+            customer.email,
+          ]
+            .filter(Boolean)
+            .some((value) =>
+              String(value)
+                .toLowerCase()
+                .includes(query),
+            ),
+      );
+    }, [
+      customers,
+      customerSearch,
+    ]);
 
   /*
    * ------------------------------------------------------------
@@ -408,59 +523,70 @@ export default function CreateInvoicePage() {
    * ------------------------------------------------------------
    */
 
-  const loadCustomerDetails = useCallback(
-    async (customerId: string) => {
-      setIsLoadingCustomerAddress(true);
-      setError("");
-      setPincodeMessage("");
-
-      try {
-        const response = await fetch(
-          `${API_URL}/customers/${customerId}`,
-          {
-            method: "GET",
-            credentials: "include",
-          },
+  const loadCustomerDetails =
+    useCallback(
+      async (
+        customerId: string,
+      ) => {
+        setIsLoadingCustomerAddress(
+          true,
         );
+        setError("");
+        setPincodeMessage("");
 
-        const result =
-          (await response.json()) as CustomerResponse;
+        try {
+          const response =
+            await fetch(
+              `${API_URL}/customers/${customerId}`,
+              {
+                method: "GET",
+                credentials:
+                  "include",
+              },
+            );
 
-        if (!response.ok) {
-          throw new Error(
-            result.message ??
-            "Unable to load customer details.",
+          const result =
+            (await response.json()) as CustomerResponse;
+
+          if (!response.ok) {
+            throw new Error(
+              result.message ??
+                "Unable to load customer details.",
+            );
+          }
+
+          const customer =
+            result.data?.customer;
+
+          if (!customer) {
+            throw new Error(
+              "Customer details were not returned.",
+            );
+          }
+
+          setCustomerAddress(
+            normalizeAddress(
+              customer.address,
+            ),
+          );
+        } catch (err) {
+          setCustomerAddress(
+            createEmptyAddress(),
+          );
+
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load customer address.",
+          );
+        } finally {
+          setIsLoadingCustomerAddress(
+            false,
           );
         }
-
-        const customer =
-          result.data?.customer;
-
-        if (!customer) {
-          throw new Error(
-            "Customer details were not returned.",
-          );
-        }
-
-        setCustomerAddress(
-          normalizeAddress(customer.address),
-        );
-      } catch (err) {
-        setCustomerAddress(
-          createEmptyAddress(),
-        );
-
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to load customer address.",
-        );
-      } finally {
-        setIsLoadingCustomerAddress(false);
-      }
-    },
-    [],
-  );
+      },
+      [],
+    );
 
   useEffect(() => {
     if (!selectedCustomerId) {
@@ -514,8 +640,13 @@ export default function CreateInvoicePage() {
         .replace(/\D/g, "")
         .slice(0, 6);
 
-    if (cleanedPincode.length < 6) {
-      setIsPincodeLoading(false);
+    if (
+      cleanedPincode.length <
+      6
+    ) {
+      setIsPincodeLoading(
+        false,
+      );
       setPincodeMessage("");
       return;
     }
@@ -529,17 +660,21 @@ export default function CreateInvoicePage() {
       controller;
 
     try {
-      setIsPincodeLoading(true);
+      setIsPincodeLoading(
+        true,
+      );
       setPincodeMessage("");
       setError("");
 
-      const response = await fetch(
-        `${PINCODE_API_URL}/${cleanedPincode}`,
-        {
-          method: "GET",
-          signal: controller.signal,
-        },
-      );
+      const response =
+        await fetch(
+          `${PINCODE_API_URL}/${cleanedPincode}`,
+          {
+            method: "GET",
+            signal:
+              controller.signal,
+          },
+        );
 
       if (!response.ok) {
         throw new Error(
@@ -550,14 +685,16 @@ export default function CreateInvoicePage() {
       const result =
         (await response.json()) as PincodeResponse[];
 
-      const data = result?.[0];
+      const data =
+        result?.[0];
 
       if (
         !data ||
         data.Status?.toLowerCase() !==
-        "success" ||
+          "success" ||
         !data.PostOffice ||
-        data.PostOffice.length === 0
+        data.PostOffice.length ===
+          0
       ) {
         setPincodeMessage(
           "Postal code not found. Please check the PIN code.",
@@ -599,7 +736,8 @@ export default function CreateInvoicePage() {
     } catch (err) {
       if (
         err instanceof DOMException &&
-        err.name === "AbortError"
+        err.name ===
+          "AbortError"
       ) {
         return;
       }
@@ -609,9 +747,12 @@ export default function CreateInvoicePage() {
       );
     } finally {
       if (
-        !controller.signal.aborted
+        !controller.signal
+          .aborted
       ) {
-        setIsPincodeLoading(false);
+        setIsPincodeLoading(
+          false,
+        );
       }
     }
   }
@@ -632,7 +773,8 @@ export default function CreateInvoicePage() {
     setPincodeMessage("");
 
     if (
-      digitsOnly.length === 6
+      digitsOnly.length ===
+      6
     ) {
       void lookupPincode(
         digitsOnly,
@@ -646,36 +788,40 @@ export default function CreateInvoicePage() {
    * ------------------------------------------------------------
    */
 
-  const subtotal = useMemo(
-    () =>
-      items.reduce(
-        (sum, item) => {
-          const quantity =
-            Math.max(
-              0,
-              Number(item.quantity) ||
-              0,
-            );
+  const subtotal =
+    useMemo(
+      () =>
+        items.reduce(
+          (sum, item) => {
+            const quantity =
+              Math.max(
+                0,
+                Number(
+                  item.quantity,
+                ) || 0,
+              );
 
-          const unitPrice =
-            parseAmount(
-              item.unitPrice,
-            );
+            const unitPrice =
+              parseAmount(
+                item.unitPrice,
+              );
 
-          return (
-            sum +
-            quantity *
-            unitPrice
-          );
-        },
-        0,
-      ),
-    [items],
-  );
+            return (
+              sum +
+              quantity *
+                unitPrice
+            );
+          },
+          0,
+        ),
+      [items],
+    );
 
   const safeDiscount =
     Math.min(
-      parseAmount(discount),
+      parseAmount(
+        discount,
+      ),
       subtotal,
     );
 
@@ -683,7 +829,7 @@ export default function CreateInvoicePage() {
     Math.max(
       0,
       subtotal -
-      safeDiscount,
+        safeDiscount,
     );
 
   const safeTax =
@@ -692,7 +838,7 @@ export default function CreateInvoicePage() {
   const total =
     roundMoney(
       taxableAmount +
-      safeTax,
+        safeTax,
     );
 
   const enteredAmountPaid =
@@ -711,7 +857,7 @@ export default function CreateInvoicePage() {
       Math.max(
         0,
         total -
-        safeAmountPaid,
+          safeAmountPaid,
       ),
     );
 
@@ -838,8 +984,7 @@ export default function CreateInvoicePage() {
    * ------------------------------------------------------------
    */
 
-  function validateCustomerAddress():
-    string {
+  function validateCustomerAddress(): string {
     if (
       customerAddress.line1.trim()
         .length > 200
@@ -922,18 +1067,23 @@ export default function CreateInvoicePage() {
         line1:
           customerAddress.line1.trim() ||
           undefined,
+
         line2:
           customerAddress.line2.trim() ||
           undefined,
+
         city:
           customerAddress.city.trim() ||
           undefined,
+
         state:
           customerAddress.state.trim() ||
           undefined,
+
         postalCode:
           customerAddress.postalCode.trim() ||
           undefined,
+
         country:
           customerAddress.country.trim() ||
           "India",
@@ -950,10 +1100,12 @@ export default function CreateInvoicePage() {
               "Content-Type":
                 "application/json",
             },
-            body: JSON.stringify({
-              address:
-                addressPayload,
-            }),
+            body: JSON.stringify(
+              {
+                address:
+                  addressPayload,
+              },
+            ),
           },
         );
 
@@ -963,7 +1115,7 @@ export default function CreateInvoicePage() {
       if (!response.ok) {
         throw new Error(
           result.message ??
-          "Unable to save customer address.",
+            "Unable to save customer address.",
         );
       }
 
@@ -980,7 +1132,7 @@ export default function CreateInvoicePage() {
             currentCustomers.map(
               (customer) =>
                 customer.id ===
-                  updatedCustomer.id
+                updatedCustomer.id
                   ? updatedCustomer
                   : customer,
             ),
@@ -1043,29 +1195,31 @@ export default function CreateInvoicePage() {
     }
 
     const invalidItem =
-      items.some((item) => {
-        const quantity =
-          Number(
-            item.quantity,
-          );
+      items.some(
+        (item) => {
+          const quantity =
+            Number(
+              item.quantity,
+            );
 
-        const unitPrice =
-          Number(
-            item.unitPrice,
-          );
+          const unitPrice =
+            Number(
+              item.unitPrice,
+            );
 
-        return (
-          !item.description.trim() ||
-          !Number.isFinite(
-            quantity,
-          ) ||
-          quantity <= 0 ||
-          !Number.isFinite(
-            unitPrice,
-          ) ||
-          unitPrice < 0
-        );
-      });
+          return (
+            !item.description.trim() ||
+            !Number.isFinite(
+              quantity,
+            ) ||
+            quantity <= 0 ||
+            !Number.isFinite(
+              unitPrice,
+            ) ||
+            unitPrice < 0
+          );
+        },
+      );
 
     if (invalidItem) {
       setError(
@@ -1130,9 +1284,9 @@ export default function CreateInvoicePage() {
     ) {
       if (
         parsedAmountPaid <=
-        0 ||
+          0 ||
         parsedAmountPaid >=
-        total
+          total
       ) {
         setError(
           "A partially paid invoice must have a payment greater than zero and less than the total.",
@@ -1163,41 +1317,37 @@ export default function CreateInvoicePage() {
     try {
       /*
        * Save the customer's address first.
-       *
-       * The invoice references the customer by customerId,
-       * so the latest customer address remains available
-       * for future invoices, warranties and documents.
        */
       await saveCustomerAddress();
 
       /*
        * Backend calculates invoice totals itself.
        *
-       * Therefore discount and tax are represented through
-       * invoice items instead of sending unsupported top-level
-       * discount/tax fields.
+       * Therefore discount and tax are represented
+       * through invoice items instead of sending
+       * unsupported top-level discount/tax fields.
        */
       const itemDiscount =
         items.length > 0
           ? parsedDiscount /
-          items.length
+            items.length
           : 0;
 
       const itemTaxableAmount =
         items.length > 0
           ? Math.max(
-            0,
-            subtotal -
-            parsedDiscount,
-          ) /
-          items.length
+              0,
+              subtotal -
+                parsedDiscount,
+            ) /
+            items.length
           : 0;
 
       const itemTaxRate =
         itemTaxableAmount > 0
           ? (parsedTax /
-            itemTaxableAmount) *
-          100
+              itemTaxableAmount) *
+            100
           : 0;
 
       const response =
@@ -1211,60 +1361,66 @@ export default function CreateInvoicePage() {
               "Content-Type":
                 "application/json",
             },
-            body: JSON.stringify({
-              customerId:
-                selectedCustomerId,
+            body: JSON.stringify(
+              {
+                customerId:
+                  selectedCustomerId,
 
-              items: items.map(
-                (item) => ({
-                  productName:
-                    item.description.trim(),
-                  quantity:
-                    Number(
-                      item.quantity,
-                    ),
-                  unitPrice:
-                    roundMoney(
+                items: items.map(
+                  (item) => ({
+                    productName:
+                      item.description.trim(),
+
+                    quantity:
                       Number(
-                        item.unitPrice,
+                        item.quantity,
                       ),
-                    ),
-                  discount:
-                    roundMoney(
-                      itemDiscount,
-                    ),
-                  taxRate:
-                    Number.isFinite(
-                      itemTaxRate,
-                    )
-                      ? Number(
-                        itemTaxRate.toFixed(
-                          4,
+
+                    unitPrice:
+                      roundMoney(
+                        Number(
+                          item.unitPrice,
                         ),
+                      ),
+
+                    discount:
+                      roundMoney(
+                        itemDiscount,
+                      ),
+
+                    taxRate:
+                      Number.isFinite(
+                        itemTaxRate,
                       )
-                      : 0,
-                }),
-              ),
-
-              paymentMethod:
-                toBackendPaymentMethod(
-                  paymentMethod,
+                        ? Number(
+                            itemTaxRate.toFixed(
+                              4,
+                            ),
+                          )
+                        : 0,
+                  }),
                 ),
 
-              status:
-                toBackendStatus(
-                  finalStatus,
-                ),
+                paymentMethod:
+                  toBackendPaymentMethod(
+                    paymentMethod,
+                  ),
 
-              amountPaid:
-                roundMoney(
-                  parsedAmountPaid,
-                ),
+                status:
+                  toBackendStatus(
+                    finalStatus,
+                  ),
 
-              notes:
-                notes.trim() ||
-                undefined,
-            }),
+                amountPaid:
+                  roundMoney(
+                    parsedAmountPaid,
+                  ),
+
+                notes:
+                  notes.trim() ||
+                  undefined,
+              },
+            ),
           },
         );
 
@@ -1274,7 +1430,7 @@ export default function CreateInvoicePage() {
       if (!response.ok) {
         throw new Error(
           result.message ??
-          "Unable to create invoice.",
+            "Unable to create invoice.",
         );
       }
 
@@ -1328,7 +1484,9 @@ export default function CreateInvoicePage() {
           <div>
             <div className="mb-1 flex items-center gap-2 text-sm text-muted-foreground">
               <Receipt className="size-4" />
-              <span>Invoices</span>
+              <span>
+                Invoices
+              </span>
             </div>
 
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
@@ -1432,7 +1590,7 @@ export default function CreateInvoicePage() {
 
                   <div className="max-h-64 overflow-y-auto p-1">
                     {filteredCustomers.length ===
-                      0 ? (
+                    0 ? (
                       <div className="px-3 py-6 text-center text-sm text-muted-foreground">
                         No customers found.
                       </div>
@@ -1450,12 +1608,15 @@ export default function CreateInvoicePage() {
                               setSelectedCustomerId(
                                 customer.id,
                               );
+
                               setCustomerSearch(
                                 "",
                               );
+
                               setShowCustomerList(
                                 false,
                               );
+
                               setError(
                                 "",
                               );
@@ -1621,12 +1782,13 @@ export default function CreateInvoicePage() {
                     {!isPincodeLoading &&
                       pincodeMessage && (
                         <p
-                          className={`mt-1.5 text-xs ${pincodeMessage.startsWith(
-                            "City found:",
-                          )
+                          className={`mt-1.5 text-xs ${
+                            pincodeMessage.startsWith(
+                              "City found:",
+                            )
                               ? "text-green-600 dark:text-green-400"
                               : "text-muted-foreground"
-                            }`}
+                          }`}
                         >
                           {
                             pincodeMessage
@@ -1760,8 +1922,7 @@ export default function CreateInvoicePage() {
                     <div className="mb-3 flex items-center justify-between">
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Item{" "}
-                        {index +
-                          1}
+                        {index + 1}
                       </p>
 
                       <button
@@ -1776,38 +1937,54 @@ export default function CreateInvoicePage() {
                           1
                         }
                         className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-30"
-                        aria-label={`Remove item ${index + 1}`}
+                        aria-label={`Remove item ${
+                          index + 1
+                        }`}
                       >
                         <Trash2 className="size-4" />
                       </button>
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-[1fr_110px_140px]">
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                          Description
-                        </span>
+                      <ProductSelector
+                        value={
+                          item.description
+                        }
+                        onSelect={(
+                          product,
+                        ) => {
+                          updateItem(
+                            item.id,
+                            "description",
+                            product.name,
+                          );
 
-                        <input
-                          type="text"
-                          value={
-                            item.description
-                          }
-                          onChange={(
-                            event,
-                          ) =>
-                            updateItem(
-                              item.id,
-                              "description",
-                              event
-                                .target
-                                .value,
-                            )
-                          }
-                          placeholder="e.g. Wireless Keyboard"
-                          className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                        />
-                      </label>
+                          updateItem(
+                            item.id,
+                            "unitPrice",
+                            String(
+                              product.sellingPrice,
+                            ),
+                          );
+
+                          setError(
+                            "",
+                          );
+                        }}
+                        onClear={() => {
+                          updateItem(
+                            item.id,
+                            "description",
+                            "",
+                          );
+
+                          updateItem(
+                            item.id,
+                            "unitPrice",
+                            "0",
+                          );
+                        }}
+                      />
 
                       <label className="block">
                         <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -1887,12 +2064,11 @@ export default function CreateInvoicePage() {
                             0,
                             Number(
                               item.quantity,
-                            ) ||
-                            0,
+                            ) || 0,
                           ) *
-                          parseAmount(
-                            item.unitPrice,
-                          ),
+                            parseAmount(
+                              item.unitPrice,
+                            ),
                         )}
                       </p>
                     </div>
@@ -2203,8 +2379,7 @@ export default function CreateInvoicePage() {
                     balanceDue,
                   )}
                   emphasized={
-                    balanceDue >
-                    0
+                    balanceDue > 0
                   }
                 />
               </div>
@@ -2220,9 +2395,10 @@ export default function CreateInvoicePage() {
                 className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ||
-                  isSavingCustomerAddress ? (
+                isSavingCustomerAddress ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
+
                     {isSavingCustomerAddress
                       ? "Saving customer..."
                       : "Creating invoice..."}
