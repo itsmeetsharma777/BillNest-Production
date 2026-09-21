@@ -1,49 +1,24 @@
 import {
-  findInvoicesByShopId,
-} from "../repositories/invoice.repository";
-
-import {
   getShopForOwner,
 } from "./shop.service";
 
 import {
-  getWarrantiesForOwner,
-} from "./warranty.service";
+  ApiError,
+} from "../utils/api-error";
 
-import { ApiError } from "../utils/api-error";
-
-type ReportDateRange = {
-  startDate?: Date;
-  endDate?: Date;
-};
-
-type InvoiceRecord = {
-  _id?: unknown;
-  id?: string;
-
-  invoiceDate?: Date | string;
-  date?: Date | string;
-  createdAt?: Date | string;
-
-  status?: string;
-
-  subtotal?: number;
-  discount?: number;
-  tax?: number;
-  total?: number;
-
-  amountPaid?: number;
-  amountDue?: number;
-
-  paymentMethod?: string;
-
-  customerId?: unknown;
-  customer?: {
-    _id?: unknown;
-    id?: string;
-    name?: string;
-  };
-};
+import {
+  getInventorySummary,
+  getOutstandingInvoices,
+  getPaymentMethodBreakdown,
+  getPaymentSummary,
+  getPaymentTrend,
+  getReportSummary,
+  getSalesTrend,
+  getTopCustomers,
+  getTopProducts,
+  getWarrantySummary,
+  type ReportDateRange,
+} from "../repositories/report.repository";
 
 function roundMoney(value: number) {
   return Math.round(
@@ -51,395 +26,565 @@ function roundMoney(value: number) {
   ) / 100;
 }
 
-function getInvoiceDate(
-  invoice: InvoiceRecord,
-): Date | null {
-  const value =
-    invoice.invoiceDate ??
-    invoice.date ??
-    invoice.createdAt;
-
+function normalizeDate(
+  value: Date | undefined,
+) {
   if (!value) {
-    return null;
+    return undefined;
   }
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
-    return null;
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    throw new ApiError(
+      400,
+      "Invalid report date.",
+      "INVALID_REPORT_DATE",
+    );
   }
 
   return date;
 }
 
-function isWithinDateRange(
-  date: Date,
-  range: ReportDateRange,
-) {
-  if (
-    range.startDate &&
-    date < range.startDate
-  ) {
-    return false;
-  }
-
-  if (
-    range.endDate &&
-    date > range.endDate
-  ) {
-    return false;
-  }
-
-  return true;
-}
-
-function normalizeStatus(
-  status?: string,
-) {
-  return (
-    status
-      ?.trim()
-      .toLowerCase()
-      .replaceAll("-", "_")
-      .replaceAll(" ", "_") ?? "draft"
-  );
-}
-
 function normalizePaymentMethod(
-  paymentMethod?: string,
+  value: string,
 ) {
-  if (!paymentMethod) {
-    return "unknown";
-  }
-
-  return paymentMethod
+  return value
     .trim()
     .toLowerCase()
     .replaceAll("-", "_")
     .replaceAll(" ", "_");
 }
 
-function getCustomerKey(
-  invoice: InvoiceRecord,
-) {
-  const customerId =
-    invoice.customerId ??
-    invoice.customer?._id ??
-    invoice.customer?.id;
-
-  if (!customerId) {
-    return null;
-  }
-
-  return String(customerId);
-}
-
-async function getAllInvoicesForShop(
-  shopId: string,
-): Promise<InvoiceRecord[]> {
-  const invoices: InvoiceRecord[] = [];
-
-  const limit = 100;
-  let skip = 0;
-
-  while (true) {
-    const batch =
-      await findInvoicesByShopId(
-        shopId,
-        {
-          skip,
-          limit,
-        },
-      );
-
-    if (!batch.length) {
-      break;
-    }
-
-    invoices.push(
-      ...(batch as InvoiceRecord[]),
-    );
-
-    if (batch.length < limit) {
-      break;
-    }
-
-    skip += limit;
-
-    /*
-     * Safety guard.
-     * This prevents an accidental repository loop
-     * from running forever.
-     */
-    if (skip > 100000) {
-      throw new ApiError(
-        500,
-        "Unable to complete report generation.",
-        "REPORT_QUERY_LIMIT",
-      );
-    }
-  }
-
-  return invoices;
-}
-
 export async function getReportsForOwner(
   ownerId: string,
   range: ReportDateRange = {},
 ) {
-  const shop = await getShopForOwner(ownerId);
+  const shop =
+    await getShopForOwner(ownerId);
 
-  const invoices =
-    await getAllInvoicesForShop(
-      shop._id.toString(),
+  const startDate =
+    normalizeDate(
+      range.startDate,
     );
 
-  const filteredInvoices =
-    invoices.filter((invoice) => {
-      const date = getInvoiceDate(invoice);
+  const endDate =
+    normalizeDate(
+      range.endDate,
+    );
 
-      if (!date) {
-        return false;
-      }
+  if (
+    startDate &&
+    endDate &&
+    startDate > endDate
+  ) {
+    throw new ApiError(
+      400,
+      "Start date cannot be after end date.",
+      "INVALID_REPORT_DATE_RANGE",
+    );
+  }
 
-      return isWithinDateRange(
-        date,
-        range,
-      );
-    });
+  const normalizedRange = {
+    startDate,
+    endDate,
+  };
 
-  /*
-   * Draft and cancelled invoices are not
-   * considered revenue.
-   */
-  const revenueInvoices =
-    filteredInvoices.filter((invoice) => {
-      const status = normalizeStatus(
-        invoice.status,
-      );
+  const shopId =
+    shop._id.toString();
 
-      return (
-        status !== "draft" &&
-        status !== "cancelled"
-      );
-    });
-
-  const totalSales = roundMoney(
-    revenueInvoices.reduce(
-      (sum, invoice) =>
-        sum + Number(invoice.total ?? 0),
-      0,
+  const [
+    summary,
+    paymentSummary,
+    paymentMethods,
+    salesTrend,
+    paymentTrend,
+    topProducts,
+    topCustomers,
+    outstandingInvoices,
+    warrantySummary,
+    inventorySummary,
+  ] = await Promise.all([
+    getReportSummary(
+      shopId,
+      normalizedRange,
     ),
-  );
 
-  const totalSubtotal = roundMoney(
-    revenueInvoices.reduce(
-      (sum, invoice) =>
-        sum +
-        Number(invoice.subtotal ?? 0),
-      0,
+    getPaymentSummary(
+      shopId,
+      normalizedRange,
     ),
-  );
 
-  const totalDiscount = roundMoney(
-    revenueInvoices.reduce(
-      (sum, invoice) =>
-        sum +
-        Number(invoice.discount ?? 0),
-      0,
+    getPaymentMethodBreakdown(
+      shopId,
+      normalizedRange,
     ),
-  );
 
-  const totalTax = roundMoney(
-    revenueInvoices.reduce(
-      (sum, invoice) =>
-        sum + Number(invoice.tax ?? 0),
-      0,
+    getSalesTrend(
+      shopId,
+      normalizedRange,
     ),
-  );
 
-  const amountCollected = roundMoney(
-    revenueInvoices.reduce(
-      (sum, invoice) =>
-        sum +
-        Number(invoice.amountPaid ?? 0),
-      0,
+    getPaymentTrend(
+      shopId,
+      normalizedRange,
     ),
-  );
 
-  const amountOutstanding = roundMoney(
-    Math.max(
-      0,
-      totalSales - amountCollected,
+    getTopProducts(
+      shopId,
+      normalizedRange,
     ),
-  );
+
+    getTopCustomers(
+      shopId,
+      normalizedRange,
+    ),
+
+    getOutstandingInvoices(
+      shopId,
+      normalizedRange,
+    ),
+
+    getWarrantySummary(
+      shopId,
+    ),
+
+    getInventorySummary(
+      shopId,
+    ),
+  ]);
+
+  const totalSales =
+    roundMoney(
+      Number(
+        summary.totalSales ?? 0,
+      ),
+    );
+
+  const totalCollected =
+    roundMoney(
+      Number(
+        paymentSummary.totalCollected ??
+          0,
+      ),
+    );
+
+  const amountOutstanding =
+    roundMoney(
+      Number(
+        summary.amountOutstanding ??
+          0,
+      ),
+    );
 
   const averageInvoice =
-    revenueInvoices.length > 0
+    summary.paidInvoices +
+      summary.partiallyPaidInvoices >
+    0
       ? roundMoney(
           totalSales /
-            revenueInvoices.length,
+            (
+              summary.paidInvoices +
+              summary.partiallyPaidInvoices
+            ),
         )
       : 0;
 
   const collectionRate =
     totalSales > 0
       ? roundMoney(
-          (amountCollected /
-            totalSales) *
+          Math.min(
             100,
+            (
+              totalCollected /
+              totalSales
+            ) * 100,
+          ),
         )
       : 0;
-
-  const statusBreakdown = {
-    draft: 0,
-    paid: 0,
-    partially_paid: 0,
-    cancelled: 0,
-  };
-
-  for (const invoice of filteredInvoices) {
-    const status = normalizeStatus(
-      invoice.status,
-    );
-
-    if (
-      status === "draft" ||
-      status === "paid" ||
-      status === "partially_paid" ||
-      status === "cancelled"
-    ) {
-      statusBreakdown[
-        status as keyof typeof statusBreakdown
-      ] += 1;
-    }
-  }
-
-  const paymentBreakdown: Record<
-    string,
-    {
-      count: number;
-      amount: number;
-    }
-  > = {};
-
-  for (const invoice of revenueInvoices) {
-    const method =
-      normalizePaymentMethod(
-        invoice.paymentMethod,
-      );
-
-    if (!paymentBreakdown[method]) {
-      paymentBreakdown[method] = {
-        count: 0,
-        amount: 0,
-      };
-    }
-
-    paymentBreakdown[method].count += 1;
-
-    paymentBreakdown[method].amount =
-      roundMoney(
-        paymentBreakdown[method].amount +
-          Number(invoice.amountPaid ?? 0),
-      );
-  }
-
-  const customerIds = new Set<string>();
-
-  for (const invoice of revenueInvoices) {
-    const customerKey =
-      getCustomerKey(invoice);
-
-    if (customerKey) {
-      customerIds.add(customerKey);
-    }
-  }
-
-  /*
-   * Warranty statistics use the existing warranty
-   * service, keeping authorization inside the
-   * service layer.
-   */
-  const warrantyResult =
-    await getWarrantiesForOwner(
-      ownerId,
-      {
-        page: 1,
-        limit: 100,
-      },
-    );
-
-  const warrantyStats = {
-    total: warrantyResult.warranties.length,
-    active: warrantyResult.warranties.filter(
-      (item) =>
-        item.status === "active",
-    ).length,
-    expiringSoon:
-      warrantyResult.warranties.filter(
-        (item) =>
-          item.status ===
-          "expiring_soon",
-      ).length,
-    expired:
-      warrantyResult.warranties.filter(
-        (item) =>
-          item.status === "expired",
-      ).length,
-    noWarranty:
-      warrantyResult.warranties.filter(
-        (item) =>
-          item.status === "no_warranty",
-      ).length,
-  };
 
   return {
     period: {
       startDate:
-        range.startDate?.toISOString() ??
+        startDate?.toISOString() ??
         null,
+
       endDate:
-        range.endDate?.toISOString() ??
+        endDate?.toISOString() ??
         null,
     },
 
     overview: {
       totalInvoices:
-        revenueInvoices.length,
+        Number(
+          summary.totalInvoices ?? 0,
+        ),
 
       totalSales,
 
-      totalSubtotal,
+      totalSubtotal:
+        roundMoney(
+          Number(
+            summary.totalSubtotal ?? 0,
+          ),
+        ),
 
-      totalDiscount,
+      totalDiscount:
+        roundMoney(
+          Number(
+            summary.totalDiscount ?? 0,
+          ),
+        ),
 
-      totalTax,
+      totalTax:
+        roundMoney(
+          Number(
+            summary.totalTax ?? 0,
+          ),
+        ),
 
       averageInvoice,
 
-      amountCollected,
+      amountCollected:
+        totalCollected,
 
       amountOutstanding,
 
       collectionRate,
 
-      customersWithInvoices:
-        customerIds.size,
+      paymentCount:
+        Number(
+          paymentSummary.paymentCount ??
+            0,
+        ),
     },
 
     invoices: {
       total:
-        filteredInvoices.length,
+        Number(
+          summary.totalInvoices ?? 0,
+        ),
 
-      revenue:
-        revenueInvoices.length,
+      draft:
+        Number(
+          summary.draftInvoices ?? 0,
+        ),
 
-      statusBreakdown,
+      paid:
+        Number(
+          summary.paidInvoices ?? 0,
+        ),
+
+      partiallyPaid:
+        Number(
+          summary.partiallyPaidInvoices ??
+            0,
+        ),
+
+      cancelled:
+        Number(
+          summary.cancelledInvoices ??
+            0,
+        ),
     },
 
-    payments: paymentBreakdown,
+    payments: {
+      totalCollected,
 
-    warranties: warrantyStats,
+      paymentCount:
+        Number(
+          paymentSummary.paymentCount ??
+            0,
+        ),
+
+      byMethod:
+        paymentMethods.map(
+          (item) => ({
+            method:
+              normalizePaymentMethod(
+                String(
+                  item._id ??
+                    "unknown",
+                ),
+              ),
+
+            count:
+              Number(
+                item.count ?? 0,
+              ),
+
+            amount:
+              roundMoney(
+                Number(
+                  item.amount ?? 0,
+                ),
+              ),
+          }),
+        ),
+    },
+
+    trends: {
+      sales:
+        salesTrend.map(
+          (item) => ({
+            date:
+              String(item._id),
+
+            sales:
+              roundMoney(
+                Number(
+                  item.sales ?? 0,
+                ),
+              ),
+
+            invoices:
+              Number(
+                item.invoices ?? 0,
+              ),
+          }),
+        ),
+
+      payments:
+        paymentTrend.map(
+          (item) => ({
+            date:
+              String(item._id),
+
+            amount:
+              roundMoney(
+                Number(
+                  item.amount ?? 0,
+                ),
+              ),
+
+            payments:
+              Number(
+                item.payments ?? 0,
+              ),
+          }),
+        ),
+    },
+
+    topProducts:
+      topProducts.map(
+        (item) => ({
+          id:
+            item._id
+              ? String(item._id)
+              : null,
+
+          productName:
+            String(
+              item.productName ??
+                "Unknown product",
+            ),
+
+          sku:
+            item.sku
+              ? String(item.sku)
+              : null,
+
+          quantity:
+            Number(
+              item.quantity ?? 0,
+            ),
+
+          revenue:
+            roundMoney(
+              Number(
+                item.revenue ?? 0,
+              ),
+            ),
+        }),
+      ),
+
+    topCustomers:
+      topCustomers.map(
+        (item) => ({
+          id:
+            item._id
+              ? String(item._id)
+              : null,
+
+          name:
+            String(
+              item.name ??
+                "Unknown customer",
+            ),
+
+          email:
+            item.email
+              ? String(item.email)
+              : null,
+
+          phone:
+            item.phone
+              ? String(item.phone)
+              : null,
+
+          totalPurchases:
+            roundMoney(
+              Number(
+                item.totalPurchases ??
+                  0,
+              ),
+            ),
+
+          invoiceCount:
+            Number(
+              item.invoiceCount ?? 0,
+            ),
+
+          totalPaid:
+            roundMoney(
+              Number(
+                item.totalPaid ?? 0,
+              ),
+            ),
+
+          totalDue:
+            roundMoney(
+              Number(
+                item.totalDue ?? 0,
+              ),
+            ),
+        }),
+      ),
+
+    outstandingInvoices:
+      outstandingInvoices.map(
+        (invoice) => ({
+          id:
+            invoice._id
+              ? String(invoice._id)
+              : null,
+
+          invoiceNumber:
+            String(
+              invoice.invoiceNumber ??
+                "",
+            ),
+
+          customerName:
+            String(
+              invoice.customerName ??
+                "Unknown customer",
+            ),
+
+          issueDate:
+            invoice.issueDate
+              ? new Date(
+                  invoice.issueDate,
+                ).toISOString()
+              : null,
+
+          dueDate:
+            invoice.dueDate
+              ? new Date(
+                  invoice.dueDate,
+                ).toISOString()
+              : null,
+
+          status:
+            String(
+              invoice.status ??
+                "draft",
+            ),
+
+          total:
+            roundMoney(
+              Number(
+                invoice.total ?? 0,
+              ),
+            ),
+
+          amountPaid:
+            roundMoney(
+              Number(
+                invoice.amountPaid ??
+                  0,
+              ),
+            ),
+
+          amountDue:
+            roundMoney(
+              Number(
+                invoice.amountDue ??
+                  0,
+              ),
+            ),
+        }),
+      ),
+
+    warranties: {
+      total:
+        Number(
+          warrantySummary.total ?? 0,
+        ),
+
+      active:
+        Number(
+          warrantySummary.active ?? 0,
+        ),
+
+      expiringSoon:
+        Number(
+          warrantySummary.expiringSoon ??
+            0,
+        ),
+
+      expired:
+        Number(
+          warrantySummary.expired ?? 0,
+        ),
+
+      noWarranty:
+        Number(
+          warrantySummary.noWarranty ??
+            0,
+        ),
+    },
+
+    inventory: {
+      totalProducts:
+        Number(
+          inventorySummary.totalProducts ??
+            0,
+        ),
+
+      activeProducts:
+        Number(
+          inventorySummary.activeProducts ??
+            0,
+        ),
+
+      inactiveProducts:
+        Number(
+          inventorySummary.inactiveProducts ??
+            0,
+        ),
+
+      totalStockUnits:
+        Number(
+          inventorySummary.totalStockUnits ??
+            0,
+        ),
+
+      lowStockProducts:
+        Number(
+          inventorySummary.lowStockProducts ??
+            0,
+        ),
+
+      outOfStockProducts:
+        Number(
+          inventorySummary.outOfStockProducts ??
+            0,
+        ),
+    },
   };
 }

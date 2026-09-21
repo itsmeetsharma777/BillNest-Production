@@ -27,6 +27,7 @@ export async function getReports(
       {
         startDate:
           query.startDate,
+
         endDate:
           query.endDate,
       },

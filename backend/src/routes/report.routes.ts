@@ -16,14 +16,24 @@ import {
   asyncHandler,
 } from "../utils/async-handler";
 
-const router = Router();
+const router =
+  Router();
 
-router.use(requireAuth);
-router.use(requireRole("shopkeeper"));
+router.use(
+  requireAuth,
+);
+
+router.use(
+  requireRole(
+    "shopkeeper",
+  ),
+);
 
 router.get(
   "/",
-  asyncHandler(getReports),
+  asyncHandler(
+    getReports,
+  ),
 );
 
 export default router;
