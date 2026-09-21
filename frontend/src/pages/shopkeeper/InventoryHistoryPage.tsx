@@ -2,6 +2,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type ReactNode,
 } from "react";
 
 import {
@@ -14,7 +15,9 @@ import {
   ChevronRight,
   Filter,
   Loader2,
+  Minus,
   Package,
+  Plus,
   RefreshCw,
   Search,
   X,
@@ -39,6 +42,14 @@ type ReferenceType =
   | "product_creation"
   | "stock_adjustment"
   | "manual_correction";
+
+type MovementFilter =
+  | "all"
+  | MovementType;
+
+type ReferenceFilter =
+  | "all"
+  | ReferenceType;
 
 interface Product {
   _id: string;
@@ -72,67 +83,49 @@ interface Pagination {
   hasMore: boolean;
 }
 
-type MovementFilter =
-  | "all"
-  | MovementType;
+function formatDate(value: string) {
+  const date = new Date(value);
 
-type ReferenceFilter =
-  | "all"
-  | ReferenceType;
-
-function formatDate(
-  value: string,
-) {
-  const date =
-    new Date(value);
-
-  if (
-    Number.isNaN(
-      date.getTime(),
-    )
-  ) {
+  if (Number.isNaN(date.getTime())) {
     return "—";
   }
 
-  return new Intl.DateTimeFormat(
-    "en-IN",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    },
-  ).format(date);
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
-function formatShortDate(
-  value: string,
-) {
-  const date =
-    new Date(value);
+function formatShortDate(value: string) {
+  const date = new Date(value);
 
-  if (
-    Number.isNaN(
-      date.getTime(),
-    )
-  ) {
+  if (Number.isNaN(date.getTime())) {
     return "—";
   }
 
-  return new Intl.DateTimeFormat(
-    "en-IN",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    },
-  ).format(date);
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 }
 
-function getMovementLabel(
-  type: MovementType,
-) {
+function getInitialDate() {
+  const date = new Date();
+
+  date.setDate(date.getDate() - 30);
+
+  return date.toISOString().slice(0, 10);
+}
+
+function getTodayDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getMovementLabel(type: MovementType) {
   switch (type) {
     case "initial_stock":
       return "Initial stock";
@@ -184,9 +177,7 @@ function getReferenceLabel(
   }
 }
 
-function isIncomingMovement(
-  type: MovementType,
-) {
+function isIncomingMovement(type: MovementType) {
   return (
     type === "initial_stock" ||
     type === "purchase" ||
@@ -195,155 +186,110 @@ function isIncomingMovement(
   );
 }
 
-function getMovementBadgeClass(
-  type: MovementType,
-) {
-  if (
-    isIncomingMovement(type)
-  ) {
+function getMovementBadgeClass(type: MovementType) {
+  if (isIncomingMovement(type)) {
     return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
   }
 
   return "bg-red-500/10 text-red-600 dark:text-red-400";
 }
 
-function getMovementIcon(
-  type: MovementType,
-) {
-  if (
-    isIncomingMovement(type)
-  ) {
-    return (
-      <ArrowDownLeft className="size-4" />
-    );
+function getMovementIcon(type: MovementType) {
+  if (isIncomingMovement(type)) {
+    return <ArrowDownLeft className="size-4" />;
   }
 
-  return (
-    <ArrowUpRight className="size-4" />
-  );
-}
-
-function getInitialDate() {
-  const date =
-    new Date();
-
-  date.setDate(
-    date.getDate() - 30,
-  );
-
-  return date
-    .toISOString()
-    .slice(0, 10);
-}
-
-function getTodayDate() {
-  return new Date()
-    .toISOString()
-    .slice(0, 10);
+  return <ArrowUpRight className="size-4" />;
 }
 
 export default function InventoryHistoryPage() {
-  const [
-    movements,
-    setMovements,
-  ] = useState<
+  const [movements, setMovements] = useState<
     InventoryMovement[]
   >([]);
 
-  const [
-    products,
-    setProducts,
-  ] = useState<Product[]>(
+  const [products, setProducts] = useState<Product[]>(
     [],
   );
 
-  const [
-    pagination,
-    setPagination,
-  ] = useState<Pagination>({
-    page: 1,
-    limit: 20,
-    total: 0,
-    hasMore: false,
-  });
+  const [pagination, setPagination] =
+    useState<Pagination>({
+      page: 1,
+      limit: 20,
+      total: 0,
+      hasMore: false,
+    });
 
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [
-    refreshing,
-    setRefreshing,
-  ] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [
-    error,
-    setError,
-  ] = useState("");
+  const [error, setError] = useState("");
 
-  const [
-    productFilter,
-    setProductFilter,
-  ] = useState("all");
+  const [productFilter, setProductFilter] =
+    useState("all");
 
-  const [
-    movementFilter,
-    setMovementFilter,
-  ] =
-    useState<MovementFilter>(
-      "all",
-    );
+  const [movementFilter, setMovementFilter] =
+    useState<MovementFilter>("all");
 
-  const [
-    referenceFilter,
-    setReferenceFilter,
-  ] =
-    useState<ReferenceFilter>(
-      "all",
-    );
+  const [referenceFilter, setReferenceFilter] =
+    useState<ReferenceFilter>("all");
 
-  const [
-    startDate,
-    setStartDate,
-  ] = useState(
-    getInitialDate(),
-  );
+  const [startDate, setStartDate] =
+    useState(getInitialDate());
 
-  const [
-    endDate,
-    setEndDate,
-  ] = useState(
-    getTodayDate(),
-  );
+  const [endDate, setEndDate] =
+    useState(getTodayDate());
 
-  const [
-    search,
-    setSearch,
-  ] = useState("");
+  const [search, setSearch] = useState("");
 
-  const [
-    filtersOpen,
-    setFiltersOpen,
-  ] = useState(false);
+  const [filtersOpen, setFiltersOpen] =
+    useState(false);
+
+  /*
+   * ============================================================
+   * STOCK ADJUSTMENT STATE
+   * ============================================================
+   */
+
+  const [adjustmentOpen, setAdjustmentOpen] =
+    useState(false);
+
+  const [adjustmentType, setAdjustmentType] =
+    useState<"in" | "out">("in");
+
+  const [adjustmentProductId, setAdjustmentProductId] =
+    useState("");
+
+  const [adjustmentQuantity, setAdjustmentQuantity] =
+    useState("1");
+
+  const [adjustmentReason, setAdjustmentReason] =
+    useState("");
+
+  const [adjustmentError, setAdjustmentError] =
+    useState("");
+
+  const [adjusting, setAdjusting] =
+    useState(false);
+
+  /*
+   * ============================================================
+   * LOAD PRODUCTS
+   * ============================================================
+   */
 
   async function loadProducts() {
     try {
-      const response =
-        await fetch(
-          `${API_URL}/products?limit=100`,
-          {
-            credentials:
-              "include",
-          },
-        );
+      const response = await fetch(
+        `${API_URL}/products?limit=100`,
+        {
+          credentials: "include",
+        },
+      );
 
-      const data =
-        await response
-          .json()
-          .catch(
-            () => null,
-          );
+      const data = await response
+        .json()
+        .catch(() => null);
 
       if (!response.ok) {
         throw new Error(
@@ -355,30 +301,30 @@ export default function InventoryHistoryPage() {
       const nextProducts =
         Array.isArray(data)
           ? data
-          : Array.isArray(
-              data?.products,
-            )
+          : Array.isArray(data?.products)
             ? data.products
             : Array.isArray(
                 data?.data?.products,
               )
               ? data.data.products
-              : Array.isArray(
-                  data?.data,
-                )
+              : Array.isArray(data?.data)
                 ? data.data
                 : [];
 
-      setProducts(
-        nextProducts,
-      );
+      setProducts(nextProducts);
     } catch {
       /*
        * Product loading failure does not
-       * prevent movement history from loading.
+       * prevent inventory history from loading.
        */
     }
   }
+
+  /*
+   * ============================================================
+   * LOAD INVENTORY MOVEMENTS
+   * ============================================================
+   */
 
   async function loadMovements(
     showRefresh = false,
@@ -392,47 +338,33 @@ export default function InventoryHistoryPage() {
         setLoading(true);
       }
 
-      const params =
-        new URLSearchParams();
+      const params = new URLSearchParams();
 
       params.set(
         "page",
-        String(
-          pagination.page,
-        ),
+        String(pagination.page),
       );
 
       params.set(
         "limit",
-        String(
-          pagination.limit,
-        ),
+        String(pagination.limit),
       );
 
-      if (
-        productFilter !==
-        "all"
-      ) {
+      if (productFilter !== "all") {
         params.set(
           "productId",
           productFilter,
         );
       }
 
-      if (
-        movementFilter !==
-        "all"
-      ) {
+      if (movementFilter !== "all") {
         params.set(
           "movementType",
           movementFilter,
         );
       }
 
-      if (
-        referenceFilter !==
-        "all"
-      ) {
+      if (referenceFilter !== "all") {
         params.set(
           "referenceType",
           referenceFilter,
@@ -447,13 +379,9 @@ export default function InventoryHistoryPage() {
       }
 
       if (endDate) {
-        /*
-         * Include the complete selected end date.
-         */
-        const inclusiveEnd =
-          new Date(
-            `${endDate}T23:59:59.999`,
-          );
+        const inclusiveEnd = new Date(
+          `${endDate}T23:59:59.999`,
+        );
 
         params.set(
           "endDate",
@@ -461,21 +389,16 @@ export default function InventoryHistoryPage() {
         );
       }
 
-      const response =
-        await fetch(
-          `${API_URL}/inventory/movements?${params.toString()}`,
-          {
-            credentials:
-              "include",
-          },
-        );
+      const response = await fetch(
+        `${API_URL}/inventory/movements?${params.toString()}`,
+        {
+          credentials: "include",
+        },
+      );
 
-      const data =
-        await response
-          .json()
-          .catch(
-            () => null,
-          );
+      const data = await response
+        .json()
+        .catch(() => null);
 
       if (!response.ok) {
         throw new Error(
@@ -485,30 +408,22 @@ export default function InventoryHistoryPage() {
       }
 
       const result =
-        data?.data ??
-        data;
+        data?.data ?? data;
 
       setMovements(
-        Array.isArray(
-          result?.movements,
-        )
+        Array.isArray(result?.movements)
           ? result.movements
           : [],
       );
 
-      if (
-        result?.pagination
-      ) {
+      if (result?.pagination) {
         setPagination(
           result.pagination,
         );
       }
-    } catch (
-      requestError
-    ) {
+    } catch (requestError) {
       setError(
-        requestError instanceof
-          Error
+        requestError instanceof Error
           ? requestError.message
           : "Unable to load inventory history.",
       );
@@ -517,6 +432,12 @@ export default function InventoryHistoryPage() {
       setRefreshing(false);
     }
   }
+
+  /*
+   * ============================================================
+   * INITIAL LOAD
+   * ============================================================
+   */
 
   useEffect(() => {
     void loadProducts();
@@ -534,147 +455,394 @@ export default function InventoryHistoryPage() {
     endDate,
   ]);
 
-  const filteredMovements =
-    useMemo(() => {
-      const normalized =
-        search
-          .trim()
-          .toLowerCase();
+  /*
+   * ============================================================
+   * SEARCH
+   * ============================================================
+   */
 
-      if (!normalized) {
-        return movements;
-      }
+  const filteredMovements = useMemo(() => {
+    const normalized = search
+      .trim()
+      .toLowerCase();
 
-      return movements.filter(
-        (movement) =>
-          movement.productName
-            .toLowerCase()
-            .includes(
-              normalized,
-            ) ||
-          movement.sku
-            ?.toLowerCase()
-            .includes(
-              normalized,
-            ) ||
-          movement.reason
-            ?.toLowerCase()
-            .includes(
-              normalized,
+    if (!normalized) {
+      return movements;
+    }
+
+    return movements.filter(
+      (movement) =>
+        movement.productName
+          .toLowerCase()
+          .includes(normalized) ||
+        movement.sku
+          ?.toLowerCase()
+          .includes(normalized) ||
+        movement.reason
+          ?.toLowerCase()
+          .includes(normalized),
+    );
+  }, [
+    movements,
+    search,
+  ]);
+
+  /*
+   * ============================================================
+   * SUMMARY
+   * ============================================================
+   */
+
+  const incomingQuantity = useMemo(
+    () =>
+      movements
+        .filter((movement) =>
+          isIncomingMovement(
+            movement.movementType,
+          ),
+        )
+        .reduce(
+          (total, movement) =>
+            total + movement.quantity,
+          0,
+        ),
+    [movements],
+  );
+
+  const outgoingQuantity = useMemo(
+    () =>
+      movements
+        .filter(
+          (movement) =>
+            !isIncomingMovement(
+              movement.movementType,
             ),
-      );
-    }, [
-      movements,
-      search,
-    ]);
+        )
+        .reduce(
+          (total, movement) =>
+            total + movement.quantity,
+          0,
+        ),
+    [movements],
+  );
 
-  const incomingQuantity =
-    useMemo(
-      () =>
-        movements
-          .filter(
-            (movement) =>
-              isIncomingMovement(
-                movement.movementType,
-              ),
-          )
-          .reduce(
-            (
-              total,
-              movement,
-            ) =>
-              total +
-              movement.quantity,
-            0,
-          ),
-      [movements],
-    );
+  const activeFilterCount = [
+    productFilter !== "all",
+    movementFilter !== "all",
+    referenceFilter !== "all",
+    Boolean(startDate),
+    Boolean(endDate),
+  ].filter(Boolean).length;
 
-  const outgoingQuantity =
-    useMemo(
-      () =>
-        movements
-          .filter(
-            (movement) =>
-              !isIncomingMovement(
-                movement.movementType,
-              ),
-          )
-          .reduce(
-            (
-              total,
-              movement,
-            ) =>
-              total +
-              movement.quantity,
-            0,
-          ),
-      [movements],
-    );
-
-  const activeFilterCount =
-    [
-      productFilter !==
-        "all",
-      movementFilter !==
-        "all",
-      referenceFilter !==
-        "all",
-      Boolean(startDate),
-      Boolean(endDate),
-    ].filter(Boolean)
-      .length;
+  /*
+   * ============================================================
+   * RESET FILTERS
+   * ============================================================
+   */
 
   function resetFilters() {
     setProductFilter("all");
     setMovementFilter("all");
     setReferenceFilter("all");
-    setStartDate(
-      getInitialDate(),
-    );
-    setEndDate(
-      getTodayDate(),
-    );
+    setStartDate(getInitialDate());
+    setEndDate(getTodayDate());
     setSearch("");
 
-    setPagination(
-      (current) => ({
-        ...current,
-        page: 1,
-      }),
-    );
+    setPagination((current) => ({
+      ...current,
+      page: 1,
+    }));
   }
 
-  function changePage(
-    nextPage: number,
-  ) {
+  /*
+   * ============================================================
+   * PAGINATION
+   * ============================================================
+   */
+
+  function changePage(nextPage: number) {
     if (
       nextPage < 1 ||
-      nextPage ===
-        pagination.page
+      nextPage === pagination.page
     ) {
       return;
     }
 
     if (
-      nextPage >
-        pagination.page &&
+      nextPage > pagination.page &&
       !pagination.hasMore
     ) {
       return;
     }
 
-    setPagination(
-      (current) => ({
-        ...current,
-        page: nextPage,
-      }),
-    );
+    setPagination((current) => ({
+      ...current,
+      page: nextPage,
+    }));
   }
+
+  /*
+   * ============================================================
+   * OPEN ADJUSTMENT MODAL
+   *
+   * The type is now supplied by the button:
+   * "in"  -> Add stock
+   * "out" -> Remove stock
+   *
+   * There is no longer an Add/Remove selector inside
+   * the modal.
+   * ============================================================
+   */
+
+  function openAdjustmentModal(
+    type: "in" | "out",
+  ) {
+    const preferredProduct =
+      productFilter !== "all"
+        ? productFilter
+        : products.find(
+            (product) =>
+              product.isActive,
+          )?._id ?? "";
+
+    setAdjustmentProductId(
+      preferredProduct,
+    );
+
+    setAdjustmentType(type);
+    setAdjustmentQuantity("1");
+    setAdjustmentReason("");
+    setAdjustmentError("");
+    setAdjustmentOpen(true);
+  }
+
+  /*
+   * ============================================================
+   * CLOSE ADJUSTMENT MODAL
+   * ============================================================
+   */
+
+  function closeAdjustmentModal() {
+    if (adjusting) {
+      return;
+    }
+
+    setAdjustmentOpen(false);
+    setAdjustmentError("");
+  }
+
+  /*
+   * ============================================================
+   * SUBMIT STOCK ADJUSTMENT
+   * ============================================================
+   */
+
+  async function submitStockAdjustment() {
+    setAdjustmentError("");
+
+    const quantity = Number(
+      adjustmentQuantity,
+    );
+
+    if (!adjustmentProductId) {
+      setAdjustmentError(
+        "Please select a product.",
+      );
+      return;
+    }
+
+    if (
+      !Number.isFinite(quantity) ||
+      quantity <= 0
+    ) {
+      setAdjustmentError(
+        "Quantity must be greater than zero.",
+      );
+      return;
+    }
+
+    if (
+      !Number.isInteger(quantity)
+    ) {
+      setAdjustmentError(
+        "Quantity must be a whole number.",
+      );
+      return;
+    }
+
+    if (
+      !adjustmentReason.trim()
+    ) {
+      setAdjustmentError(
+        "Please enter a reason for this adjustment.",
+      );
+      return;
+    }
+
+    const selectedProduct =
+      products.find(
+        (product) =>
+          product._id ===
+          adjustmentProductId,
+      );
+
+    if (!selectedProduct) {
+      setAdjustmentError(
+        "Selected product could not be found.",
+      );
+      return;
+    }
+
+    if (
+      !selectedProduct.isActive
+    ) {
+      setAdjustmentError(
+        "Inactive products cannot be adjusted.",
+      );
+      return;
+    }
+
+    if (
+      adjustmentType === "out" &&
+      quantity >
+        selectedProduct.stockQuantity
+    ) {
+      setAdjustmentError(
+        `Only ${selectedProduct.stockQuantity} units are currently available.`,
+      );
+      return;
+    }
+
+    try {
+      setAdjusting(true);
+
+      const response = await fetch(
+        `${API_URL}/inventory/products/${adjustmentProductId}/adjust`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            type: adjustmentType,
+            quantity,
+            reason:
+              adjustmentReason.trim(),
+          }),
+        },
+      );
+
+      const data = await response
+        .json()
+        .catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ??
+            "Unable to adjust stock.",
+        );
+      }
+
+      const updatedProduct =
+        data?.data?.product ??
+        data?.product;
+
+      if (updatedProduct) {
+        setProducts(
+          (currentProducts) =>
+            currentProducts.map(
+              (product) =>
+                product._id ===
+                updatedProduct._id
+                  ? {
+                      ...product,
+                      ...updatedProduct,
+                    }
+                  : product,
+            ),
+        );
+      }
+
+      setAdjustmentOpen(false);
+      setAdjustmentQuantity("1");
+      setAdjustmentReason("");
+      setAdjustmentError("");
+
+      setPagination(
+        (current) => ({
+          ...current,
+          page: 1,
+        }),
+      );
+
+      await loadProducts();
+
+      await loadMovements(true);
+    } catch (requestError) {
+      setAdjustmentError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to adjust stock.",
+      );
+    } finally {
+      setAdjusting(false);
+    }
+  }
+
+  /*
+   * ============================================================
+   * SELECTED PRODUCT FOR MODAL
+   * ============================================================
+   */
+
+  const selectedAdjustmentProduct =
+    products.find(
+      (product) =>
+        product._id ===
+        adjustmentProductId,
+    );
+
+  const parsedAdjustmentQuantity =
+    Number(adjustmentQuantity);
+
+  const safeAdjustmentQuantity =
+    Number.isFinite(
+      parsedAdjustmentQuantity,
+    ) &&
+    parsedAdjustmentQuantity > 0
+      ? parsedAdjustmentQuantity
+      : 0;
+
+  const previewNewStock =
+    selectedAdjustmentProduct
+      ? adjustmentType === "in"
+        ? selectedAdjustmentProduct.stockQuantity +
+          safeAdjustmentQuantity
+        : selectedAdjustmentProduct.stockQuantity -
+          safeAdjustmentQuantity
+      : null;
+
+  const insufficientStock =
+    adjustmentType === "out" &&
+    selectedAdjustmentProduct !==
+      undefined &&
+    safeAdjustmentQuantity >
+      selectedAdjustmentProduct.stockQuantity;
+
+  /*
+   * ============================================================
+   * RENDER
+   * ============================================================
+   */
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
-      {/* Header */}
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
@@ -688,39 +856,80 @@ export default function InventoryHistoryPage() {
               </h1>
 
               <p className="mt-1 text-sm text-muted-foreground">
-                Track every stock movement
-                across your inventory.
+                Track every stock movement across your inventory.
               </p>
             </div>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() =>
-            void loadMovements(
-              true,
-            )
-          }
-          disabled={
-            refreshing
-          }
-          className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl border px-4 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-60 sm:self-auto"
-        >
-          <RefreshCw
-            className={[
-              "size-4",
-              refreshing
-                ? "animate-spin"
-                : "",
-            ].join(" ")}
-          />
+        <div className="flex items-center gap-2">
+          {/* Add Stock */}
+          <button
+            type="button"
+            onClick={() =>
+              openAdjustmentModal("in")
+            }
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
+          >
+            <Plus className="size-4" />
 
-          Refresh
-        </button>
+            <span className="hidden sm:inline">
+              Add stock
+            </span>
+
+            <span className="sm:hidden">
+              Add
+            </span>
+          </button>
+
+          {/* Remove Stock */}
+          <button
+            type="button"
+            onClick={() =>
+              openAdjustmentModal("out")
+            }
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700"
+          >
+            <Minus className="size-4" />
+
+            <span className="hidden sm:inline">
+              Remove stock
+            </span>
+
+            <span className="sm:hidden">
+              Remove
+            </span>
+          </button>
+
+          {/* Refresh */}
+          <button
+            type="button"
+            onClick={() =>
+              void loadMovements(true)
+            }
+            disabled={refreshing}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-60"
+          >
+            <RefreshCw
+              className={[
+                "size-4",
+                refreshing
+                  ? "animate-spin"
+                  : "",
+              ].join(" ")}
+            />
+
+            <span className="hidden sm:inline">
+              Refresh
+            </span>
+          </button>
+        </div>
       </div>
 
-      {/* Summary */}
+      {/* ======================================================
+          SUMMARY
+      ====================================================== */}
+
       <div className="grid gap-3 sm:grid-cols-3">
         <SummaryCard
           icon={
@@ -748,7 +957,10 @@ export default function InventoryHistoryPage() {
         />
       </div>
 
-      {/* Error */}
+      {/* ======================================================
+          ERROR
+      ====================================================== */}
+
       {error && (
         <div className="flex items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
@@ -776,7 +988,10 @@ export default function InventoryHistoryPage() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* ======================================================
+          FILTERS
+      ====================================================== */}
+
       <section className="rounded-2xl border bg-card p-4 shadow-sm">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -800,8 +1015,7 @@ export default function InventoryHistoryPage() {
               type="button"
               onClick={() =>
                 setFiltersOpen(
-                  (value) =>
-                    !value,
+                  (value) => !value,
                 )
               }
               className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-medium hover:bg-muted sm:hidden"
@@ -813,9 +1027,7 @@ export default function InventoryHistoryPage() {
               {activeFilterCount >
                 0 && (
                 <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                  {
-                    activeFilterCount
-                  }
+                  {activeFilterCount}
                 </span>
               )}
             </button>
@@ -972,9 +1184,7 @@ export default function InventoryHistoryPage() {
 
             <DateInput
               label="From"
-              value={
-                startDate
-              }
+              value={startDate}
               onChange={(
                 value,
               ) => {
@@ -993,9 +1203,7 @@ export default function InventoryHistoryPage() {
 
             <DateInput
               label="To"
-              value={
-                endDate
-              }
+              value={endDate}
               onChange={(
                 value,
               ) => {
@@ -1047,7 +1255,10 @@ export default function InventoryHistoryPage() {
         </div>
       </section>
 
-      {/* Table */}
+      {/* ======================================================
+          INVENTORY TABLE
+      ====================================================== */}
+
       <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         {loading ? (
           <div className="flex min-h-80 items-center justify-center">
@@ -1118,9 +1329,7 @@ export default function InventoryHistoryPage() {
 
                 <tbody className="divide-y">
                   {filteredMovements.map(
-                    (
-                      movement,
-                    ) => (
+                    (movement) => (
                       <tr
                         key={
                           movement._id
@@ -1243,9 +1452,7 @@ export default function InventoryHistoryPage() {
             {/* Mobile */}
             <div className="divide-y md:hidden">
               {filteredMovements.map(
-                (
-                  movement,
-                ) => (
+                (movement) => (
                   <div
                     key={
                       movement._id
@@ -1266,9 +1473,8 @@ export default function InventoryHistoryPage() {
                           </p>
 
                           <p className="mt-0.5 text-xs text-muted-foreground">
-                            {movement.sku
-                              ? movement.sku
-                              : "No SKU"}
+                            {movement.sku ??
+                              "No SKU"}
                           </p>
                         </div>
                       </div>
@@ -1429,9 +1635,322 @@ export default function InventoryHistoryPage() {
           </>
         )}
       </section>
+
+      {/* ======================================================
+          STOCK ADJUSTMENT MODAL
+      ====================================================== */}
+
+      {adjustmentOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="stock-adjustment-title"
+        >
+          <div className="w-full max-w-lg rounded-2xl border bg-card p-5 shadow-2xl sm:p-6">
+            {/* Modal header */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2
+                  id="stock-adjustment-title"
+                  className="text-lg font-semibold"
+                >
+                  {adjustmentType ===
+                  "in"
+                    ? "Add stock"
+                    : "Remove stock"}
+                </h2>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {adjustmentType ===
+                  "in"
+                    ? "Increase the available inventory for this product."
+                    : "Decrease the available inventory for this product."}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  closeAdjustmentModal
+                }
+                disabled={adjusting}
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                aria-label="Close stock adjustment"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {/* Error */}
+            {adjustmentError && (
+              <div className="mt-4 flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+
+                <p>
+                  {adjustmentError}
+                </p>
+              </div>
+            )}
+
+            <div className="mt-5 space-y-4">
+              {/* Product */}
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Product
+                </span>
+
+                <select
+                  value={
+                    adjustmentProductId
+                  }
+                  onChange={(event) =>
+                    setAdjustmentProductId(
+                      event.target
+                        .value,
+                    )
+                  }
+                  disabled={adjusting}
+                  className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+                >
+                  <option value="">
+                    Select product
+                  </option>
+
+                  {products
+                    .filter(
+                      (product) =>
+                        product.isActive,
+                    )
+                    .map(
+                      (product) => (
+                        <option
+                          key={
+                            product._id
+                          }
+                          value={
+                            product._id
+                          }
+                        >
+                          {product.name}
+                          {product.sku
+                            ? ` — ${product.sku}`
+                            : ""}
+                          {` — Current stock: ${product.stockQuantity}`}
+                        </option>
+                      ),
+                    )}
+                </select>
+              </label>
+
+              {/* Quantity */}
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Quantity
+                </span>
+
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputMode="numeric"
+                  value={
+                    adjustmentQuantity
+                  }
+                  onChange={(event) =>
+                    setAdjustmentQuantity(
+                      event.target
+                        .value,
+                    )
+                  }
+                  disabled={adjusting}
+                  className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+                  placeholder="Enter quantity"
+                />
+              </label>
+
+              {/* Reason */}
+              <label className="block space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    Reason
+                  </span>
+
+                  <span className="text-[11px] text-muted-foreground">
+                    {
+                      adjustmentReason.length
+                    }
+                    /500
+                  </span>
+                </div>
+
+                <textarea
+                  value={
+                    adjustmentReason
+                  }
+                  onChange={(event) =>
+                    setAdjustmentReason(
+                      event.target
+                        .value,
+                    )
+                  }
+                  disabled={adjusting}
+                  rows={3}
+                  maxLength={500}
+                  className="w-full resize-none rounded-xl border bg-background px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+                  placeholder={
+                    adjustmentType ===
+                    "in"
+                      ? "e.g. New stock purchase"
+                      : "e.g. Damaged item"
+                  }
+                />
+              </label>
+
+              {/* Stock preview */}
+              {selectedAdjustmentProduct && (
+                <div className="rounded-xl border bg-muted/40 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Current stock
+                      </p>
+
+                      <p className="mt-1 text-lg font-bold">
+                        {
+                          selectedAdjustmentProduct.stockQuantity
+                        }
+                      </p>
+                    </div>
+
+                    <div className="text-muted-foreground">
+                      →
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">
+                        New stock
+                      </p>
+
+                      <p
+                        className={[
+                          "mt-1 text-lg font-bold",
+                          insufficientStock
+                            ? "text-red-600 dark:text-red-400"
+                            : adjustmentType ===
+                                "in"
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-foreground",
+                        ].join(
+                          " ",
+                        )}
+                      >
+                        {previewNewStock}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 border-t pt-3">
+                    <p className="text-xs text-muted-foreground">
+                      Change
+                    </p>
+
+                    <p
+                      className={[
+                        "mt-1 text-sm font-semibold",
+                        adjustmentType ===
+                          "in"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-red-600 dark:text-red-400",
+                      ].join(
+                        " ",
+                      )}
+                    >
+                      {adjustmentType ===
+                      "in"
+                        ? "+"
+                        : "-"}
+                      {
+                        safeAdjustmentQuantity
+                      }{" "}
+                      units
+                    </p>
+                  </div>
+
+                  {insufficientStock && (
+                    <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-2.5 text-xs text-red-600 dark:text-red-400">
+                      <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+
+                      <span>
+                        You can remove a maximum of{" "}
+                        <strong>
+                          {
+                            selectedAdjustmentProduct.stockQuantity
+                          }
+                        </strong>{" "}
+                        units.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={
+                  closeAdjustmentModal
+                }
+                disabled={adjusting}
+                className="inline-flex h-10 items-center justify-center rounded-xl border px-4 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  void submitStockAdjustment()
+                }
+                disabled={
+                  adjusting ||
+                  !adjustmentProductId ||
+                  insufficientStock
+                }
+                className={[
+                  "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                  adjustmentType ===
+                    "in"
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-red-600 hover:bg-red-700",
+                ].join(" ")}
+              >
+                {adjusting && (
+                  <Loader2 className="size-4 animate-spin" />
+                )}
+
+                {adjusting
+                  ? "Saving..."
+                  : adjustmentType ===
+                      "in"
+                    ? "Add stock"
+                    : "Remove stock"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+/*
+ * ============================================================
+ * SUMMARY CARD
+ * ============================================================
+ */
 
 function SummaryCard({
   icon,
@@ -1439,7 +1958,7 @@ function SummaryCard({
   value,
   positive = false,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: number;
   positive?: boolean;
@@ -1474,6 +1993,12 @@ function SummaryCard({
   );
 }
 
+/*
+ * ============================================================
+ * FILTER SELECT
+ * ============================================================
+ */
+
 function FilterSelect({
   label,
   value,
@@ -1485,7 +2010,7 @@ function FilterSelect({
   onChange: (
     value: string,
   ) => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <label className="space-y-1.5">
@@ -1507,6 +2032,12 @@ function FilterSelect({
     </label>
   );
 }
+
+/*
+ * ============================================================
+ * DATE INPUT
+ * ============================================================
+ */
 
 function DateInput({
   label,
@@ -1542,6 +2073,12 @@ function DateInput({
     </label>
   );
 }
+
+/*
+ * ============================================================
+ * MOVEMENT BADGE
+ * ============================================================
+ */
 
 function MovementBadge({
   movement,
