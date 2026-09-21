@@ -31,13 +31,6 @@ type PdfItem = {
   lineTotal: number;
 };
 
-type InvoiceHeaderData = {
-  invoiceNumber: string;
-  issueDate: Date;
-  dueDate?: Date | null;
-  status: string;
-};
-
 type ShopPdfData = {
   name: string;
   phone?: string | null;
@@ -61,27 +54,58 @@ const MARGIN = 28;
 const CONTENT_WIDTH =
   PAGE_WIDTH - MARGIN * 2;
 
-const FOOTER_Y = PAGE_HEIGHT - 30;
+const CONTENT_BOTTOM = 790;
 
-const CONTENT_BOTTOM = 780;
+const FOOTER_Y =
+  PAGE_HEIGHT - 30;
 
-const TABLE_HEADER_HEIGHT = 28;
+/*
+|--------------------------------------------------------------------------
+| COLORS
+|--------------------------------------------------------------------------
+*/
 
 const COLORS = {
-  text: "#111111",
-  muted: "#555555",
-  border: "#333333",
-  background: "#f4f4f4",
+  navy: "#12263A",
+  blue: "#2563EB",
+  blueSoft: "#EEF5FF",
+
+  text: "#172033",
+  muted: "#617084",
+
+  border: "#D7DFEA",
+  panel: "#F6F9FC",
+
+  red: "#D92D20",
+  redSoft: "#FEECEC",
+
+  green: "#16803C",
+  greenSoft: "#EAF8EF",
+
+  white: "#FFFFFF",
 };
 
-function formatMoney(value: number): string {
-  return `INR ${value.toFixed(2)}`;
+/*
+|--------------------------------------------------------------------------
+| BASIC FORMATTERS
+|--------------------------------------------------------------------------
+*/
+
+function money(
+  value: number,
+): string {
+  return `INR ${Number(
+    value || 0,
+  ).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function formatDate(
-  date?: Date | string | null,
+  value?: Date | string | null,
 ): string {
-  if (!date) {
+  if (!value) {
     return "-";
   }
 
@@ -92,209 +116,53 @@ function formatDate(
       month: "short",
       year: "numeric",
     },
-  ).format(new Date(date));
+  ).format(new Date(value));
 }
 
-function formatStatus(
+function statusLabel(
   status: string,
 ): string {
-  const labels: Record<string, string> = {
-    draft: "DRAFT",
-    paid: "PAID",
-    partially_paid: "PARTIALLY PAID",
-    cancelled: "CANCELLED",
+  const labels: Record<
+    string,
+    string
+  > = {
+    draft: "Draft",
+    paid: "Paid",
+    partially_paid:
+      "Partially Paid",
+    cancelled: "Cancelled",
+    unpaid: "Unpaid",
   };
 
   return (
     labels[status] ??
-    status.toUpperCase()
+    status.replace(/_/g, " ")
   );
 }
 
-function formatPaymentMethod(
+function paymentLabel(
   method?: string | null,
 ): string {
-  if (!method) {
-    return "-";
-  }
-
-  const labels: Record<string, string> = {
+  const labels: Record<
+    string,
+    string
+  > = {
     cash: "Cash",
     upi: "UPI",
     card: "Card",
-    bank_transfer: "Bank Transfer",
+    bank_transfer:
+      "Bank Transfer",
     credit: "Credit",
   };
+
+  if (!method) {
+    return "-";
+  }
 
   return (
     labels[method] ??
     method
   );
-}
-
-function drawBox(
-  doc: PDFKit.PDFDocument,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-) {
-  doc
-    .lineWidth(0.7)
-    .strokeColor(COLORS.border)
-    .rect(
-      x,
-      y,
-      width,
-      height,
-    )
-    .stroke();
-}
-
-function drawFilledBox(
-  doc: PDFKit.PDFDocument,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-) {
-  doc
-    .fillColor(COLORS.background)
-    .rect(
-      x,
-      y,
-      width,
-      height,
-    )
-    .fill();
-
-  doc
-    .fillColor(COLORS.text)
-    .lineWidth(0.7)
-    .strokeColor(COLORS.border)
-    .rect(
-      x,
-      y,
-      width,
-      height,
-    )
-    .stroke();
-}
-
-function drawCell(
-  doc: PDFKit.PDFDocument,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  text: string,
-  options?: {
-    bold?: boolean;
-    align?: "left" | "center" | "right";
-    fontSize?: number;
-    padding?: number;
-  },
-) {
-  const padding =
-    options?.padding ?? 5;
-
-  drawBox(
-    doc,
-    x,
-    y,
-    width,
-    height,
-  );
-
-  doc
-    .font(
-      options?.bold
-        ? "Helvetica-Bold"
-        : "Helvetica",
-    )
-    .fontSize(
-      options?.fontSize ?? 8,
-    )
-    .fillColor(COLORS.text);
-
-  const textHeight =
-    doc.heightOfString(
-      text,
-      {
-        width:
-          width - padding * 2,
-        lineGap: 1,
-      },
-    );
-
-  const verticalOffset =
-    Math.max(
-      padding,
-      (height - textHeight) / 2,
-    );
-
-  doc.text(
-    text,
-    x + padding,
-    y + verticalOffset,
-    {
-      width:
-        width - padding * 2,
-      height:
-        height - verticalOffset,
-      align:
-        options?.align ?? "left",
-      lineGap: 1,
-    },
-  );
-}
-
-function drawHorizontalLine(
-  doc: PDFKit.PDFDocument,
-  y: number,
-) {
-  doc
-    .moveTo(
-      MARGIN,
-      y,
-    )
-    .lineTo(
-      PAGE_WIDTH - MARGIN,
-      y,
-    )
-    .lineWidth(0.5)
-    .strokeColor(COLORS.border)
-    .stroke();
-}
-
-function drawAddress(
-  doc: PDFKit.PDFDocument,
-  address?: PdfAddress | null,
-) {
-  if (!address) {
-    return;
-  }
-
-  const lines = [
-    address.line1,
-    address.line2,
-    [
-      address.city,
-      address.state,
-    ]
-      .filter(Boolean)
-      .join(", "),
-    address.postalCode,
-    address.country,
-  ].filter(
-    (line): line is string =>
-      typeof line === "string" &&
-      line.trim().length > 0,
-  );
-
-  for (const line of lines) {
-    doc.text(line);
-  }
 }
 
 function addressToString(
@@ -316,16 +184,18 @@ function addressToString(
     address.postalCode,
     address.country,
   ]
-    .filter(
-      (value): value is string =>
-        typeof value === "string" &&
-        value.trim().length > 0,
-    )
+    .filter(Boolean)
     .join(", ");
 }
 
+/*
+|--------------------------------------------------------------------------
+| NUMBER TO WORDS
+|--------------------------------------------------------------------------
+*/
+
 function numberToWords(
-  number: number,
+  value: number,
 ): string {
   const ones = [
     "",
@@ -364,88 +234,103 @@ function numberToWords(
   ];
 
   function belowThousand(
-    value: number,
+    number: number,
   ): string {
     let result = "";
 
-    if (value >= 100) {
+    if (number >= 100) {
       result +=
-        `${ones[Math.floor(value / 100)]} Hundred`;
+        `${ones[
+          Math.floor(number / 100)
+        ]} Hundred`;
 
-      value %= 100;
+      number %= 100;
 
-      if (value > 0) {
+      if (number > 0) {
         result += " ";
       }
     }
 
-    if (value >= 20) {
+    if (number >= 20) {
       result +=
-        tens[Math.floor(value / 10)];
+        tens[
+          Math.floor(number / 10)
+        ];
 
-      value %= 10;
+      number %= 10;
 
-      if (value > 0) {
+      if (number > 0) {
         result +=
-          ` ${ones[value]}`;
+          ` ${ones[number]}`;
       }
-    } else if (value > 0) {
-      result += ones[value];
+    } else if (number > 0) {
+      result +=
+        ones[number];
     }
 
     return result;
   }
 
-  if (number === 0) {
+  if (value === 0) {
     return "Zero";
   }
 
-  const integerPart =
-    Math.floor(number);
+  let number =
+    Math.floor(value);
 
   const crore =
     Math.floor(
-      integerPart / 10000000,
+      number / 10000000,
     );
+
+  number %= 10000000;
 
   const lakh =
     Math.floor(
-      (integerPart % 10000000) /
-        100000,
+      number / 100000,
     );
+
+  number %= 100000;
 
   const thousand =
     Math.floor(
-      (integerPart % 100000) /
-        1000,
+      number / 1000,
     );
 
   const remainder =
-    integerPart % 1000;
+    number % 1000;
 
   const parts: string[] = [];
 
   if (crore > 0) {
     parts.push(
-      `${belowThousand(crore)} Crore`,
+      `${belowThousand(
+        crore,
+      )} Crore`,
     );
   }
 
   if (lakh > 0) {
     parts.push(
-      `${belowThousand(lakh)} Lakh`,
+      `${belowThousand(
+        lakh,
+      )} Lakh`,
     );
   }
 
   if (thousand > 0) {
     parts.push(
-      `${belowThousand(thousand)} Thousand`,
+      `${belowThousand(
+        thousand,
+      )} Thousand`,
     );
   }
 
   if (remainder > 0) {
     parts.push(
-      belowThousand(remainder),
+      belowThousand(
+        remainder,
+      ),
     );
   }
 
@@ -468,660 +353,978 @@ function amountInWords(
       (rounded - rupees) * 100,
     );
 
-  let result =
-    `Rupees ${numberToWords(rupees)}`;
-
   if (paise > 0) {
-    result +=
-      ` and ${numberToWords(paise)} Paise`;
+    return (
+      `Rupees ${numberToWords(
+        rupees,
+      )} and ${numberToWords(
+        paise,
+      )} Paise Only`
+    );
   }
 
-  return `${result} Only`;
+  return (
+    `Rupees ${numberToWords(
+      rupees,
+    )} Only`
+  );
 }
 
-function drawPageFooter(
+/*
+|--------------------------------------------------------------------------
+| DRAWING HELPERS
+|--------------------------------------------------------------------------
+*/
+
+function roundedRect(
   doc: PDFKit.PDFDocument,
-  pageNumber: number,
-  totalPages: number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  fill?: string,
+  stroke?: string,
+  radius = 8,
+) {
+  doc.save();
+
+  doc.roundedRect(
+    x,
+    y,
+    width,
+    height,
+    radius,
+  );
+
+  if (fill) {
+    doc
+      .fillColor(fill)
+      .fill();
+  }
+
+  if (stroke) {
+    doc
+      .lineWidth(0.7)
+      .strokeColor(stroke)
+      .stroke();
+  }
+
+  doc.restore();
+}
+
+function drawText(
+  doc: PDFKit.PDFDocument,
+  value: string,
+  x: number,
+  y: number,
+  width: number,
+  options: {
+    size?: number;
+    font?:
+      | "Helvetica"
+      | "Helvetica-Bold"
+      | "Helvetica-Oblique";
+    color?: string;
+    align?:
+      | "left"
+      | "center"
+      | "right";
+  } = {},
 ) {
   doc
-    .font("Helvetica")
-    .fontSize(7)
-    .fillColor(COLORS.muted)
+    .font(
+      options.font ??
+        "Helvetica",
+    )
+    .fontSize(
+      options.size ?? 8,
+    )
+    .fillColor(
+      options.color ??
+        COLORS.text,
+    )
     .text(
-      `Generated by BillNest  •  Page ${pageNumber} of ${totalPages}`,
-      MARGIN,
-      FOOTER_Y,
+      value,
+      x,
+      y,
       {
-        width: CONTENT_WIDTH,
-        align: "center",
-        lineBreak: false,
+        width,
+        align:
+          options.align ??
+          "left",
+        lineGap: 1,
       },
     );
 }
+
+/*
+|--------------------------------------------------------------------------
+| BILLNEST LOGO
+|--------------------------------------------------------------------------
+*/
+
+function drawLogo(
+  doc: PDFKit.PDFDocument,
+  x: number,
+  y: number,
+) {
+  doc.save();
+
+  doc
+    .roundedRect(
+      x,
+      y,
+      42,
+      42,
+      10,
+    )
+    .fillColor(
+      COLORS.blue,
+    )
+    .fill();
+
+  doc
+    .fillColor(
+      COLORS.white,
+    )
+    .font(
+      "Helvetica-Bold",
+    )
+    .fontSize(27)
+    .text(
+      "B",
+      x + 10,
+      y + 4,
+      {
+        width: 22,
+        align: "center",
+      },
+    );
+
+  doc.restore();
+
+  drawText(
+    doc,
+    "BillNest",
+    x + 51,
+    y + 1,
+    150,
+    {
+      size: 18,
+      font:
+        "Helvetica-Bold",
+      color:
+        COLORS.navy,
+    },
+  );
+
+  drawText(
+    doc,
+    "Business Made Simple",
+    x + 52,
+    y + 23,
+    150,
+    {
+      size: 7.5,
+      color:
+        COLORS.muted,
+    },
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| FOOTER
+|--------------------------------------------------------------------------
+*/
+
+function drawFooter(
+  doc: PDFKit.PDFDocument,
+  page: number,
+  totalPages: number,
+) {
+  doc
+    .moveTo(
+      MARGIN,
+      PAGE_HEIGHT - 48,
+    )
+    .lineTo(
+      PAGE_WIDTH - MARGIN,
+      PAGE_HEIGHT - 48,
+    )
+    .lineWidth(0.5)
+    .strokeColor(
+      COLORS.border,
+    )
+    .stroke();
+
+  drawText(
+    doc,
+    "Thank you for choosing BillNest!",
+    MARGIN,
+    PAGE_HEIGHT - 39,
+    CONTENT_WIDTH,
+    {
+      size: 7.5,
+      font:
+        "Helvetica-Oblique",
+      color:
+        COLORS.muted,
+      align: "center",
+    },
+  );
+
+  drawText(
+    doc,
+    `Computer generated invoice • Page ${page} of ${totalPages}`,
+    MARGIN,
+    FOOTER_Y,
+    CONTENT_WIDTH,
+    {
+      size: 6.5,
+      color:
+        COLORS.muted,
+      align: "center",
+    },
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| INVOICE HEADER
+|--------------------------------------------------------------------------
+*/
 
 function drawInvoiceHeader(
   doc: PDFKit.PDFDocument,
   shop: ShopPdfData,
-  invoice: InvoiceHeaderData,
+  invoice: {
+    invoiceNumber: string;
+    issueDate: Date;
+    dueDate?: Date | null;
+    status: string;
+  },
 ): number {
   let y = MARGIN;
 
-  /*
-   * TOP STRIP
-   */
-
-  doc
-    .font("Helvetica")
-    .fontSize(7)
-    .fillColor(COLORS.text);
-
-  doc.text(
-    "ORIGINAL FOR RECIPIENT",
+  drawLogo(
+    doc,
     MARGIN,
-    y + 4,
+    y,
+  );
+
+  drawText(
+    doc,
+    "Manage Today.",
+    PAGE_WIDTH -
+      MARGIN -
+      120,
+    y + 2,
+    120,
     {
-      width: 150,
+      size: 8,
+      color:
+        COLORS.muted,
+      align: "right",
     },
   );
 
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(16)
-    .text(
-      "TAX INVOICE",
-      MARGIN,
-      y + 1,
-      {
-        width: CONTENT_WIDTH,
-        align: "center",
-      },
-    );
+  drawText(
+    doc,
+    "Grow Tomorrow.",
+    PAGE_WIDTH -
+      MARGIN -
+      120,
+    y + 14,
+    120,
+    {
+      size: 8,
+      color:
+        COLORS.muted,
+      align: "right",
+    },
+  );
 
-  doc
-    .font("Helvetica")
-    .fontSize(7)
-    .text(
-      "BillNest Invoice",
-      PAGE_WIDTH - MARGIN - 100,
-      y + 4,
-      {
-        width: 100,
-        align: "right",
-      },
-    );
-
-  y += 18;
+  y += 55;
 
   /*
-   * COMPANY HEADER
+   * SHOP INFORMATION
    */
 
-  const headerHeight = 92;
-
-  const logoWidth = 70;
-
-  drawBox(
+  drawText(
     doc,
+    shop.name,
     MARGIN,
     y,
-    logoWidth,
-    headerHeight,
+    310,
+    {
+      size: 14,
+      font:
+        "Helvetica-Bold",
+      color:
+        COLORS.navy,
+    },
   );
 
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(9)
-    .text(
-      "LOGO",
-      MARGIN,
-      y + 39,
-      {
-        width: logoWidth,
-        align: "center",
-      },
-    );
-
-  const companyX =
-    MARGIN + logoWidth;
-
-  const companyWidth =
-    CONTENT_WIDTH - logoWidth;
-
-  drawBox(
+  drawText(
     doc,
-    companyX,
-    y,
-    companyWidth,
-    headerHeight,
+    addressToString(
+      shop.address,
+    ),
+    MARGIN,
+    y + 20,
+    315,
+    {
+      size: 8,
+      color:
+        COLORS.muted,
+    },
   );
-
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(15)
-    .text(
-      shop.name,
-      companyX + 8,
-      y + 8,
-      {
-        width:
-          companyWidth - 16,
-        align: "center",
-      },
-    );
-
-  let companyY =
-    y + 30;
-
-  doc
-    .font("Helvetica")
-    .fontSize(8);
-
-  if (shop.address) {
-    const address =
-      addressToString(
-        shop.address,
-      );
-
-    doc.text(
-      address,
-      companyX + 35,
-      companyY,
-      {
-        width:
-          companyWidth - 70,
-        align: "center",
-      },
-    );
-
-    companyY += 25;
-  }
 
   const contactParts = [
     shop.phone
       ? `Mobile: ${shop.phone}`
       : null,
+
     shop.email
       ? `Email: ${shop.email}`
       : null,
+
     shop.taxId
-      ? `Tax ID: ${shop.taxId}`
+      ? `GSTIN: ${shop.taxId}`
       : null,
   ].filter(
-    (value): value is string =>
-      typeof value === "string",
+    (
+      value,
+    ): value is string =>
+      Boolean(value),
   );
 
-  if (contactParts.length > 0) {
-    doc.text(
-      contactParts.join("  |  "),
-      companyX + 15,
-      companyY,
-      {
-        width:
-          companyWidth - 30,
-        align: "center",
-      },
-    );
-  }
-
-  y += headerHeight;
+  drawText(
+    doc,
+    contactParts.join(
+      "  •  ",
+    ) || "-",
+    MARGIN,
+    y + 35,
+    330,
+    {
+      size: 7.5,
+      color:
+        COLORS.muted,
+    },
+  );
 
   /*
-   * INVOICE INFORMATION
+   * TAX INVOICE
    */
 
-  const leftWidth =
-    CONTENT_WIDTH * 0.56;
+  const infoX = 370;
 
-  const rightWidth =
-    CONTENT_WIDTH - leftWidth;
-
-  const rowHeight = 33;
-
-  drawCell(
+  drawText(
     doc,
-    MARGIN,
-    y,
-    leftWidth / 2,
-    rowHeight,
-    `Invoice Number\n${invoice.invoiceNumber}`,
+    "TAX INVOICE",
+    infoX,
+    y - 1,
+    197,
     {
-      fontSize: 8,
+      size: 17,
+      font:
+        "Helvetica-Bold",
+      color:
+        COLORS.navy,
+      align: "right",
     },
   );
 
-  drawCell(
-    doc,
-    MARGIN + leftWidth / 2,
-    y,
-    leftWidth / 2,
-    rowHeight,
-    `Invoice Date\n${formatDate(
-      invoice.issueDate,
-    )}`,
-    {
-      fontSize: 8,
+  doc
+    .moveTo(
+      infoX + 35,
+      y + 24,
+    )
+    .lineTo(
+      PAGE_WIDTH - MARGIN,
+      y + 24,
+    )
+    .lineWidth(1)
+    .strokeColor(
+      COLORS.blue,
+    )
+    .stroke();
+
+  const rows = [
+    [
+      "Invoice No.",
+      invoice.invoiceNumber,
+    ],
+    [
+      "Invoice Date",
+      formatDate(
+        invoice.issueDate,
+      ),
+    ],
+    [
+      "Due Date",
+      formatDate(
+        invoice.dueDate,
+      ),
+    ],
+  ];
+
+  rows.forEach(
+    (row, index) => {
+      drawText(
+        doc,
+        row[0],
+        infoX,
+        y + 32 +
+          index * 16,
+        70,
+        {
+          size: 7.5,
+          color:
+            COLORS.muted,
+        },
+      );
+
+      drawText(
+        doc,
+        row[1],
+        infoX + 70,
+        y + 32 +
+          index * 16,
+        127,
+        {
+          size: 7.5,
+          font:
+            "Helvetica-Bold",
+          align: "right",
+        },
+      );
     },
   );
 
-  drawCell(
+  /*
+   * STATUS
+   */
+
+  const isPaid =
+    invoice.status ===
+    "paid";
+
+  const isCancelled =
+    invoice.status ===
+    "cancelled";
+
+  const statusColor =
+    isPaid
+      ? COLORS.green
+      : isCancelled
+        ? COLORS.red
+        : COLORS.red;
+
+  const statusBackground =
+    isPaid
+      ? COLORS.greenSoft
+      : COLORS.redSoft;
+
+  roundedRect(
     doc,
-    MARGIN + leftWidth,
-    y,
-    rightWidth / 2,
-    rowHeight,
-    `Due Date\n${formatDate(
-      invoice.dueDate,
-    )}`,
-    {
-      fontSize: 8,
-    },
+    infoX + 105,
+    y + 81,
+    92,
+    20,
+    statusBackground,
+    undefined,
+    10,
   );
 
-  drawCell(
+  drawText(
     doc,
-    MARGIN +
-      leftWidth +
-      rightWidth / 2,
-    y,
-    rightWidth / 2,
-    rowHeight,
-    `Status\n${formatStatus(
+    statusLabel(
       invoice.status,
-    )}`,
+    ),
+    infoX + 105,
+    y + 87,
+    92,
     {
-      bold: true,
-      fontSize: 8,
+      size: 7.5,
+      font:
+        "Helvetica-Bold",
+      color:
+        statusColor,
       align: "center",
     },
   );
 
-  y += rowHeight;
-
-  drawCell(
-    doc,
-    MARGIN,
-    y,
-    CONTENT_WIDTH,
-    rowHeight,
-    `Invoice Reference: ${invoice.invoiceNumber}`,
-    {
-      fontSize: 8,
-    },
-  );
-
-  return y + rowHeight;
+  return y + 112;
 }
+
+/*
+|--------------------------------------------------------------------------
+| CUSTOMER / BILLING SECTION
+|--------------------------------------------------------------------------
+*/
 
 function drawCustomerSections(
   doc: PDFKit.PDFDocument,
   customer: CustomerPdfData,
   y: number,
 ): number {
-  const sectionHeight = 92;
+  const gap = 12;
 
-  const halfWidth =
-    CONTENT_WIDTH / 2;
+  const width =
+    (CONTENT_WIDTH -
+      gap) /
+    2;
+
+  const height = 102;
 
   /*
-   * BILLING DETAILS
+   * BILL TO
    */
 
-  drawFilledBox(
+  roundedRect(
     doc,
     MARGIN,
     y,
-    halfWidth,
-    20,
+    width,
+    height,
+    COLORS.panel,
+    COLORS.border,
   );
 
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(8)
-    .fillColor(COLORS.text)
-    .text(
-      "BILLING DETAILS",
-      MARGIN + 6,
-      y + 6,
-      {
-        width:
-          halfWidth - 12,
-      },
-    );
-
-  drawBox(
+  drawText(
     doc,
-    MARGIN,
-    y + 20,
-    halfWidth,
-    sectionHeight - 20,
+    "BILL TO",
+    MARGIN + 14,
+    y + 12,
+    width - 28,
+    {
+      size: 8,
+      font:
+        "Helvetica-Bold",
+      color:
+        COLORS.blue,
+    },
   );
 
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(9)
-    .text(
-      customer.name,
-      MARGIN + 8,
-      y + 29,
-      {
-        width:
-          halfWidth - 16,
-      },
-    );
+  drawText(
+    doc,
+    customer.name,
+    MARGIN + 14,
+    y + 31,
+    width - 28,
+    {
+      size: 10.5,
+      font:
+        "Helvetica-Bold",
+      color:
+        COLORS.navy,
+    },
+  );
 
-  doc
-    .font("Helvetica")
-    .fontSize(7.5);
+  drawText(
+    doc,
+    customer.phone
+      ? `Mobile: ${customer.phone}`
+      : "-",
+    MARGIN + 14,
+    y + 50,
+    width - 28,
+    {
+      size: 7.5,
+      color:
+        COLORS.muted,
+    },
+  );
 
-  let billingY =
-    y + 44;
+  drawText(
+    doc,
+    customer.email
+      ? `Email: ${customer.email}`
+      : "-",
+    MARGIN + 14,
+    y + 64,
+    width - 28,
+    {
+      size: 7.5,
+      color:
+        COLORS.muted,
+    },
+  );
 
-  if (customer.phone) {
-    doc.text(
-      `Mobile: ${customer.phone}`,
-      MARGIN + 8,
-      billingY,
-      {
-        width:
-          halfWidth - 16,
-      },
-    );
-
-    billingY += 12;
-  }
-
-  if (customer.email) {
-    doc.text(
-      `Email: ${customer.email}`,
-      MARGIN + 8,
-      billingY,
-      {
-        width:
-          halfWidth - 16,
-      },
-    );
-
-    billingY += 12;
-  }
-
-  doc.text(
+  drawText(
+    doc,
     addressToString(
       customer.address,
     ),
-    MARGIN + 8,
-    billingY,
+    MARGIN + 14,
+    y + 78,
+    width - 28,
     {
-      width:
-        halfWidth - 16,
+      size: 7,
+      color:
+        COLORS.muted,
     },
   );
 
   /*
-   * SHIPPING DETAILS
+   * CUSTOMER DETAILS
    */
 
-  const shippingX =
-    MARGIN + halfWidth;
+  const rightX =
+    MARGIN +
+    width +
+    gap;
 
-  drawFilledBox(
+  roundedRect(
     doc,
-    shippingX,
+    rightX,
     y,
-    halfWidth,
-    20,
+    width,
+    height,
+    COLORS.panel,
+    COLORS.border,
   );
 
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(8)
-    .text(
-      "SHIPPING DETAILS",
-      shippingX + 6,
-      y + 6,
-      {
-        width:
-          halfWidth - 12,
-      },
-    );
-
-  drawBox(
+  drawText(
     doc,
-    shippingX,
-    y + 20,
-    halfWidth,
-    sectionHeight - 20,
+    "CUSTOMER DETAILS",
+    rightX + 14,
+    y + 12,
+    width - 28,
+    {
+      size: 8,
+      font:
+        "Helvetica-Bold",
+      color:
+        COLORS.blue,
+    },
   );
 
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(9)
-    .text(
-      customer.name,
-      shippingX + 8,
-      y + 29,
-      {
-        width:
-          halfWidth - 16,
-      },
-    );
+  drawText(
+    doc,
+    "Customer",
+    rightX + 14,
+    y + 34,
+    80,
+    {
+      size: 7.5,
+      color:
+        COLORS.muted,
+    },
+  );
 
-  doc
-    .font("Helvetica")
-    .fontSize(7.5)
-    .text(
-      addressToString(
-        customer.address,
-      ),
-      shippingX + 8,
-      y + 44,
-      {
-        width:
-          halfWidth - 16,
-      },
-    );
+  drawText(
+    doc,
+    customer.name,
+    rightX + 94,
+    y + 34,
+    width - 108,
+    {
+      size: 7.5,
+      font:
+        "Helvetica-Bold",
+      align: "right",
+    },
+  );
 
-  return y + sectionHeight;
+  drawText(
+    doc,
+    "Customer Type",
+    rightX + 14,
+    y + 51,
+    80,
+    {
+      size: 7.5,
+      color:
+        COLORS.muted,
+    },
+  );
+
+  drawText(
+    doc,
+    "Regular",
+    rightX + 94,
+    y + 51,
+    width - 108,
+    {
+      size: 7.5,
+      align: "right",
+    },
+  );
+
+  drawText(
+    doc,
+    "GSTIN",
+    rightX + 14,
+    y + 68,
+    80,
+    {
+      size: 7.5,
+      color:
+        COLORS.muted,
+    },
+  );
+
+  drawText(
+    doc,
+    "-",
+    rightX + 94,
+    y + 68,
+    width - 108,
+    {
+      size: 7.5,
+      align: "right",
+    },
+  );
+
+  drawText(
+    doc,
+    "Payment Terms",
+    rightX + 14,
+    y + 85,
+    80,
+    {
+      size: 7.5,
+      color:
+        COLORS.muted,
+    },
+  );
+
+  drawText(
+    doc,
+    "Immediate",
+    rightX + 94,
+    y + 85,
+    width - 108,
+    {
+      size: 7.5,
+      align: "right",
+    },
+  );
+
+  return y + height;
 }
 
-function drawTableHeader(
+/*
+|--------------------------------------------------------------------------
+| ITEMS TABLE
+|--------------------------------------------------------------------------
+*/
+
+function drawItemsTable(
   doc: PDFKit.PDFDocument,
+  items: PdfItem[],
   y: number,
-) {
+): number {
   const columns = [
     {
-      label: "Sr.",
-      x: MARGIN,
-      width: 28,
-      align: "center" as const,
+      label: "#",
+      width: 26,
     },
     {
-      label: "Item Description",
-      x: MARGIN + 28,
-      width: 155,
-      align: "left" as const,
+      label: "Item / Product",
+      width: 166,
     },
     {
-      label: "HSN/SAC",
-      x: MARGIN + 183,
+      label: "SKU",
       width: 58,
-      align: "center" as const,
     },
     {
       label: "Qty",
-      x: MARGIN + 241,
-      width: 42,
-      align: "center" as const,
+      width: 40,
     },
     {
-      label: "Unit",
-      x: MARGIN + 283,
-      width: 42,
-      align: "center" as const,
+      label: "Unit Price",
+      width: 70,
     },
     {
-      label: "Rate",
-      x: MARGIN + 325,
-      width: 67,
-      align: "right" as const,
-    },
-    {
-      label: "Disc.",
-      x: MARGIN + 392,
-      width: 50,
-      align: "right" as const,
-    },
-    {
-      label: "Tax %",
-      x: MARGIN + 442,
-      width: 45,
-      align: "right" as const,
+      label: "Discount",
+      width: 66,
     },
     {
       label: "Amount",
-      x: MARGIN + 487,
       width:
-        CONTENT_WIDTH - 487,
-      align: "right" as const,
+        CONTENT_WIDTH -
+        426,
     },
   ];
 
-  for (const column of columns) {
-    drawCell(
-      doc,
-      column.x,
-      y,
-      column.width,
-      TABLE_HEADER_HEIGHT,
-      column.label,
-      {
-        bold: true,
-        align: column.align,
-        fontSize: 7,
-        padding: 3,
-      },
-    );
-  }
-}
+  /*
+   * HEADER
+   */
 
-function calculateRowHeight(
-  doc: PDFKit.PDFDocument,
-  item: PdfItem,
-): number {
-  const itemText = item.sku
-    ? `${item.productName}\nSKU: ${item.sku}`
-    : item.productName;
-
-  doc
-    .font("Helvetica")
-    .fontSize(7);
-
-  const height =
-    doc.heightOfString(
-      itemText,
-      {
-        width: 145,
-        lineGap: 1,
-      },
-    );
-
-  return Math.max(
-    30,
-    height + 10,
+  roundedRect(
+    doc,
+    MARGIN,
+    y,
+    CONTENT_WIDTH,
+    28,
+    COLORS.navy,
+    undefined,
+    7,
   );
+
+  let x = MARGIN;
+
+  columns.forEach(
+    (column) => {
+      drawText(
+        doc,
+        column.label,
+        x + 5,
+        y + 9,
+        column.width - 10,
+        {
+          size: 7,
+          font:
+            "Helvetica-Bold",
+          color:
+            COLORS.white,
+          align:
+            column.label ===
+            "Item / Product"
+              ? "left"
+              : "center",
+        },
+      );
+
+      x +=
+        column.width;
+    },
+  );
+
+  y += 28;
+
+  /*
+   * ROWS
+   */
+
+  items.forEach(
+    (item, index) => {
+      const rowHeight =
+        item.productName.length >
+        45
+          ? 42
+          : 34;
+
+      const background =
+        index % 2 === 0
+          ? COLORS.white
+          : "#FBFCFE";
+
+      doc
+        .rect(
+          MARGIN,
+          y,
+          CONTENT_WIDTH,
+          rowHeight,
+        )
+        .fillColor(
+          background,
+        )
+        .fill();
+
+      doc
+        .rect(
+          MARGIN,
+          y,
+          CONTENT_WIDTH,
+          rowHeight,
+        )
+        .lineWidth(0.5)
+        .strokeColor(
+          COLORS.border,
+        )
+        .stroke();
+
+      const values = [
+        String(index + 1),
+
+        item.sku
+          ? `${item.productName}\nSKU: ${item.sku}`
+          : item.productName,
+
+        item.sku ??
+          "-",
+
+        String(
+          item.quantity,
+        ),
+
+        money(
+          item.unitPrice,
+        ),
+
+        money(
+          item.discount,
+        ),
+
+        money(
+          item.lineTotal,
+        ),
+      ];
+
+      x = MARGIN;
+
+      values.forEach(
+        (value, valueIndex) => {
+          const columnWidth =
+            columns[
+              valueIndex
+            ].width;
+
+          drawText(
+            doc,
+            value,
+            x + 5,
+            y +
+              (value.includes(
+                "\n",
+              )
+                ? 7
+                : 11),
+            columnWidth - 10,
+            {
+              size:
+                valueIndex === 1
+                  ? 7.2
+                  : 7,
+
+              font:
+                valueIndex === 6
+                  ? "Helvetica-Bold"
+                  : "Helvetica",
+
+              color:
+                COLORS.text,
+
+              align:
+                valueIndex === 1
+                  ? "left"
+                  : "right",
+            },
+          );
+
+          x +=
+            columnWidth;
+        },
+      );
+
+      y += rowHeight;
+    },
+  );
+
+  return y;
 }
 
-function drawTableRow(
-  doc: PDFKit.PDFDocument,
-  item: PdfItem,
-  index: number,
-  y: number,
-  height: number,
-) {
-  const values = [
-    {
-      text: String(index),
-      x: MARGIN,
-      width: 28,
-      align: "center" as const,
-    },
-    {
-      text: item.sku
-        ? `${item.productName}\nSKU: ${item.sku}`
-        : item.productName,
-      x: MARGIN + 28,
-      width: 155,
-      align: "left" as const,
-    },
-    {
-      text: "-",
-      x: MARGIN + 183,
-      width: 58,
-      align: "center" as const,
-    },
-    {
-      text: String(item.quantity),
-      x: MARGIN + 241,
-      width: 42,
-      align: "center" as const,
-    },
-    {
-      text: "-",
-      x: MARGIN + 283,
-      width: 42,
-      align: "center" as const,
-    },
-    {
-      text: formatMoney(
-        item.unitPrice,
-      ),
-      x: MARGIN + 325,
-      width: 67,
-      align: "right" as const,
-    },
-    {
-      text: formatMoney(
-        item.discount,
-      ),
-      x: MARGIN + 392,
-      width: 50,
-      align: "right" as const,
-    },
-    {
-      text:
-        `${item.taxRate.toFixed(2)}%`,
-      x: MARGIN + 442,
-      width: 45,
-      align: "right" as const,
-    },
-    {
-      text: formatMoney(
-        item.lineTotal,
-      ),
-      x: MARGIN + 487,
-      width:
-        CONTENT_WIDTH - 487,
-      align: "right" as const,
-    },
-  ];
-
-  for (const value of values) {
-    drawCell(
-      doc,
-      value.x,
-      y,
-      value.width,
-      height,
-      value.text,
-      {
-        align: value.align,
-        fontSize: 7,
-        padding: 3,
-      },
-    );
-  }
-}
+/*
+|--------------------------------------------------------------------------
+| SUMMARY
+|--------------------------------------------------------------------------
+*/
 
 function drawTotals(
   doc: PDFKit.PDFDocument,
@@ -1135,363 +1338,511 @@ function drawTotals(
   },
   y: number,
 ): number {
-  const leftWidth =
-    CONTENT_WIDTH * 0.62;
+  const leftWidth = 300;
 
   const rightWidth =
-    CONTENT_WIDTH - leftWidth;
+    CONTENT_WIDTH -
+    leftWidth -
+    12;
 
-  const boxHeight = 118;
+  const height = 112;
 
   /*
    * AMOUNT IN WORDS
    */
 
-  drawBox(
+  roundedRect(
     doc,
     MARGIN,
     y,
     leftWidth,
-    boxHeight,
+    height,
+    COLORS.panel,
+    COLORS.border,
   );
 
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(8)
-    .text(
-      "TOTAL AMOUNT IN WORDS",
-      MARGIN + 8,
-      y + 8,
-      {
-        width:
-          leftWidth - 16,
-      },
-    );
+  drawText(
+    doc,
+    "AMOUNT IN WORDS",
+    MARGIN + 14,
+    y + 13,
+    leftWidth - 28,
+    {
+      size: 8,
+      font:
+        "Helvetica-Bold",
+      color:
+        COLORS.blue,
+    },
+  );
 
-  doc
-    .font("Helvetica")
-    .fontSize(8)
-    .text(
-      amountInWords(
-        invoice.total,
-      ),
-      MARGIN + 8,
-      y + 25,
-      {
-        width:
-          leftWidth - 16,
-      },
-    );
+  drawText(
+    doc,
+    amountInWords(
+      invoice.total,
+    ),
+    MARGIN + 14,
+    y + 31,
+    leftWidth - 28,
+    {
+      size: 8,
+      font:
+        "Helvetica-Bold",
+      color:
+        COLORS.navy,
+    },
+  );
 
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(8)
-    .text(
-      "Payment Summary",
-      MARGIN + 8,
-      y + 55,
-      {
-        width:
-          leftWidth - 16,
-      },
-    );
+  drawText(
+    doc,
+    "Payment Summary",
+    MARGIN + 14,
+    y + 63,
+    leftWidth - 28,
+    {
+      size: 8,
+      font:
+        "Helvetica-Bold",
+      color:
+        COLORS.blue,
+    },
+  );
 
-  doc
-    .font("Helvetica")
-    .fontSize(7.5)
-    .text(
-      `Paid: ${formatMoney(
-        invoice.amountPaid,
-      )}`,
-      MARGIN + 8,
-      y + 71,
-    );
+  drawText(
+    doc,
+    `Amount Paid: ${money(
+      invoice.amountPaid,
+    )}`,
+    MARGIN + 14,
+    y + 81,
+    leftWidth - 28,
+    {
+      size: 7.5,
+      color:
+        COLORS.muted,
+    },
+  );
 
-  doc.text(
-    `Balance Due: ${formatMoney(
+  drawText(
+    doc,
+    `Balance Due: ${money(
       invoice.amountDue,
     )}`,
-    MARGIN + 8,
-    y + 86,
+    MARGIN + 14,
+    y + 96,
+    leftWidth - 28,
+    {
+      size: 8,
+      font:
+        "Helvetica-Bold",
+      color:
+        invoice.amountDue > 0
+          ? COLORS.red
+          : COLORS.green,
+    },
   );
 
   /*
-   * TOTALS BOX
+   * TOTALS
    */
 
   const totalsX =
-    MARGIN + leftWidth;
+    MARGIN +
+    leftWidth +
+    12;
 
-  drawBox(
+  roundedRect(
     doc,
     totalsX,
     y,
     rightWidth,
-    boxHeight,
+    height,
+    COLORS.panel,
+    COLORS.border,
   );
 
   const rows = [
     {
       label: "Subtotal",
-      value: formatMoney(
+      value:
         invoice.subtotal,
-      ),
-      height: 21,
-      bold: false,
     },
+
     {
-      label: "Discount",
-      value: formatMoney(
+      label:
+        "Total Discount",
+      value:
         invoice.discount,
-      ),
-      height: 21,
-      bold: false,
     },
+
     {
       label: "Tax",
-      value: formatMoney(
+      value:
         invoice.tax,
-      ),
-      height: 21,
-      bold: false,
-    },
-    {
-      label: "TOTAL",
-      value: formatMoney(
-        invoice.total,
-      ),
-      height: 32,
-      bold: true,
     },
   ];
 
-  let rowY = y;
+  rows.forEach(
+    (row, index) => {
+      const rowY =
+        y +
+        13 +
+        index * 19;
 
-  for (const row of rows) {
-    drawCell(
-      doc,
+      drawText(
+        doc,
+        row.label,
+        totalsX + 14,
+        rowY,
+        rightWidth - 28,
+        {
+          size: 7.5,
+          color:
+            COLORS.muted,
+        },
+      );
+
+      drawText(
+        doc,
+        money(row.value),
+        totalsX + 14,
+        rowY,
+        rightWidth - 28,
+        {
+          size: 7.5,
+          align: "right",
+        },
+      );
+    },
+  );
+
+  /*
+   * TOTAL HIGHLIGHT
+   */
+
+  doc
+    .rect(
       totalsX,
-      rowY,
-      rightWidth * 0.52,
-      row.height,
-      row.label,
-      {
-        bold: row.bold,
-        fontSize:
-          row.bold ? 9 : 7.5,
-        align: "right",
-      },
-    );
+      y + 68,
+      rightWidth,
+      44,
+    )
+    .fillColor(
+      COLORS.blueSoft,
+    )
+    .fill();
 
-    drawCell(
-      doc,
-      totalsX +
-        rightWidth * 0.52,
-      rowY,
-      rightWidth * 0.48,
-      row.height,
-      row.value,
-      {
-        bold: row.bold,
-        fontSize:
-          row.bold ? 9 : 7.5,
-        align: "right",
-      },
-    );
+  drawText(
+    doc,
+    "TOTAL AMOUNT",
+    totalsX + 14,
+    y + 81,
+    rightWidth - 28,
+    {
+      size: 8.5,
+      font:
+        "Helvetica-Bold",
+      color:
+        COLORS.navy,
+    },
+  );
 
-    rowY += row.height;
-  }
+  drawText(
+    doc,
+    money(invoice.total),
+    totalsX + 14,
+    y + 80,
+    rightWidth - 28,
+    {
+      size: 10,
+      font:
+        "Helvetica-Bold",
+      color:
+        COLORS.navy,
+      align: "right",
+    },
+  );
 
-  return y + boxHeight;
+  return y + height;
 }
+
+/*
+|--------------------------------------------------------------------------
+| PAYMENT + TERMS
+|--------------------------------------------------------------------------
+*/
 
 function drawBottomSection(
   doc: PDFKit.PDFDocument,
-  paymentMethod?: string | null,
-  notes?: string | null,
-  y?: number,
+  paymentMethod:
+    | string
+    | null
+    | undefined,
+  amountPaid: number,
+  notes:
+    | string
+    | null
+    | undefined,
+  y: number,
 ): number {
-  const startY = y ?? 0;
+  const gap = 12;
 
   const leftWidth =
-    CONTENT_WIDTH * 0.65;
+    (CONTENT_WIDTH - gap) *
+    0.54;
 
   const rightWidth =
-    CONTENT_WIDTH - leftWidth;
+    CONTENT_WIDTH -
+    gap -
+    leftWidth;
 
-  const sectionHeight = 105;
+  const height = 118;
 
   /*
-   * TERMS & CONDITIONS
+   * PAYMENT INFORMATION
    */
 
-  drawBox(
+  roundedRect(
     doc,
     MARGIN,
-    startY,
+    y,
     leftWidth,
-    sectionHeight,
+    height,
+    COLORS.panel,
+    COLORS.border,
   );
 
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(8)
-    .text(
-      "TERMS & CONDITIONS",
-      MARGIN + 8,
-      startY + 8,
-      {
-        width:
-          leftWidth - 16,
-      },
-    );
+  drawText(
+    doc,
+    "PAYMENT INFORMATION",
+    MARGIN + 14,
+    y + 13,
+    leftWidth - 28,
+    {
+      size: 8,
+      font:
+        "Helvetica-Bold",
+      color:
+        COLORS.blue,
+    },
+  );
 
-  doc
-    .font("Helvetica")
-    .fontSize(7);
+  drawText(
+    doc,
+    "Payment Method",
+    MARGIN + 14,
+    y + 37,
+    leftWidth - 28,
+    {
+      size: 7.5,
+      color:
+        COLORS.muted,
+    },
+  );
 
-  const terms = [
-    "Invoice generated electronically by BillNest.",
-    "Please retain this invoice for your records.",
-  ];
+  drawText(
+    doc,
+    paymentLabel(
+      paymentMethod,
+    ),
+    MARGIN + 14,
+    y + 37,
+    leftWidth - 28,
+    {
+      size: 7.5,
+      font:
+        "Helvetica-Bold",
+      align: "right",
+    },
+  );
 
-  let termsY =
-    startY + 25;
+  drawText(
+    doc,
+    "Transaction ID",
+    MARGIN + 14,
+    y + 56,
+    leftWidth - 28,
+    {
+      size: 7.5,
+      color:
+        COLORS.muted,
+    },
+  );
 
-  for (const term of terms) {
-    doc.text(
-      `• ${term}`,
-      MARGIN + 8,
-      termsY,
-      {
-        width:
-          leftWidth - 16,
-      },
-    );
+  drawText(
+    doc,
+    "-",
+    MARGIN + 14,
+    y + 56,
+    leftWidth - 28,
+    {
+      size: 7.5,
+      align: "right",
+    },
+  );
 
-    termsY += 15;
-  }
+  drawText(
+    doc,
+    "Payment Date",
+    MARGIN + 14,
+    y + 75,
+    leftWidth - 28,
+    {
+      size: 7.5,
+      color:
+        COLORS.muted,
+    },
+  );
 
-  if (notes) {
-    doc
-      .font("Helvetica-Bold")
-      .fontSize(7.5)
-      .text(
-        "Notes:",
-        MARGIN + 8,
-        termsY + 3,
-      );
+  drawText(
+    doc,
+    "-",
+    MARGIN + 14,
+    y + 75,
+    leftWidth - 28,
+    {
+      size: 7.5,
+      align: "right",
+    },
+  );
 
-    doc
-      .font("Helvetica")
-      .fontSize(7)
-      .text(
-        notes,
-        MARGIN + 8,
-        termsY + 16,
-        {
-          width:
-            leftWidth - 16,
-          height: 45,
-        },
-      );
-  }
+  drawText(
+    doc,
+    "Amount Paid",
+    MARGIN + 14,
+    y + 94,
+    leftWidth - 28,
+    {
+      size: 7.5,
+      color:
+        COLORS.muted,
+    },
+  );
+
+  drawText(
+    doc,
+    money(amountPaid),
+    MARGIN + 14,
+    y + 94,
+    leftWidth - 28,
+    {
+      size: 7.5,
+      font:
+        "Helvetica-Bold",
+      align: "right",
+    },
+  );
 
   /*
-   * PAYMENT & SIGNATURE
+   * TERMS
    */
 
   const rightX =
-    MARGIN + leftWidth;
+    MARGIN +
+    leftWidth +
+    gap;
 
-  drawBox(
+  roundedRect(
     doc,
     rightX,
-    startY,
+    y,
     rightWidth,
-    sectionHeight,
+    height,
+    COLORS.panel,
+    COLORS.border,
   );
 
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(8)
-    .text(
-      "PAYMENT & AUTHORIZATION",
-      rightX + 8,
-      startY + 8,
+  drawText(
+    doc,
+    "TERMS & CONDITIONS",
+    rightX + 14,
+    y + 13,
+    rightWidth - 28,
+    {
+      size: 8,
+      font:
+        "Helvetica-Bold",
+      color:
+        COLORS.blue,
+    },
+  );
+
+  const terms = [
+    "Goods once sold will not be taken back or exchanged.",
+    "Manufacturer warranty is applicable as per company policy.",
+    "Bill is required for any warranty claim.",
+    "Please check products at the time of delivery.",
+    "Prices are subject to change without prior notice.",
+    "Any dispute will be subject to applicable local jurisdiction.",
+  ];
+
+  terms.forEach(
+    (term, index) => {
+      drawText(
+        doc,
+        `${index + 1}. ${term}`,
+        rightX + 14,
+        y + 31 +
+          index * 12,
+        rightWidth - 28,
+        {
+          size: 6.6,
+          color:
+            COLORS.muted,
+        },
+      );
+    },
+  );
+
+  if (notes) {
+    drawText(
+      doc,
+      `Note: ${notes}`,
+      rightX + 14,
+      y + 101,
+      rightWidth - 28,
       {
-        width:
-          rightWidth - 16,
-        align: "center",
+        size: 6.5,
+        color:
+          COLORS.muted,
       },
     );
+  }
 
-  doc
-    .font("Helvetica")
-    .fontSize(7.5)
-    .text(
-      `Payment Method: ${formatPaymentMethod(
-        paymentMethod,
-      )}`,
-      rightX + 8,
-      startY + 30,
-      {
-        width:
-          rightWidth - 16,
-      },
-    );
+  y +=
+    height + 12;
 
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(7.5)
-    .text(
-      "For the above-mentioned shop",
-      rightX + 8,
-      startY + 55,
-      {
-        width:
-          rightWidth - 16,
-        align: "center",
-      },
-    );
+  drawText(
+    doc,
+    "This is a computer generated invoice. Signature not required.",
+    MARGIN,
+    y,
+    CONTENT_WIDTH,
+    {
+      size: 7.5,
+      font:
+        "Helvetica-Bold",
+      color:
+        COLORS.muted,
+      align: "center",
+    },
+  );
 
-  doc
-    .moveTo(
-      rightX + 18,
-      startY + 85,
-    )
-    .lineTo(
-      rightX +
-        rightWidth -
-        18,
-      startY + 85,
-    )
-    .lineWidth(0.5)
-    .stroke();
-
-  doc
-    .font("Helvetica")
-    .fontSize(7)
-    .text(
-      "Authorized Signature",
-      rightX + 8,
-      startY + 89,
-      {
-        width:
-          rightWidth - 16,
-        align: "center",
-      },
-    );
-
-  return startY + sectionHeight;
+  return y + 18;
 }
+
+/*
+|--------------------------------------------------------------------------
+| MAIN PDF GENERATOR
+|--------------------------------------------------------------------------
+*/
 
 export async function generateInvoicePdf(
   invoiceId: string,
   shopId: string,
 ) {
   /*
-   * Verify invoice belongs to shop.
+   * Find invoice
    */
 
   const invoice =
@@ -1509,7 +1860,7 @@ export async function generateInvoicePdf(
   }
 
   /*
-   * Load all related data.
+   * Load all required data
    */
 
   const [
@@ -1526,7 +1877,9 @@ export async function generateInvoicePdf(
       shopId,
     ),
 
-    findShopById(shopId),
+    findShopById(
+      shopId,
+    ),
   ]);
 
   if (!customer) {
@@ -1546,7 +1899,7 @@ export async function generateInvoicePdf(
   }
 
   /*
-   * Create A4 PDF.
+   * Create A4 document
    */
 
   const document =
@@ -1554,37 +1907,55 @@ export async function generateInvoicePdf(
       size: "A4",
       margin: 0,
       bufferPages: true,
+
       info: {
         Title:
           `Invoice ${invoice.invoiceNumber}`,
-        Author: shop.name,
+
+        Author:
+          shop.name,
+
         Subject:
           "BillNest Tax Invoice",
-        Creator: "BillNest",
+
+        Creator:
+          "BillNest",
       },
     });
 
   /*
-   * FIRST PAGE HEADER
+   * HEADER
    */
 
   let y =
     drawInvoiceHeader(
       document,
       {
-        name: shop.name,
-        phone: shop.phone,
-        email: shop.email,
-        taxId: shop.taxId,
-        address: shop.address,
+        name:
+          shop.name,
+
+        phone:
+          shop.phone,
+
+        email:
+          shop.email,
+
+        taxId:
+          shop.taxId,
+
+        address:
+          shop.address,
       },
       {
         invoiceNumber:
           invoice.invoiceNumber,
+
         issueDate:
           invoice.issueDate,
+
         dueDate:
           invoice.dueDate,
+
         status:
           invoice.status,
       },
@@ -1593,17 +1964,24 @@ export async function generateInvoicePdf(
   y += 10;
 
   /*
-   * CUSTOMER SECTIONS
+   * CUSTOMER
    */
 
   y =
     drawCustomerSections(
       document,
       {
-        name: customer.name,
-        email: customer.email,
-        phone: customer.phone,
-        address: customer.address,
+        name:
+          customer.name,
+
+        email:
+          customer.email,
+
+        phone:
+          customer.phone,
+
+        address:
+          customer.address,
       },
       y,
     );
@@ -1611,124 +1989,73 @@ export async function generateInvoicePdf(
   y += 12;
 
   /*
-   * ITEMS TABLE HEADER
+   * ITEMS
    */
-
-  drawTableHeader(
-    document,
-    y,
-  );
-
-  y += TABLE_HEADER_HEIGHT;
 
   const pdfItems: PdfItem[] =
     items.map(
       (item) => ({
         productName:
           item.productName,
-        sku: item.sku,
+
+        sku:
+          item.sku,
+
         quantity:
           item.quantity,
+
         unitPrice:
           item.unitPrice,
+
         discount:
           item.discount,
+
         taxRate:
           item.taxRate,
+
         lineTax:
           item.lineTax,
+
         lineTotal:
           item.lineTotal,
       }),
     );
 
   /*
-   * ITEMS
+   * If customer section has consumed
+   * too much space, continue on page 2.
    */
 
-  for (
-    let index = 0;
-    index < pdfItems.length;
-    index++
-  ) {
-    const item =
-      pdfItems[index];
+  if (y > 600) {
+    document.addPage();
 
-    document
-      .font("Helvetica")
-      .fontSize(7);
-
-    const rowHeight =
-      calculateRowHeight(
-        document,
-        item,
-      );
-
-    /*
-     * If the row does not fit,
-     * create a continuation page.
-     */
-
-    if (
-      y + rowHeight >
-      CONTENT_BOTTOM
-    ) {
-      document.addPage();
-
-      y = MARGIN;
-
-      drawTableHeader(
-        document,
-        y,
-      );
-
-      y +=
-        TABLE_HEADER_HEIGHT;
-    }
-
-    drawTableRow(
-      document,
-      item,
-      index + 1,
-      y,
-      rowHeight,
-    );
-
-    y += rowHeight;
-
-    drawHorizontalLine(
-      document,
-      y,
-    );
-
-    y += 5;
+    y = MARGIN;
   }
+
+  y =
+    drawItemsTable(
+      document,
+      pdfItems,
+      y,
+    );
+
+  y += 12;
 
   /*
    * TOTALS
    */
 
-  const totalsHeight =
-    118;
-
-  const bottomSectionHeight =
-    105;
-
-  const requiredSpace =
-    10 +
-    totalsHeight +
-    10 +
-    bottomSectionHeight;
+  const totalsRequiredSpace =
+    112 + 12 + 155;
 
   if (
-    y + requiredSpace >
+    y +
+      totalsRequiredSpace >
     CONTENT_BOTTOM
   ) {
     document.addPage();
 
     y = MARGIN;
-  } else {
-    y += 10;
   }
 
   y =
@@ -1737,49 +2064,54 @@ export async function generateInvoicePdf(
       {
         subtotal:
           invoice.subtotal,
+
         discount:
           invoice.discount,
+
         tax:
           invoice.tax,
+
         total:
           invoice.total,
+
         amountPaid:
           invoice.amountPaid,
+
         amountDue:
           invoice.amountDue,
       },
       y,
     );
 
+  y += 12;
+
   /*
-   * BOTTOM SECTION
+   * PAYMENT + TERMS
    */
 
   if (
-    y +
-      10 +
-      bottomSectionHeight >
+    y + 155 >
     CONTENT_BOTTOM
   ) {
     document.addPage();
 
     y = MARGIN;
-  } else {
-    y += 10;
   }
 
   drawBottomSection(
     document,
+
     invoice.paymentMethod,
+
+    invoice.amountPaid,
+
     invoice.notes,
+
     y,
   );
 
   /*
    * FOOTERS
-   *
-   * Switch only to existing buffered
-   * pages. No new pages are created.
    */
 
   const pageRange =
@@ -1791,18 +2123,24 @@ export async function generateInvoicePdf(
     index++
   ) {
     document.switchToPage(
-      pageRange.start + index,
+      pageRange.start +
+        index,
     );
 
-    drawPageFooter(
+    drawFooter(
       document,
       index + 1,
       pageRange.count,
     );
   }
 
+  /*
+   * Return document
+   */
+
   return {
     document,
+
     invoiceNumber:
       invoice.invoiceNumber,
   };
