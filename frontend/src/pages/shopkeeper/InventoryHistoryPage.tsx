@@ -21,7 +21,10 @@ import {
   RefreshCw,
   Search,
   X,
+  XCircle,
 } from "lucide-react";
+
+import InventoryAlerts from "@/components/inventory/InventoryAlerts";
 
 const API_URL =
   import.meta.env.VITE_API_URL ??
@@ -56,6 +59,7 @@ interface Product {
   name: string;
   sku?: string | null;
   stockQuantity: number;
+  lowStockThreshold: number;
   isActive: boolean;
 }
 
@@ -122,10 +126,14 @@ function getInitialDate() {
 }
 
 function getTodayDate() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date()
+    .toISOString()
+    .slice(0, 10);
 }
 
-function getMovementLabel(type: MovementType) {
+function getMovementLabel(
+  type: MovementType,
+) {
   switch (type) {
     case "initial_stock":
       return "Initial stock";
@@ -177,7 +185,9 @@ function getReferenceLabel(
   }
 }
 
-function isIncomingMovement(type: MovementType) {
+function isIncomingMovement(
+  type: MovementType,
+) {
   return (
     type === "initial_stock" ||
     type === "purchase" ||
@@ -186,7 +196,9 @@ function isIncomingMovement(type: MovementType) {
   );
 }
 
-function getMovementBadgeClass(type: MovementType) {
+function getMovementBadgeClass(
+  type: MovementType,
+) {
   if (isIncomingMovement(type)) {
     return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
   }
@@ -194,22 +206,26 @@ function getMovementBadgeClass(type: MovementType) {
   return "bg-red-500/10 text-red-600 dark:text-red-400";
 }
 
-function getMovementIcon(type: MovementType) {
+function getMovementIcon(
+  type: MovementType,
+) {
   if (isIncomingMovement(type)) {
-    return <ArrowDownLeft className="size-4" />;
+    return (
+      <ArrowDownLeft className="size-4" />
+    );
   }
 
-  return <ArrowUpRight className="size-4" />;
+  return (
+    <ArrowUpRight className="size-4" />
+  );
 }
 
 export default function InventoryHistoryPage() {
-  const [movements, setMovements] = useState<
-    InventoryMovement[]
-  >([]);
+  const [movements, setMovements] =
+    useState<InventoryMovement[]>([]);
 
-  const [products, setProducts] = useState<Product[]>(
-    [],
-  );
+  const [products, setProducts] =
+    useState<Product[]>([]);
 
   const [pagination, setPagination] =
     useState<Pagination>({
@@ -219,11 +235,14 @@ export default function InventoryHistoryPage() {
       hasMore: false,
     });
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshing, setRefreshing] =
+    useState(false);
 
-  const [error, setError] = useState("");
+  const [error, setError] =
+    useState("");
 
   const [productFilter, setProductFilter] =
     useState("all");
@@ -240,14 +259,15 @@ export default function InventoryHistoryPage() {
   const [endDate, setEndDate] =
     useState(getTodayDate());
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] =
+    useState("");
 
   const [filtersOpen, setFiltersOpen] =
     useState(false);
 
   /*
    * ============================================================
-   * STOCK ADJUSTMENT STATE
+   * STOCK ADJUSTMENT
    * ============================================================
    */
 
@@ -304,8 +324,8 @@ export default function InventoryHistoryPage() {
           : Array.isArray(data?.products)
             ? data.products
             : Array.isArray(
-                data?.data?.products,
-              )
+                  data?.data?.products,
+                )
               ? data.data.products
               : Array.isArray(data?.data)
                 ? data.data
@@ -313,16 +333,13 @@ export default function InventoryHistoryPage() {
 
       setProducts(nextProducts);
     } catch {
-      /*
-       * Product loading failure does not
-       * prevent inventory history from loading.
-       */
+      // Inventory history can still load.
     }
   }
 
   /*
    * ============================================================
-   * LOAD INVENTORY MOVEMENTS
+   * LOAD MOVEMENTS
    * ============================================================
    */
 
@@ -338,7 +355,8 @@ export default function InventoryHistoryPage() {
         setLoading(true);
       }
 
-      const params = new URLSearchParams();
+      const params =
+        new URLSearchParams();
 
       params.set(
         "page",
@@ -379,9 +397,10 @@ export default function InventoryHistoryPage() {
       }
 
       if (endDate) {
-        const inclusiveEnd = new Date(
-          `${endDate}T23:59:59.999`,
-        );
+        const inclusiveEnd =
+          new Date(
+            `${endDate}T23:59:59.999`,
+          );
 
         params.set(
           "endDate",
@@ -411,7 +430,9 @@ export default function InventoryHistoryPage() {
         data?.data ?? data;
 
       setMovements(
-        Array.isArray(result?.movements)
+        Array.isArray(
+          result?.movements,
+        )
           ? result.movements
           : [],
       );
@@ -432,12 +453,6 @@ export default function InventoryHistoryPage() {
       setRefreshing(false);
     }
   }
-
-  /*
-   * ============================================================
-   * INITIAL LOAD
-   * ============================================================
-   */
 
   useEffect(() => {
     void loadProducts();
@@ -461,31 +476,31 @@ export default function InventoryHistoryPage() {
    * ============================================================
    */
 
-  const filteredMovements = useMemo(() => {
-    const normalized = search
-      .trim()
-      .toLowerCase();
+  const filteredMovements =
+    useMemo(() => {
+      const normalized =
+        search.trim().toLowerCase();
 
-    if (!normalized) {
-      return movements;
-    }
+      if (!normalized) {
+        return movements;
+      }
 
-    return movements.filter(
-      (movement) =>
-        movement.productName
-          .toLowerCase()
-          .includes(normalized) ||
-        movement.sku
-          ?.toLowerCase()
-          .includes(normalized) ||
-        movement.reason
-          ?.toLowerCase()
-          .includes(normalized),
-    );
-  }, [
-    movements,
-    search,
-  ]);
+      return movements.filter(
+        (movement) =>
+          movement.productName
+            .toLowerCase()
+            .includes(normalized) ||
+          movement.sku
+            ?.toLowerCase()
+            .includes(normalized) ||
+          movement.reason
+            ?.toLowerCase()
+            .includes(normalized),
+      );
+    }, [
+      movements,
+      search,
+    ]);
 
   /*
    * ============================================================
@@ -493,46 +508,65 @@ export default function InventoryHistoryPage() {
    * ============================================================
    */
 
-  const incomingQuantity = useMemo(
-    () =>
-      movements
-        .filter((movement) =>
-          isIncomingMovement(
-            movement.movementType,
-          ),
-        )
-        .reduce(
-          (total, movement) =>
-            total + movement.quantity,
-          0,
-        ),
-    [movements],
-  );
-
-  const outgoingQuantity = useMemo(
-    () =>
-      movements
-        .filter(
-          (movement) =>
-            !isIncomingMovement(
+  const incomingQuantity =
+    useMemo(
+      () =>
+        movements
+          .filter((movement) =>
+            isIncomingMovement(
               movement.movementType,
             ),
-        )
-        .reduce(
-          (total, movement) =>
-            total + movement.quantity,
-          0,
-        ),
-    [movements],
-  );
+          )
+          .reduce(
+            (total, movement) =>
+              total +
+              movement.quantity,
+            0,
+          ),
+      [movements],
+    );
 
-  const activeFilterCount = [
-    productFilter !== "all",
-    movementFilter !== "all",
-    referenceFilter !== "all",
-    Boolean(startDate),
-    Boolean(endDate),
-  ].filter(Boolean).length;
+  const outgoingQuantity =
+    useMemo(
+      () =>
+        movements
+          .filter(
+            (movement) =>
+              !isIncomingMovement(
+                movement.movementType,
+              ),
+          )
+          .reduce(
+            (total, movement) =>
+              total +
+              movement.quantity,
+            0,
+          ),
+      [movements],
+    );
+
+  const lowStockCount =
+    products.filter(
+      (product) =>
+        product.isActive &&
+        product.stockQuantity > 0 &&
+        product.stockQuantity <=
+          product.lowStockThreshold,
+    ).length;
+
+  const outOfStockCount =
+    products.filter(
+      (product) =>
+        product.isActive &&
+        product.stockQuantity <= 0,
+    ).length;
+
+  const activeFilterCount =
+    [
+      productFilter !== "all",
+      movementFilter !== "all",
+      referenceFilter !== "all",
+    ].filter(Boolean).length;
 
   /*
    * ============================================================
@@ -544,14 +578,20 @@ export default function InventoryHistoryPage() {
     setProductFilter("all");
     setMovementFilter("all");
     setReferenceFilter("all");
-    setStartDate(getInitialDate());
-    setEndDate(getTodayDate());
+    setStartDate(
+      getInitialDate(),
+    );
+    setEndDate(
+      getTodayDate(),
+    );
     setSearch("");
 
-    setPagination((current) => ({
-      ...current,
-      page: 1,
-    }));
+    setPagination(
+      (current) => ({
+        ...current,
+        page: 1,
+      }),
+    );
   }
 
   /*
@@ -560,50 +600,54 @@ export default function InventoryHistoryPage() {
    * ============================================================
    */
 
-  function changePage(nextPage: number) {
+  function changePage(
+    nextPage: number,
+  ) {
     if (
       nextPage < 1 ||
-      nextPage === pagination.page
+      nextPage ===
+        pagination.page
     ) {
       return;
     }
 
     if (
-      nextPage > pagination.page &&
+      nextPage >
+        pagination.page &&
       !pagination.hasMore
     ) {
       return;
     }
 
-    setPagination((current) => ({
-      ...current,
-      page: nextPage,
-    }));
+    setPagination(
+      (current) => ({
+        ...current,
+        page: nextPage,
+      }),
+    );
   }
 
   /*
    * ============================================================
-   * OPEN ADJUSTMENT MODAL
+   * OPEN STOCK MODAL
    *
-   * The type is now supplied by the button:
-   * "in"  -> Add stock
-   * "out" -> Remove stock
-   *
-   * There is no longer an Add/Remove selector inside
-   * the modal.
+   * The button determines the action.
+   * There is NO second Add/Remove choice.
    * ============================================================
    */
 
   function openAdjustmentModal(
     type: "in" | "out",
+    productId?: string,
   ) {
     const preferredProduct =
-      productFilter !== "all"
+      productId ??
+      (productFilter !== "all"
         ? productFilter
         : products.find(
-            (product) =>
-              product.isActive,
-          )?._id ?? "";
+              (product) =>
+                product.isActive,
+            )?._id ?? "");
 
     setAdjustmentProductId(
       preferredProduct,
@@ -615,12 +659,6 @@ export default function InventoryHistoryPage() {
     setAdjustmentError("");
     setAdjustmentOpen(true);
   }
-
-  /*
-   * ============================================================
-   * CLOSE ADJUSTMENT MODAL
-   * ============================================================
-   */
 
   function closeAdjustmentModal() {
     if (adjusting) {
@@ -693,9 +731,7 @@ export default function InventoryHistoryPage() {
       return;
     }
 
-    if (
-      !selectedProduct.isActive
-    ) {
+    if (!selectedProduct.isActive) {
       setAdjustmentError(
         "Inactive products cannot be adjusted.",
       );
@@ -745,26 +781,6 @@ export default function InventoryHistoryPage() {
         );
       }
 
-      const updatedProduct =
-        data?.data?.product ??
-        data?.product;
-
-      if (updatedProduct) {
-        setProducts(
-          (currentProducts) =>
-            currentProducts.map(
-              (product) =>
-                product._id ===
-                updatedProduct._id
-                  ? {
-                      ...product,
-                      ...updatedProduct,
-                    }
-                  : product,
-            ),
-        );
-      }
-
       setAdjustmentOpen(false);
       setAdjustmentQuantity("1");
       setAdjustmentReason("");
@@ -778,7 +794,6 @@ export default function InventoryHistoryPage() {
       );
 
       await loadProducts();
-
       await loadMovements(true);
     } catch (requestError) {
       setAdjustmentError(
@@ -791,12 +806,6 @@ export default function InventoryHistoryPage() {
     }
   }
 
-  /*
-   * ============================================================
-   * SELECTED PRODUCT FOR MODAL
-   * ============================================================
-   */
-
   const selectedAdjustmentProduct =
     products.find(
       (product) =>
@@ -804,104 +813,86 @@ export default function InventoryHistoryPage() {
         adjustmentProductId,
     );
 
-  const parsedAdjustmentQuantity =
+  const parsedQuantity =
     Number(adjustmentQuantity);
 
-  const safeAdjustmentQuantity =
+  const safeQuantity =
     Number.isFinite(
-      parsedAdjustmentQuantity,
-    ) &&
-    parsedAdjustmentQuantity > 0
-      ? parsedAdjustmentQuantity
+      parsedQuantity,
+    ) && parsedQuantity > 0
+      ? parsedQuantity
       : 0;
 
   const previewNewStock =
     selectedAdjustmentProduct
       ? adjustmentType === "in"
         ? selectedAdjustmentProduct.stockQuantity +
-          safeAdjustmentQuantity
+          safeQuantity
         : selectedAdjustmentProduct.stockQuantity -
-          safeAdjustmentQuantity
+          safeQuantity
       : null;
 
   const insufficientStock =
     adjustmentType === "out" &&
     selectedAdjustmentProduct !==
       undefined &&
-    safeAdjustmentQuantity >
+    safeQuantity >
       selectedAdjustmentProduct.stockQuantity;
-
-  /*
-   * ============================================================
-   * RENDER
-   * ============================================================
-   */
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
+      {/* HEADER */}
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <Boxes className="size-5" />
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Boxes className="size-5" />
+          </div>
 
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">
-                Inventory History
-              </h1>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Inventory History
+            </h1>
 
-              <p className="mt-1 text-sm text-muted-foreground">
-                Track every stock movement across your inventory.
-              </p>
-            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Track every stock movement across your inventory.
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Add Stock */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() =>
               openAdjustmentModal("in")
             }
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
           >
             <Plus className="size-4" />
-
             <span className="hidden sm:inline">
               Add stock
             </span>
-
             <span className="sm:hidden">
               Add
             </span>
           </button>
 
-          {/* Remove Stock */}
           <button
             type="button"
             onClick={() =>
               openAdjustmentModal("out")
             }
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-red-700"
           >
             <Minus className="size-4" />
-
             <span className="hidden sm:inline">
               Remove stock
             </span>
-
             <span className="sm:hidden">
               Remove
             </span>
           </button>
 
-          {/* Refresh */}
           <button
             type="button"
             onClick={() =>
@@ -911,12 +902,11 @@ export default function InventoryHistoryPage() {
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-60"
           >
             <RefreshCw
-              className={[
-                "size-4",
+              className={
                 refreshing
-                  ? "animate-spin"
-                  : "",
-              ].join(" ")}
+                  ? "size-4 animate-spin"
+                  : "size-4"
+              }
             />
 
             <span className="hidden sm:inline">
@@ -926,17 +916,24 @@ export default function InventoryHistoryPage() {
         </div>
       </div>
 
-      {/* ======================================================
-          SUMMARY
-      ====================================================== */}
+      {/* INVENTORY ALERTS */}
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <InventoryAlerts
+        products={products}
+        onAdjust={openAdjustmentModal}
+      />
+
+      {/* QUICK STATUS */}
+
+      <div className="grid gap-3 sm:grid-cols-4">
         <SummaryCard
           icon={
             <Boxes className="size-5" />
           }
           label="Total movements"
-          value={pagination.total}
+          value={
+            pagination.total
+          }
         />
 
         <SummaryCard
@@ -955,11 +952,21 @@ export default function InventoryHistoryPage() {
           label="Stock removed"
           value={outgoingQuantity}
         />
+
+        <SummaryCard
+          icon={
+            <AlertTriangle className="size-5" />
+          }
+          label="Low / out of stock"
+          value={
+            lowStockCount +
+            outOfStockCount
+          }
+          warning
+        />
       </div>
 
-      {/* ======================================================
-          ERROR
-      ====================================================== */}
+      {/* ERROR */}
 
       {error && (
         <div className="flex items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
@@ -981,16 +988,13 @@ export default function InventoryHistoryPage() {
               setError("")
             }
             className="rounded-md p-1 hover:bg-destructive/10"
-            aria-label="Dismiss error"
           >
             <X className="size-4" />
           </button>
         </div>
       )}
 
-      {/* ======================================================
-          FILTERS
-      ====================================================== */}
+      {/* FILTERS */}
 
       <section className="rounded-2xl border bg-card p-4 shadow-sm">
         <div className="flex flex-col gap-4">
@@ -1007,7 +1011,7 @@ export default function InventoryHistoryPage() {
                   )
                 }
                 placeholder="Search product, SKU or reason..."
-                className="h-10 w-full rounded-xl border bg-background pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-10 w-full rounded-xl border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
 
@@ -1043,12 +1047,8 @@ export default function InventoryHistoryPage() {
           >
             <FilterSelect
               label="Product"
-              value={
-                productFilter
-              }
-              onChange={(
-                value,
-              ) => {
+              value={productFilter}
+              onChange={(value) => {
                 setProductFilter(
                   value,
                 );
@@ -1086,12 +1086,8 @@ export default function InventoryHistoryPage() {
 
             <FilterSelect
               label="Movement"
-              value={
-                movementFilter
-              }
-              onChange={(
-                value,
-              ) => {
+              value={movementFilter}
+              onChange={(value) => {
                 setMovementFilter(
                   value as MovementFilter,
                 );
@@ -1139,12 +1135,8 @@ export default function InventoryHistoryPage() {
 
             <FilterSelect
               label="Source"
-              value={
-                referenceFilter
-              }
-              onChange={(
-                value,
-              ) => {
+              value={referenceFilter}
+              onChange={(value) => {
                 setReferenceFilter(
                   value as ReferenceFilter,
                 );
@@ -1185,9 +1177,7 @@ export default function InventoryHistoryPage() {
             <DateInput
               label="From"
               value={startDate}
-              onChange={(
-                value,
-              ) => {
+              onChange={(value) => {
                 setStartDate(
                   value,
                 );
@@ -1204,9 +1194,7 @@ export default function InventoryHistoryPage() {
             <DateInput
               label="To"
               value={endDate}
-              onChange={(
-                value,
-              ) => {
+              onChange={(value) => {
                 setEndDate(
                   value,
                 );
@@ -1225,19 +1213,15 @@ export default function InventoryHistoryPage() {
             <p className="text-xs text-muted-foreground">
               Showing movements from{" "}
               <span className="font-medium text-foreground">
-                {startDate
-                  ? formatShortDate(
-                      startDate,
-                    )
-                  : "all dates"}
+                {formatShortDate(
+                  startDate,
+                )}
               </span>{" "}
               to{" "}
               <span className="font-medium text-foreground">
-                {endDate
-                  ? formatShortDate(
-                      endDate,
-                    )
-                  : "today"}
+                {formatShortDate(
+                  endDate,
+                )}
               </span>
             </p>
 
@@ -1246,7 +1230,7 @@ export default function InventoryHistoryPage() {
               onClick={
                 resetFilters
               }
-              className="inline-flex items-center gap-2 self-start text-xs font-semibold text-muted-foreground hover:text-foreground sm:self-auto"
+              className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
             >
               <X className="size-3.5" />
               Reset filters
@@ -1255,9 +1239,7 @@ export default function InventoryHistoryPage() {
         </div>
       </section>
 
-      {/* ======================================================
-          INVENTORY TABLE
-      ====================================================== */}
+      {/* MOVEMENT HISTORY */}
 
       <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         {loading ? (
@@ -1296,7 +1278,8 @@ export default function InventoryHistoryPage() {
           </div>
         ) : (
           <>
-            {/* Desktop */}
+            {/* DESKTOP TABLE */}
+
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[1100px] text-sm">
                 <thead className="border-b bg-muted/30">
@@ -1337,11 +1320,9 @@ export default function InventoryHistoryPage() {
                         className="transition-colors hover:bg-muted/20"
                       >
                         <td className="whitespace-nowrap px-5 py-4">
-                          <p className="font-medium">
-                            {formatDate(
-                              movement.createdAt,
-                            )}
-                          </p>
+                          {formatDate(
+                            movement.createdAt,
+                          )}
                         </td>
 
                         <td className="px-5 py-4">
@@ -1395,16 +1376,13 @@ export default function InventoryHistoryPage() {
                             </div>
 
                             <p
-                              className={[
-                                "text-xs font-semibold",
+                              className={
                                 isIncomingMovement(
                                   movement.movementType,
                                 )
-                                  ? "text-emerald-600 dark:text-emerald-400"
-                                  : "text-red-600 dark:text-red-400",
-                              ].join(
-                                " ",
-                              )}
+                                  ? "text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+                                  : "text-xs font-semibold text-red-600 dark:text-red-400"
+                              }
                             >
                               {isIncomingMovement(
                                 movement.movementType,
@@ -1449,7 +1427,8 @@ export default function InventoryHistoryPage() {
               </table>
             </div>
 
-            {/* Mobile */}
+            {/* MOBILE */}
+
             <div className="divide-y md:hidden">
               {filteredMovements.map(
                 (movement) => (
@@ -1509,16 +1488,13 @@ export default function InventoryHistoryPage() {
                         </p>
 
                         <p
-                          className={[
-                            "mt-1 text-sm font-semibold",
+                          className={
                             isIncomingMovement(
                               movement.movementType,
                             )
-                              ? "text-emerald-600 dark:text-emerald-400"
-                              : "text-red-600 dark:text-red-400",
-                          ].join(
-                            " ",
-                          )}
+                              ? "mt-1 text-sm font-semibold text-emerald-600 dark:text-emerald-400"
+                              : "mt-1 text-sm font-semibold text-red-600 dark:text-red-400"
+                          }
                         >
                           {isIncomingMovement(
                             movement.movementType,
@@ -1573,19 +1549,23 @@ export default function InventoryHistoryPage() {
               )}
             </div>
 
-            {/* Pagination */}
+            {/* PAGINATION */}
+
             <div className="flex flex-col gap-3 border-t bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">
-                {pagination.total ===
-                0
-                  ? "No movements"
-                  : `Showing page ${pagination.page} of ${Math.max(
-                      1,
-                      Math.ceil(
-                        pagination.total /
-                          pagination.limit,
-                      ),
-                    )} · ${pagination.total} total movements`}
+                Showing page{" "}
+                {pagination.page}{" "}
+                of{" "}
+                {Math.max(
+                  1,
+                  Math.ceil(
+                    pagination.total /
+                      pagination.limit,
+                  ),
+                )}{" "}
+                ·{" "}
+                {pagination.total}{" "}
+                total movements
               </p>
 
               <div className="flex items-center gap-2">
@@ -1601,8 +1581,7 @@ export default function InventoryHistoryPage() {
                     pagination.page <=
                     1
                   }
-                  className="inline-flex size-9 items-center justify-center rounded-lg border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                  aria-label="Previous page"
+                  className="inline-flex size-9 items-center justify-center rounded-lg border bg-background text-muted-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
                 >
                   <ChevronLeft className="size-4" />
                 </button>
@@ -1625,8 +1604,7 @@ export default function InventoryHistoryPage() {
                   disabled={
                     !pagination.hasMore
                   }
-                  className="inline-flex size-9 items-center justify-center rounded-lg border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                  aria-label="Next page"
+                  className="inline-flex size-9 items-center justify-center rounded-lg border bg-background text-muted-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
                 >
                   <ChevronRight className="size-4" />
                 </button>
@@ -1636,25 +1614,18 @@ export default function InventoryHistoryPage() {
         )}
       </section>
 
-      {/* ======================================================
-          STOCK ADJUSTMENT MODAL
-      ====================================================== */}
+      {/* STOCK ADJUSTMENT MODAL */}
 
       {adjustmentOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="stock-adjustment-title"
         >
           <div className="w-full max-w-lg rounded-2xl border bg-card p-5 shadow-2xl sm:p-6">
-            {/* Modal header */}
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2
-                  id="stock-adjustment-title"
-                  className="text-lg font-semibold"
-                >
+                <h2 className="text-lg font-semibold">
                   {adjustmentType ===
                   "in"
                     ? "Add stock"
@@ -1675,14 +1646,12 @@ export default function InventoryHistoryPage() {
                   closeAdjustmentModal
                 }
                 disabled={adjusting}
-                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
-                aria-label="Close stock adjustment"
+                className="rounded-lg p-2 text-muted-foreground hover:bg-muted disabled:opacity-50"
               >
                 <X className="size-4" />
               </button>
             </div>
 
-            {/* Error */}
             {adjustmentError && (
               <div className="mt-4 flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" />
@@ -1694,7 +1663,6 @@ export default function InventoryHistoryPage() {
             )}
 
             <div className="mt-5 space-y-4">
-              {/* Product */}
               <label className="block space-y-1.5">
                 <span className="text-xs font-semibold text-muted-foreground">
                   Product
@@ -1704,14 +1672,16 @@ export default function InventoryHistoryPage() {
                   value={
                     adjustmentProductId
                   }
-                  onChange={(event) =>
+                  onChange={(
+                    event,
+                  ) =>
                     setAdjustmentProductId(
                       event.target
                         .value,
                     )
                   }
                   disabled={adjusting}
-                  className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+                  className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 >
                   <option value="">
                     Select product
@@ -1732,7 +1702,9 @@ export default function InventoryHistoryPage() {
                             product._id
                           }
                         >
-                          {product.name}
+                          {
+                            product.name
+                          }
                           {product.sku
                             ? ` — ${product.sku}`
                             : ""}
@@ -1743,7 +1715,6 @@ export default function InventoryHistoryPage() {
                 </select>
               </label>
 
-              {/* Quantity */}
               <label className="block space-y-1.5">
                 <span className="text-xs font-semibold text-muted-foreground">
                   Quantity
@@ -1757,19 +1728,20 @@ export default function InventoryHistoryPage() {
                   value={
                     adjustmentQuantity
                   }
-                  onChange={(event) =>
+                  onChange={(
+                    event,
+                  ) =>
                     setAdjustmentQuantity(
                       event.target
                         .value,
                     )
                   }
                   disabled={adjusting}
-                  className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+                  className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   placeholder="Enter quantity"
                 />
               </label>
 
-              {/* Reason */}
               <label className="block space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-muted-foreground">
@@ -1788,7 +1760,9 @@ export default function InventoryHistoryPage() {
                   value={
                     adjustmentReason
                   }
-                  onChange={(event) =>
+                  onChange={(
+                    event,
+                  ) =>
                     setAdjustmentReason(
                       event.target
                         .value,
@@ -1797,7 +1771,7 @@ export default function InventoryHistoryPage() {
                   disabled={adjusting}
                   rows={3}
                   maxLength={500}
-                  className="w-full resize-none rounded-xl border bg-background px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+                  className="w-full resize-none rounded-xl border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   placeholder={
                     adjustmentType ===
                     "in"
@@ -1807,7 +1781,6 @@ export default function InventoryHistoryPage() {
                 />
               </label>
 
-              {/* Stock preview */}
               {selectedAdjustmentProduct && (
                 <div className="rounded-xl border bg-muted/40 p-4">
                   <div className="flex items-center justify-between gap-4">
@@ -1823,9 +1796,9 @@ export default function InventoryHistoryPage() {
                       </p>
                     </div>
 
-                    <div className="text-muted-foreground">
+                    <span className="text-muted-foreground">
                       →
-                    </div>
+                    </span>
 
                     <div className="text-right">
                       <p className="text-xs text-muted-foreground">
@@ -1841,40 +1814,13 @@ export default function InventoryHistoryPage() {
                                 "in"
                               ? "text-emerald-600 dark:text-emerald-400"
                               : "text-foreground",
-                        ].join(
-                          " ",
-                        )}
+                        ].join(" ")}
                       >
-                        {previewNewStock}
+                        {
+                          previewNewStock
+                        }
                       </p>
                     </div>
-                  </div>
-
-                  <div className="mt-3 border-t pt-3">
-                    <p className="text-xs text-muted-foreground">
-                      Change
-                    </p>
-
-                    <p
-                      className={[
-                        "mt-1 text-sm font-semibold",
-                        adjustmentType ===
-                          "in"
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-red-600 dark:text-red-400",
-                      ].join(
-                        " ",
-                      )}
-                    >
-                      {adjustmentType ===
-                      "in"
-                        ? "+"
-                        : "-"}
-                      {
-                        safeAdjustmentQuantity
-                      }{" "}
-                      units
-                    </p>
                   </div>
 
                   {insufficientStock && (
@@ -1882,7 +1828,8 @@ export default function InventoryHistoryPage() {
                       <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
 
                       <span>
-                        You can remove a maximum of{" "}
+                        You can remove a
+                        maximum of{" "}
                         <strong>
                           {
                             selectedAdjustmentProduct.stockQuantity
@@ -1896,7 +1843,6 @@ export default function InventoryHistoryPage() {
               )}
             </div>
 
-            {/* Actions */}
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
@@ -1904,7 +1850,7 @@ export default function InventoryHistoryPage() {
                   closeAdjustmentModal
                 }
                 disabled={adjusting}
-                className="inline-flex h-10 items-center justify-center rounded-xl border px-4 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50"
+                className="inline-flex h-10 items-center justify-center rounded-xl border px-4 text-sm font-medium hover:bg-muted disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1920,7 +1866,7 @@ export default function InventoryHistoryPage() {
                   insufficientStock
                 }
                 className={[
-                  "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                  "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60",
                   adjustmentType ===
                     "in"
                     ? "bg-emerald-600 hover:bg-emerald-700"
@@ -1946,22 +1892,18 @@ export default function InventoryHistoryPage() {
   );
 }
 
-/*
- * ============================================================
- * SUMMARY CARD
- * ============================================================
- */
-
 function SummaryCard({
   icon,
   label,
   value,
   positive = false,
+  warning = false,
 }: {
   icon: ReactNode;
   label: string;
   value: number;
   positive?: boolean;
+  warning?: boolean;
 }) {
   return (
     <div className="rounded-2xl border bg-card p-4 shadow-sm">
@@ -1971,7 +1913,9 @@ function SummaryCard({
             "flex size-10 items-center justify-center rounded-xl",
             positive
               ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-              : "bg-primary/10 text-primary",
+              : warning
+                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                : "bg-primary/10 text-primary",
           ].join(" ")}
         >
           {icon}
@@ -1992,12 +1936,6 @@ function SummaryCard({
     </div>
   );
 }
-
-/*
- * ============================================================
- * FILTER SELECT
- * ============================================================
- */
 
 function FilterSelect({
   label,
@@ -2025,19 +1963,13 @@ function FilterSelect({
             event.target.value,
           )
         }
-        className="h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+        className="h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
       >
         {children}
       </select>
     </label>
   );
 }
-
-/*
- * ============================================================
- * DATE INPUT
- * ============================================================
- */
 
 function DateInput({
   label,
@@ -2067,18 +1999,12 @@ function DateInput({
               event.target.value,
             )
           }
-          className="h-10 w-full rounded-xl border bg-background pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+          className="h-10 w-full rounded-xl border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
         />
       </div>
     </label>
   );
 }
-
-/*
- * ============================================================
- * MOVEMENT BADGE
- * ============================================================
- */
 
 function MovementBadge({
   movement,
