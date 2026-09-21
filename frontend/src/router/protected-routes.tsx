@@ -18,11 +18,12 @@ import CustomerWarrantiesPage from "@/pages/customer/CustomerWarrantiesPage";
 import CustomersPage from "@/pages/customer/CustomersPage";
 
 import CreateInvoicePage from "@/pages/shopkeeper/CreateInvoicePage";
-import CreateWarrantyPage from "@/pages/shopkeeper/CreateWarrantyPage";
 import CreateShopPage from "@/pages/shopkeeper/CreateShopPage";
+import CreateWarrantyPage from "@/pages/shopkeeper/CreateWarrantyPage";
 import CustomerLedgerPage from "@/pages/shopkeeper/CustomerLedgerPage";
 import InvoiceDetailsPage from "@/pages/shopkeeper/InvoiceDetailsPage";
 import InvoicesPage from "@/pages/shopkeeper/InvoicesPage";
+import InventoryHistoryPage from "@/pages/shopkeeper/InventoryHistoryPage";
 import NotificationsPage from "@/pages/shopkeeper/NotificationsPage";
 import ProductsPage from "@/pages/shopkeeper/ProductsPage";
 import ReportsPage from "@/pages/shopkeeper/ReportsPage";
@@ -30,9 +31,6 @@ import SettingsPage from "@/pages/shopkeeper/SettingsPage";
 import { ShopkeeperDashboard } from "@/pages/shopkeeper/dashboard";
 import WarrantyDetailsPage from "@/pages/shopkeeper/WarrantyDetailsPage";
 import WarrantiesPage from "@/pages/shopkeeper/WarrantiesPage";
-import InventoryHistoryPage from "@/pages/shopkeeper/InventoryHistoryPage";
-
-
 
 export function ProtectedRoutes() {
   return (
@@ -43,9 +41,7 @@ export function ProtectedRoutes() {
 
       <Route
         element={
-          <ProtectedRoute
-            allowedRoles={["shopkeeper"]}
-          />
+          <ProtectedRoute allowedRoles={["shopkeeper"]} />
         }
       >
         {/* =================================================== */}
@@ -64,9 +60,7 @@ export function ProtectedRoutes() {
         <Route
           element={<ShopkeeperShopRequired />}
         >
-          <Route
-            element={<ShopkeeperLayout />}
-          >
+          <Route element={<ShopkeeperLayout />}>
             {/* ================================================= */}
             {/* DASHBOARD                                         */}
             {/* ================================================= */}
@@ -98,6 +92,10 @@ export function ProtectedRoutes() {
               path="/shopkeeper/products"
               element={<ProductsPage />}
             />
+
+            {/* ================================================= */}
+            {/* INVENTORY                                         */}
+            {/* ================================================= */}
 
             <Route
               path="/shopkeeper/inventory/history"
@@ -178,21 +176,19 @@ export function ProtectedRoutes() {
 
       <Route
         element={
-          <ProtectedRoute
-            allowedRoles={["customer"]}
-          />
+          <ProtectedRoute allowedRoles={["customer"]} />
         }
       >
-        <Route
-          element={<CustomerLayout />}
-        >
+        <Route element={<CustomerLayout />}>
           {/* Dashboard */}
+
           <Route
             path="/customer"
             element={<CustomerDashboardPage />}
           />
 
           {/* Invoices */}
+
           <Route
             path="/customer/invoices"
             element={<CustomerInvoicesPage />}
@@ -204,12 +200,14 @@ export function ProtectedRoutes() {
           />
 
           {/* Payments */}
+
           <Route
             path="/customer/payments"
             element={<CustomerPaymentsPage />}
           />
 
           {/* Warranties */}
+
           <Route
             path="/customer/warranties"
             element={<CustomerWarrantiesPage />}
@@ -221,12 +219,14 @@ export function ProtectedRoutes() {
           />
 
           {/* Notifications */}
+
           <Route
             path="/customer/notifications"
             element={<CustomerNotificationsPage />}
           />
 
           {/* Settings */}
+
           <Route
             path="/customer/settings"
             element={<CustomerSettingsPage />}
