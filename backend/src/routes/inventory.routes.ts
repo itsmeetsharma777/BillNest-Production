@@ -8,6 +8,10 @@ import {
 } from "../controllers/inventory-movement.controller";
 
 import {
+  adjustStock,
+} from "../controllers/stock-adjustment.controller";
+
+import {
   requireAuth,
 } from "../middleware/auth.middleware";
 
@@ -22,21 +26,9 @@ import {
 const router =
   Router();
 
-/*
- * ============================================================
- * AUTHENTICATION
- * ============================================================
- */
-
 router.use(
   requireAuth,
 );
-
-/*
- * ============================================================
- * SHOPKEEPER ONLY
- * ============================================================
- */
 
 router.use(
   requireRole(
@@ -44,12 +36,15 @@ router.use(
   ),
 );
 
-/*
+/**
  * ============================================================
- * INVENTORY MOVEMENT HISTORY
+ * INVENTORY MOVEMENTS
  * ============================================================
- *
- * GET /api/inventory/movements
+ */
+
+/**
+ * GET
+ * /api/inventory/movements
  */
 router.get(
   "/movements",
@@ -58,17 +53,33 @@ router.get(
   ),
 );
 
-/*
- * ============================================================
- * PRODUCT-SPECIFIC HISTORY
- * ============================================================
- *
- * GET /api/inventory/products/:productId/movements
+/**
+ * GET
+ * /api/inventory/products/:productId/movements
  */
 router.get(
   "/products/:productId/movements",
   asyncHandler(
     getProductInventoryMovements,
+  ),
+);
+
+/**
+ * ============================================================
+ * STOCK ADJUSTMENT
+ * ============================================================
+ */
+
+/**
+ * POST
+ * /api/inventory/products/:productId/adjust
+ *
+ * Add or remove stock manually.
+ */
+router.post(
+  "/products/:productId/adjust",
+  asyncHandler(
+    adjustStock,
   ),
 );
 

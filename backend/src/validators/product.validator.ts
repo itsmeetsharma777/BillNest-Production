@@ -62,6 +62,13 @@ export const createProductSchema =
         "Selling price cannot be negative.",
       ),
 
+    /*
+     * Initial stock is allowed during
+     * product creation.
+     *
+     * 20.3 will record this as an
+     * initial_stock movement.
+     */
     stockQuantity:
       nonNegativeNumber(
         "Stock quantity cannot be negative.",
@@ -93,8 +100,83 @@ export const createProductSchema =
     ),
   });
 
+/*
+ * ============================================================
+ * PRODUCT UPDATE
+ * ============================================================
+ *
+ * stockQuantity is intentionally NOT included here.
+ *
+ * Stock changes must go through:
+ *
+ * /api/inventory/products/:productId/adjust
+ */
 export const updateProductSchema =
-  createProductSchema.partial();
+  z.object({
+    name: z
+      .string()
+      .trim()
+      .min(
+        1,
+        "Product name is required.",
+      )
+      .max(
+        200,
+        "Product name cannot exceed 200 characters.",
+      )
+      .optional(),
+
+    sku: optionalText(
+      100,
+      "SKU cannot exceed 100 characters.",
+    ),
+
+    category: optionalText(
+      100,
+      "Category cannot exceed 100 characters.",
+    ),
+
+    purchasePrice:
+      nonNegativeNumber(
+        "Purchase price cannot be negative.",
+      ).optional(),
+
+    sellingPrice:
+      nonNegativeNumber(
+        "Selling price cannot be negative.",
+      ).optional(),
+
+    lowStockThreshold:
+      nonNegativeNumber(
+        "Low-stock threshold cannot be negative.",
+      ).optional(),
+
+    warrantyPeriodMonths:
+      z
+        .number()
+        .int(
+          "Warranty period must be a whole number of months.",
+        )
+        .min(
+          0,
+          "Warranty period cannot be negative.",
+        )
+        .max(
+          1200,
+          "Warranty period cannot exceed 1200 months.",
+        )
+        .optional(),
+
+    description: optionalText(
+      2000,
+      "Description cannot exceed 2000 characters.",
+    ),
+
+    isActive:
+      z
+        .boolean()
+        .optional(),
+  });
 
 export const productListQuerySchema =
   z.object({

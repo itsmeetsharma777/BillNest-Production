@@ -17,13 +17,13 @@ import customerPortalRoutes from "./routes/customer-portal.routes";
 import customerNotificationRoutes from "./routes/customer-notification.routes";
 import customerAccountRoutes from "./routes/customer-account.routes";
 import productRoutes from "./routes/product.routes";
-import inventoryRoutes from "./routes/inventory.routes";
 import invoiceRoutes from "./routes/invoice.routes";
 import warrantyRoutes from "./routes/warranty.routes";
 import reportRoutes from "./routes/report.routes";
 import notificationRoutes from "./routes/notification.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
 import documentRoutes from "./routes/document.routes";
+import inventoryRoutes from "./routes/inventory.routes";
 
 import { errorMiddleware } from "./middleware/error.middleware";
 import { csrfProtection } from "./middleware/csrf.middleware";
@@ -35,13 +35,14 @@ import {
 const app = express();
 
 /**
- * BillNest is deployed behind platforms/proxies
- * such as Vercel/Render/etc.
+ * ============================================================
+ * TRUST PROXY
+ * ============================================================
+ *
+ * BillNest may run behind platforms/proxies such as
+ * Vercel, Render, Railway, etc.
  */
-app.set(
-  "trust proxy",
-  1,
-);
+app.set("trust proxy", 1);
 
 /**
  * ============================================================
@@ -61,12 +62,13 @@ app.use(
  * ============================================================
  * CORS
  * ============================================================
+ *
+ * Only the configured frontend origin is allowed
+ * to make credentialed browser requests.
  */
-
 app.use(
   cors({
-    origin:
-      env.FRONTEND_URL,
+    origin: env.FRONTEND_URL,
     credentials: true,
   }),
 );
@@ -96,38 +98,32 @@ app.use(
  * ============================================================
  */
 
-app.use(
-  cookieParser(),
-);
+app.use(cookieParser());
 
 /**
  * ============================================================
  * CSRF PROTECTION
  * ============================================================
+ *
+ * Must run after cookie/body parsing and before
+ * application routes.
  */
-
-app.use(
-  csrfProtection,
-);
+app.use(csrfProtection);
 
 /**
  * ============================================================
  * GENERAL API RATE LIMITER
  * ============================================================
+ *
+ * Authentication routes have additional,
+ * stricter rate limits inside their own routes.
  */
-
 const generalRateLimiter =
   rateLimit({
-    windowMs:
-      15 * 60 * 1000,
-
+    windowMs: 15 * 60 * 1000,
     limit: 200,
-
-    standardHeaders:
-      "draft-7",
-
-    legacyHeaders:
-      false,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
   });
 
 app.use(
@@ -138,8 +134,10 @@ app.use(
  * ============================================================
  * HEALTH CHECK
  * ============================================================
+ *
+ * Kept outside authentication so hosting platforms
+ * can verify that the backend is alive.
  */
-
 app.get(
   "/health",
   (_req, res) => {
@@ -196,43 +194,94 @@ app.use(
 
 /**
  * ============================================================
- * INVENTORY MANAGEMENT
+ * INVOICE MANAGEMENT
  * ============================================================
  */
-
-app.use(
-  "/api/inventory",
-  inventoryRoutes,
-);
 
 app.use(
   "/api/invoices",
   invoiceRoutes,
 );
 
+/**
+ * ============================================================
+ * WARRANTY MANAGEMENT
+ * ============================================================
+ */
+
 app.use(
   "/api/warranties",
   warrantyRoutes,
 );
+
+/**
+ * ============================================================
+ * REPORTS & ANALYTICS
+ * ============================================================
+ */
 
 app.use(
   "/api/reports",
   reportRoutes,
 );
 
+/**
+ * ============================================================
+ * DASHBOARD
+ * ============================================================
+ */
+
 app.use(
   "/api/dashboard",
   dashboardRoutes,
 );
+
+/**
+ * ============================================================
+ * DOCUMENTS
+ * ============================================================
+ */
 
 app.use(
   "/api/documents",
   documentRoutes,
 );
 
+/**
+ * ============================================================
+ * SHOPKEEPER NOTIFICATIONS
+ * ============================================================
+ */
+
 app.use(
   "/api/notifications",
   notificationRoutes,
+);
+
+/**
+ * ============================================================
+ * INVENTORY MANAGEMENT
+ * ============================================================
+ *
+ * Feature 20:
+ *
+ * 20.1 Inventory Movement Ledger
+ * 20.2 Stock Adjustment
+ *
+ * Current endpoints include:
+ *
+ * GET
+ * /api/inventory/movements
+ *
+ * GET
+ * /api/inventory/products/:productId/movements
+ *
+ * POST
+ * /api/inventory/products/:productId/adjust
+ */
+app.use(
+  "/api/inventory",
+  inventoryRoutes,
 );
 
 /**
@@ -261,7 +310,7 @@ app.use(
  * GLOBAL ERROR HANDLER
  * ============================================================
  *
- * This must remain after all routes.
+ * This MUST remain after all application routes.
  */
 app.use(
   errorMiddleware,
@@ -271,8 +320,10 @@ app.use(
  * ============================================================
  * WARRANTY NOTIFICATION SCHEDULER
  * ============================================================
+ *
+ * Runs once when the server starts and then
+ * once every hour.
  */
-
 const WARRANTY_NOTIFICATION_INTERVAL_MS =
   60 * 60 * 1000;
 
@@ -313,8 +364,14 @@ function startWarrantyNotificationScheduler() {
       }
     };
 
+  /**
+   * Run immediately when the server starts.
+   */
   void runCheck();
 
+  /**
+   * Continue checking every hour.
+   */
   return setInterval(
     () => {
       void runCheck();
@@ -327,8 +384,10 @@ function startWarrantyNotificationScheduler() {
  * ============================================================
  * START SERVER
  * ============================================================
+ *
+ * Start the BillNest backend only after the
+ * database connection succeeds.
  */
-
 async function startServer() {
   await connectDatabase();
 

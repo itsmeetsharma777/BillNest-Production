@@ -7,9 +7,13 @@ import {
   updateProductByIdForShop,
 } from "../repositories/product.repository";
 
-import { getShopForOwner } from "./shop.service";
+import {
+  getShopForOwner,
+} from "./shop.service";
 
-import { ApiError } from "../utils/api-error";
+import {
+  ApiError,
+} from "../utils/api-error";
 
 function cleanOptionalText(
   value?: string,
@@ -213,7 +217,6 @@ export async function updateProductForOwner(
     category?: string;
     purchasePrice?: number;
     sellingPrice?: number;
-    stockQuantity?: number;
     lowStockThreshold?: number;
     warrantyPeriodMonths?: number;
     description?: string;
@@ -279,11 +282,15 @@ export async function updateProductForOwner(
               input.sellingPrice,
           }),
 
-          ...(input.stockQuantity !==
-            undefined && {
-            stockQuantity:
-              input.stockQuantity,
-          }),
+          /*
+           * IMPORTANT:
+           *
+           * stockQuantity is intentionally
+           * not updated here.
+           *
+           * Use the inventory adjustment
+           * endpoint instead.
+           */
 
           ...(input.lowStockThreshold !==
             undefined && {
