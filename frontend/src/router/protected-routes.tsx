@@ -63,13 +63,19 @@ export function ProtectedRoutes() {
           <Route
             element={<ShopkeeperLayout />}
           >
-            {/* Dashboard */}
+            {/* ================================================= */}
+            {/* SHOPKEEPER DASHBOARD                              */}
+            {/* ================================================= */}
+
             <Route
               path="/shopkeeper"
               element={<ShopkeeperDashboard />}
             />
 
-            {/* Invoices */}
+            {/* ================================================= */}
+            {/* INVOICES                                         */}
+            {/* ================================================= */}
+
             <Route
               path="/shopkeeper/invoices"
               element={<InvoicesPage />}
@@ -248,3 +254,5 @@ export function ProtectedRoutes() {
     </>
   );
 }
+
+export default ProtectedRoutes;

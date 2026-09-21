@@ -117,6 +117,57 @@ export async function findAllExpiredWarranties(
   });
 }
 
+/**
+ * Find all active warranties that participate in
+ * automatic status synchronization.
+ *
+ * `no_warranty` warranties are included because their
+ * status must remain explicitly synchronized with their
+ * zero-month warranty period.
+ */
+export async function findAllActiveWarranties() {
+  return WarrantyModel.find({
+    isActive: true,
+  }).sort({
+    expiryDate: 1,
+  });
+}
+
+/**
+ * Update a warranty status only when its current status
+ * is different from the calculated status.
+ *
+ * This makes the background scheduler safe to run
+ * repeatedly without unnecessary database writes.
+ */
+export async function updateWarrantyStatusIfChanged(
+  warrantyId: string,
+  status:
+    | "active"
+    | "expiring_soon"
+    | "expired"
+    | "no_warranty",
+) {
+  return WarrantyModel.findOneAndUpdate(
+    {
+      _id: warrantyId,
+      isActive: true,
+      status: {
+        $ne: status,
+      },
+    },
+    {
+      $set: {
+        status,
+      },
+    },
+    {
+      new: true,
+      runValidators: true,
+    },
+  );
+}
+
 export async function createWarranty(data: {
   shopId: string;
   customerId: string;
