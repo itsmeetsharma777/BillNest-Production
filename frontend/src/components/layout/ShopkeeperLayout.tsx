@@ -8,6 +8,7 @@ import {
   LogOut,
   Menu,
   Moon,
+  PackageSearch,
   PanelLeftClose,
   PanelLeftOpen,
   PieChart,
@@ -49,6 +50,11 @@ const navigationItems: NavigationItem[] = [
     label: "Products",
     href: "/shopkeeper/products",
     icon: Boxes,
+  },
+  {
+    label: "Inventory",
+    href: "/shopkeeper/inventory/history",
+    icon: PackageSearch,
   },
   {
     label: "Invoices",
