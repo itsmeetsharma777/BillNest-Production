@@ -8,17 +8,48 @@ type ReportData = Awaited<
   ReturnType<typeof getReportsForOwner>
 >;
 
+const PAGE_WIDTH = 595.28;
+const PAGE_HEIGHT = 841.89;
+
+const MARGIN_LEFT = 50;
+const MARGIN_RIGHT = 50;
+const MARGIN_TOP = 45;
+const MARGIN_BOTTOM = 55;
+
+const CONTENT_WIDTH =
+  PAGE_WIDTH -
+  MARGIN_LEFT -
+  MARGIN_RIGHT;
+
+const FOOTER_Y =
+  PAGE_HEIGHT - 32;
+
+const CONTENT_BOTTOM =
+  PAGE_HEIGHT -
+  MARGIN_BOTTOM -
+  12;
+
+type TableColumn = {
+  title: string;
+  width: number;
+  align?: "left" | "center" | "right";
+};
+
 function formatCurrency(
   value: number,
 ) {
-  return new Intl.NumberFormat(
-    "en-IN",
-    {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 2,
-    },
-  ).format(Number(value) || 0);
+  const amount =
+    new Intl.NumberFormat(
+      "en-IN",
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      },
+    ).format(
+      Number(value) || 0,
+    );
+
+  return `INR ${amount}`;
 }
 
 function formatNumber(
@@ -38,7 +69,43 @@ function formatDate(
     return "—";
   }
 
-  const date = new Date(value);
+  /*
+   * When the backend returns a date-only value such as
+   * 2026-09-21, treat it as a local calendar date instead
+   * of allowing JavaScript timezone conversion to shift it.
+   */
+  if (
+    /^\d{4}-\d{2}-\d{2}$/.test(
+      value,
+    )
+  ) {
+    const [
+      year,
+      month,
+      day,
+    ] = value
+      .split("-")
+      .map(Number);
+
+    const date =
+      new Date(
+        year,
+        month - 1,
+        day,
+      );
+
+    return new Intl.DateTimeFormat(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      },
+    ).format(date);
+  }
+
+  const date =
+    new Date(value);
 
   if (
     Number.isNaN(
@@ -82,224 +149,542 @@ function getStatusLabel(
     );
 }
 
+function sanitizePdfText(
+  value: unknown,
+) {
+  return String(
+    value ?? "",
+  )
+    .replace(/\r?\n|\r/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function addPage(
+  doc: PDFKit.PDFDocument,
+) {
+  doc.addPage();
+
+  doc.x =
+    MARGIN_LEFT;
+
+  doc.y =
+    MARGIN_TOP;
+}
+
+function ensureSpace(
+  doc: PDFKit.PDFDocument,
+  requiredHeight: number,
+) {
+  if (
+    doc.y +
+      requiredHeight >
+    CONTENT_BOTTOM
+  ) {
+    addPage(doc);
+  }
+}
+
 function addTitle(
   doc: PDFKit.PDFDocument,
   title: string,
 ) {
+  ensureSpace(doc, 55);
+
+  doc.x =
+    MARGIN_LEFT;
+
   doc
-    .fontSize(20)
     .font("Helvetica-Bold")
+    .fontSize(21)
     .fillColor("#111827")
-    .text(title);
+    .text(
+      title,
+      MARGIN_LEFT,
+      doc.y,
+      {
+        width: CONTENT_WIDTH,
+        lineBreak: false,
+      },
+    );
 
-  doc.moveDown(0.3);
+  doc.y += 7;
 
   doc
-    .fontSize(9)
     .font("Helvetica")
+    .fontSize(9)
     .fillColor("#6B7280");
+}
+
+function addReportPeriod(
+  doc: PDFKit.PDFDocument,
+  startDate: string | null,
+  endDate: string | null,
+) {
+  ensureSpace(doc, 24);
+
+  doc
+    .font("Helvetica")
+    .fontSize(9)
+    .fillColor("#6B7280")
+    .text(
+      `Report period: ${formatDate(
+        startDate,
+      )} — ${formatDate(
+        endDate,
+      )}`,
+      MARGIN_LEFT,
+      doc.y,
+      {
+        width: CONTENT_WIDTH,
+        lineBreak: false,
+      },
+    );
+
+  doc.y += 8;
 }
 
 function addSectionTitle(
   doc: PDFKit.PDFDocument,
   title: string,
 ) {
-  if (
-    doc.y > 700
-  ) {
-    doc.addPage();
-  }
+  ensureSpace(doc, 45);
 
-  doc.moveDown(0.8);
+  doc.x =
+    MARGIN_LEFT;
 
   doc
-    .fontSize(13)
     .font("Helvetica-Bold")
+    .fontSize(12)
     .fillColor("#111827")
-    .text(title);
-
-  doc.moveDown(0.35);
-
-  doc
-    .moveTo(50, doc.y)
-    .lineTo(545, doc.y)
-    .strokeColor("#E5E7EB")
-    .stroke();
-
-  doc.moveDown(0.4);
-}
-
-function addKeyValue(
-  doc: PDFKit.PDFDocument,
-  label: string,
-  value: string,
-) {
-  if (
-    doc.y > 750
-  ) {
-    doc.addPage();
-  }
-
-  doc
-    .fontSize(9)
-    .font("Helvetica")
-    .fillColor("#6B7280")
     .text(
-      label,
-      55,
+      title,
+      MARGIN_LEFT,
       doc.y,
       {
-        continued: true,
-        width: 220,
+        width: CONTENT_WIDTH,
+        lineBreak: false,
       },
     );
 
-  doc
-    .font("Helvetica-Bold")
-    .fillColor("#111827")
-    .text(
-      ` ${value}`,
-      {
-        width: 300,
-      },
-    );
-}
-
-function addTableHeader(
-  doc: PDFKit.PDFDocument,
-  columns: string[],
-  widths: number[],
-) {
-  const startX = 50;
-  const y = doc.y;
-
-  let x = startX;
-
-  doc
-    .fontSize(8)
-    .font("Helvetica-Bold")
-    .fillColor("#374151");
-
-  columns.forEach(
-    (column, index) => {
-      doc.text(
-        column,
-        x,
-        y,
-        {
-          width:
-            widths[index],
-          continued: false,
-        },
-      );
-
-      x += widths[index];
-    },
-  );
+  doc.y += 5;
 
   doc
     .moveTo(
-      startX,
-      y + 14,
+      MARGIN_LEFT,
+      doc.y,
     )
     .lineTo(
-      545,
-      y + 14,
+      MARGIN_LEFT +
+        CONTENT_WIDTH,
+      doc.y,
     )
     .strokeColor("#D1D5DB")
+    .lineWidth(0.7)
     .stroke();
 
-  doc.y = y + 22;
+  doc.y += 8;
 }
 
-function addTableRow(
+function addEmptyMessage(
   doc: PDFKit.PDFDocument,
-  values: string[],
-  widths: number[],
+  message: string,
 ) {
-  if (
-    doc.y > 745
-  ) {
-    doc.addPage();
-  }
-
-  const startX = 50;
-  const y = doc.y;
-
-  let x = startX;
+  ensureSpace(doc, 24);
 
   doc
-    .fontSize(8)
     .font("Helvetica")
-    .fillColor("#374151");
+    .fontSize(9)
+    .fillColor("#6B7280")
+    .text(
+      sanitizePdfText(message),
+      MARGIN_LEFT,
+      doc.y,
+      {
+        width: CONTENT_WIDTH,
+        lineBreak: false,
+      },
+    );
 
-  values.forEach(
-    (value, index) => {
-      doc.text(
-        value,
-        x,
-        y,
-        {
-          width:
-            widths[index],
-          height: 32,
-          ellipsis: true,
-        },
+  doc.y += 8;
+}
+
+function addKeyValueGrid(
+  doc: PDFKit.PDFDocument,
+  items: Array<{
+    label: string;
+    value: string;
+  }>,
+  columns = 2,
+) {
+  const rowHeight = 23;
+
+  const columnWidth =
+    CONTENT_WIDTH /
+    columns;
+
+  for (
+    let index = 0;
+    index < items.length;
+    index += columns
+  ) {
+    ensureSpace(
+      doc,
+      rowHeight,
+    );
+
+    const rowItems =
+      items.slice(
+        index,
+        index + columns,
       );
 
-      x += widths[index];
+    const y =
+      doc.y;
+
+    rowItems.forEach(
+      (
+        item,
+        columnIndex,
+      ) => {
+        const x =
+          MARGIN_LEFT +
+          columnIndex *
+            columnWidth;
+
+        doc
+          .font("Helvetica")
+          .fontSize(8)
+          .fillColor("#6B7280")
+          .text(
+            sanitizePdfText(
+              item.label,
+            ),
+            x,
+            y,
+            {
+              width:
+                columnWidth -
+                12,
+              lineBreak: false,
+            },
+          );
+
+        doc
+          .font("Helvetica-Bold")
+          .fontSize(9)
+          .fillColor("#111827")
+          .text(
+            sanitizePdfText(
+              item.value,
+            ),
+            x +
+              105,
+            y,
+            {
+              width:
+                columnWidth -
+                117,
+              align: "right",
+              lineBreak: false,
+              ellipsis: true,
+            },
+          );
+      },
+    );
+
+    doc
+      .moveTo(
+        MARGIN_LEFT,
+        y + 17,
+      )
+      .lineTo(
+        MARGIN_LEFT +
+          CONTENT_WIDTH,
+        y + 17,
+      )
+      .strokeColor("#F3F4F6")
+      .lineWidth(0.5)
+      .stroke();
+
+    doc.y =
+      y + rowHeight;
+  }
+}
+
+function drawTableHeader(
+  doc: PDFKit.PDFDocument,
+  columns: TableColumn[],
+) {
+  const totalWidth =
+    columns.reduce(
+      (
+        total,
+        column,
+      ) =>
+        total +
+        column.width,
+      0,
+    );
+
+  const y =
+    doc.y;
+
+  doc
+    .rect(
+      MARGIN_LEFT,
+      y - 3,
+      totalWidth,
+      20,
+    )
+    .fill("#F3F4F6");
+
+  let x =
+    MARGIN_LEFT;
+
+  columns.forEach(
+    (column) => {
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(7.5)
+        .fillColor("#374151")
+        .text(
+          sanitizePdfText(
+            column.title,
+          ),
+          x + 6,
+          y + 2,
+          {
+            width:
+              column.width - 12,
+            align:
+              column.align ??
+              "left",
+            lineBreak: false,
+            ellipsis: true,
+          },
+        );
+
+      x +=
+        column.width;
     },
   );
 
   doc.y =
-    Math.max(
-      y + 25,
-      doc.y,
+    y + 23;
+}
+
+function drawTableRow(
+  doc: PDFKit.PDFDocument,
+  columns: TableColumn[],
+  values: string[],
+  options?: {
+    bold?: boolean;
+    background?: string;
+  },
+) {
+  const rowHeight = 21;
+
+  ensureSpace(
+    doc,
+    rowHeight + 2,
+  );
+
+  const y =
+    doc.y;
+
+  const totalWidth =
+    columns.reduce(
+      (
+        total,
+        column,
+      ) =>
+        total +
+        column.width,
+      0,
     );
+
+  if (
+    options?.background
+  ) {
+    doc
+      .rect(
+        MARGIN_LEFT,
+        y - 3,
+        totalWidth,
+        rowHeight,
+      )
+      .fill(
+        options.background,
+      );
+  }
+
+  let x =
+    MARGIN_LEFT;
+
+  columns.forEach(
+    (
+      column,
+      index,
+    ) => {
+      doc
+        .font(
+          options?.bold
+            ? "Helvetica-Bold"
+            : "Helvetica",
+        )
+        .fontSize(7.7)
+        .fillColor("#374151")
+        .text(
+          sanitizePdfText(
+            values[index] ??
+              "",
+          ),
+          x + 6,
+          y + 2,
+          {
+            width:
+              column.width - 12,
+            align:
+              column.align ??
+              "left",
+            lineBreak: false,
+            ellipsis: true,
+          },
+        );
+
+      x +=
+        column.width;
+    },
+  );
 
   doc
     .moveTo(
-      startX,
-      doc.y,
+      MARGIN_LEFT,
+      y + rowHeight - 2,
     )
     .lineTo(
-      545,
-      doc.y,
+      MARGIN_LEFT +
+        totalWidth,
+      y + rowHeight - 2,
     )
-    .strokeColor("#F3F4F6")
+    .strokeColor("#E5E7EB")
+    .lineWidth(0.45)
     .stroke();
 
-  doc.moveDown(0.25);
+  doc.y =
+    y + rowHeight;
+}
+
+function drawTable(
+  doc: PDFKit.PDFDocument,
+  columns: TableColumn[],
+  rows: string[][],
+  options?: {
+    totalRow?: string[];
+  },
+) {
+  const requiredHeight =
+    23 +
+    21;
+
+  ensureSpace(
+    doc,
+    requiredHeight,
+  );
+
+  drawTableHeader(
+    doc,
+    columns,
+  );
+
+  rows.forEach(
+    (row) => {
+      /*
+       * If a page break is required for a row,
+       * redraw the table header on the new page.
+       */
+      if (
+        doc.y + 23 >
+        CONTENT_BOTTOM
+      ) {
+        addPage(doc);
+
+        drawTableHeader(
+          doc,
+          columns,
+        );
+      }
+
+      drawTableRow(
+        doc,
+        columns,
+        row,
+      );
+    },
+  );
+
+  if (
+    options?.totalRow
+  ) {
+    if (
+      doc.y + 23 >
+      CONTENT_BOTTOM
+    ) {
+      addPage(doc);
+
+      drawTableHeader(
+        doc,
+        columns,
+      );
+    }
+
+    drawTableRow(
+      doc,
+      columns,
+      options.totalRow,
+      {
+        bold: true,
+        background: "#F9FAFB",
+      },
+    );
+  }
+
+  doc.y += 4;
 }
 
 function addFooter(
   doc: PDFKit.PDFDocument,
 ) {
-  const pageCount =
+  const pageRange =
     doc.bufferedPageRange();
 
   for (
     let index = 0;
-    index < pageCount.count;
+    index <
+    pageRange.count;
     index += 1
   ) {
     doc.switchToPage(
-      pageCount.start + index,
+      pageRange.start +
+        index,
     );
 
     doc
-      .fontSize(8)
       .font("Helvetica")
+      .fontSize(7.5)
       .fillColor("#9CA3AF")
       .text(
         `BillNest Reports & Analytics  •  Page ${
           index + 1
-        } of ${pageCount.count}`,
-        50,
-        800,
+        } of ${pageRange.count}`,
+        MARGIN_LEFT,
+        FOOTER_Y,
         {
-          width: 495,
+          width:
+            CONTENT_WIDTH,
           align: "center",
+          lineBreak: false,
         },
       );
   }
@@ -327,12 +712,17 @@ export async function generateReportPdf(
         new PDFDocument({
           size: "A4",
           margins: {
-            top: 50,
-            bottom: 55,
-            left: 50,
-            right: 50,
+            top:
+              MARGIN_TOP,
+            bottom:
+              MARGIN_BOTTOM,
+            left:
+              MARGIN_LEFT,
+            right:
+              MARGIN_RIGHT,
           },
           bufferPages: true,
+          autoFirstPage: true,
         });
 
       const chunks: Buffer[] =
@@ -340,8 +730,12 @@ export async function generateReportPdf(
 
       doc.on(
         "data",
-        (chunk: Buffer) => {
-          chunks.push(chunk);
+        (
+          chunk: Buffer,
+        ) => {
+          chunks.push(
+            chunk,
+          );
         },
       );
 
@@ -361,217 +755,216 @@ export async function generateReportPdf(
         reject,
       );
 
-      /* ==================================================== */
-      /* TITLE                                                  */
-      /* ==================================================== */
+      /*
+       * ======================================================
+       * TITLE
+       * ======================================================
+       */
 
       addTitle(
         doc,
         "BillNest Reports & Analytics",
       );
 
-      doc.text(
-        `Report period: ${formatDate(
-          report.period.startDate,
-        )} — ${formatDate(
-          report.period.endDate,
-        )}`,
+      addReportPeriod(
+        doc,
+        report.period
+          .startDate,
+        report.period
+          .endDate,
       );
 
-      doc.moveDown(0.8);
-
-      /* ==================================================== */
-      /* SUMMARY                                                */
-      /* ==================================================== */
+      /*
+       * ======================================================
+       * SUMMARY
+       * ======================================================
+       */
 
       addSectionTitle(
         doc,
         "Summary",
       );
 
-      addKeyValue(
+      addKeyValueGrid(
         doc,
-        "Total Invoices",
-        formatNumber(
-          report.overview
-            .totalInvoices,
-        ),
+        [
+          {
+            label:
+              "Total Invoices",
+            value:
+              formatNumber(
+                report
+                  .overview
+                  .totalInvoices,
+              ),
+          },
+          {
+            label:
+              "Total Sales",
+            value:
+              formatCurrency(
+                report
+                  .overview
+                  .totalSales,
+              ),
+          },
+          {
+            label:
+              "Total Subtotal",
+            value:
+              formatCurrency(
+                report
+                  .overview
+                  .totalSubtotal,
+              ),
+          },
+          {
+            label:
+              "Total Discount",
+            value:
+              formatCurrency(
+                report
+                  .overview
+                  .totalDiscount,
+              ),
+          },
+          {
+            label:
+              "Total Tax",
+            value:
+              formatCurrency(
+                report
+                  .overview
+                  .totalTax,
+              ),
+          },
+          {
+            label:
+              "Average Invoice",
+            value:
+              formatCurrency(
+                report
+                  .overview
+                  .averageInvoice,
+              ),
+          },
+          {
+            label:
+              "Amount Collected",
+            value:
+              formatCurrency(
+                report
+                  .overview
+                  .amountCollected,
+              ),
+          },
+          {
+            label:
+              "Amount Outstanding",
+            value:
+              formatCurrency(
+                report
+                  .overview
+                  .amountOutstanding,
+              ),
+          },
+          {
+            label:
+              "Collection Rate",
+            value:
+              `${report.overview.collectionRate}%`,
+          },
+          {
+            label:
+              "Payment Count",
+            value:
+              formatNumber(
+                report
+                  .overview
+                  .paymentCount,
+              ),
+          },
+        ],
       );
 
-      addKeyValue(
-        doc,
-        "Total Sales",
-        formatCurrency(
-          report.overview
-            .totalSales,
-        ),
-      );
-
-      addKeyValue(
-        doc,
-        "Total Subtotal",
-        formatCurrency(
-          report.overview
-            .totalSubtotal,
-        ),
-      );
-
-      addKeyValue(
-        doc,
-        "Total Discount",
-        formatCurrency(
-          report.overview
-            .totalDiscount,
-        ),
-      );
-
-      addKeyValue(
-        doc,
-        "Total Tax",
-        formatCurrency(
-          report.overview
-            .totalTax,
-        ),
-      );
-
-      addKeyValue(
-        doc,
-        "Average Invoice",
-        formatCurrency(
-          report.overview
-            .averageInvoice,
-        ),
-      );
-
-      addKeyValue(
-        doc,
-        "Amount Collected",
-        formatCurrency(
-          report.overview
-            .amountCollected,
-        ),
-      );
-
-      addKeyValue(
-        doc,
-        "Amount Outstanding",
-        formatCurrency(
-          report.overview
-            .amountOutstanding,
-        ),
-      );
-
-      addKeyValue(
-        doc,
-        "Collection Rate",
-        `${report.overview.collectionRate}%`,
-      );
-
-      addKeyValue(
-        doc,
-        "Payment Count",
-        formatNumber(
-          report.overview
-            .paymentCount,
-        ),
-      );
-
-      /* ==================================================== */
-      /* INVOICE STATUS                                         */
-      /* ==================================================== */
+      /*
+       * ======================================================
+       * INVOICE STATUS
+       * ======================================================
+       */
 
       addSectionTitle(
         doc,
         "Invoice Status",
       );
 
-      addTableHeader(
+      drawTable(
         doc,
         [
-          "Status",
-          "Count",
+          {
+            title:
+              "Status",
+            width: 390,
+          },
+          {
+            title:
+              "Count",
+            width: 105,
+            align:
+              "right",
+          },
         ],
         [
-          400,
-          95,
+          [
+            "Paid",
+            formatNumber(
+              report
+                .invoices
+                .paid,
+            ),
+          ],
+          [
+            "Partially Paid",
+            formatNumber(
+              report
+                .invoices
+                .partiallyPaid,
+            ),
+          ],
+          [
+            "Draft",
+            formatNumber(
+              report
+                .invoices
+                .draft,
+            ),
+          ],
+          [
+            "Cancelled",
+            formatNumber(
+              report
+                .invoices
+                .cancelled,
+            ),
+          ],
         ],
+        {
+          totalRow: [
+            "Total",
+            formatNumber(
+              report
+                .invoices
+                .total,
+            ),
+          ],
+        },
       );
 
-      addTableRow(
-        doc,
-        [
-          "Paid",
-          formatNumber(
-            report.invoices.paid,
-          ),
-        ],
-        [
-          400,
-          95,
-        ],
-      );
-
-      addTableRow(
-        doc,
-        [
-          "Partially Paid",
-          formatNumber(
-            report.invoices
-              .partiallyPaid,
-          ),
-        ],
-        [
-          400,
-          95,
-        ],
-      );
-
-      addTableRow(
-        doc,
-        [
-          "Draft",
-          formatNumber(
-            report.invoices.draft,
-          ),
-        ],
-        [
-          400,
-          95,
-        ],
-      );
-
-      addTableRow(
-        doc,
-        [
-          "Cancelled",
-          formatNumber(
-            report.invoices
-              .cancelled,
-          ),
-        ],
-        [
-          400,
-          95,
-        ],
-      );
-
-      addTableRow(
-        doc,
-        [
-          "Total",
-          formatNumber(
-            report.invoices.total,
-          ),
-        ],
-        [
-          400,
-          95,
-        ],
-      );
-
-      /* ==================================================== */
-      /* PAYMENT METHODS                                       */
-      /* ==================================================== */
+      /*
+       * ======================================================
+       * PAYMENT METHODS
+       * ======================================================
+       */
 
       addSectionTitle(
         doc,
@@ -579,36 +972,41 @@ export async function generateReportPdf(
       );
 
       if (
-        report.payments.byMethod
-          .length === 0
+        report.payments
+          .byMethod.length ===
+        0
       ) {
-        doc
-          .fontSize(9)
-          .font("Helvetica")
-          .fillColor("#6B7280")
-          .text(
-            "No payment data available.",
-          );
+        addEmptyMessage(
+          doc,
+          "No payment data available.",
+        );
       } else {
-        addTableHeader(
+        drawTable(
           doc,
           [
-            "Payment Method",
-            "Count",
-            "Amount",
+            {
+              title:
+                "Payment Method",
+              width: 280,
+            },
+            {
+              title:
+                "Count",
+              width: 80,
+              align:
+                "right",
+            },
+            {
+              title:
+                "Amount",
+              width: 135,
+              align:
+                "right",
+            },
           ],
-          [
-            275,
-            90,
-            130,
-          ],
-        );
-
-        report.payments.byMethod.forEach(
-          (item) => {
-            addTableRow(
-              doc,
-              [
+          report.payments
+            .byMethod.map(
+              (item) => [
                 formatPaymentMethod(
                   item.method,
                 ),
@@ -619,19 +1017,15 @@ export async function generateReportPdf(
                   item.amount,
                 ),
               ],
-              [
-                275,
-                90,
-                130,
-              ],
-            );
-          },
+            ),
         );
       }
 
-      /* ==================================================== */
-      /* SALES TREND                                           */
-      /* ==================================================== */
+      /*
+       * ======================================================
+       * SALES TREND
+       * ======================================================
+       */
 
       addSectionTitle(
         doc,
@@ -639,36 +1033,41 @@ export async function generateReportPdf(
       );
 
       if (
-        report.trends.sales
-          .length === 0
+        report.trends
+          .sales.length ===
+        0
       ) {
-        doc
-          .fontSize(9)
-          .font("Helvetica")
-          .fillColor("#6B7280")
-          .text(
-            "No sales recorded during this period.",
-          );
+        addEmptyMessage(
+          doc,
+          "No sales recorded during this period.",
+        );
       } else {
-        addTableHeader(
+        drawTable(
           doc,
           [
-            "Date",
-            "Sales",
-            "Invoices",
+            {
+              title:
+                "Date",
+              width: 245,
+            },
+            {
+              title:
+                "Sales",
+              width: 175,
+              align:
+                "right",
+            },
+            {
+              title:
+                "Invoices",
+              width: 75,
+              align:
+                "right",
+            },
           ],
-          [
-            250,
-            170,
-            75,
-          ],
-        );
-
-        report.trends.sales.forEach(
-          (item) => {
-            addTableRow(
-              doc,
-              [
+          report.trends
+            .sales.map(
+              (item) => [
                 formatDate(
                   item.date,
                 ),
@@ -679,19 +1078,15 @@ export async function generateReportPdf(
                   item.invoices,
                 ),
               ],
-              [
-                250,
-                170,
-                75,
-              ],
-            );
-          },
+            ),
         );
       }
 
-      /* ==================================================== */
-      /* PAYMENT TREND                                         */
-      /* ==================================================== */
+      /*
+       * ======================================================
+       * PAYMENT TREND
+       * ======================================================
+       */
 
       addSectionTitle(
         doc,
@@ -699,36 +1094,41 @@ export async function generateReportPdf(
       );
 
       if (
-        report.trends.payments
-          .length === 0
+        report.trends
+          .payments.length ===
+        0
       ) {
-        doc
-          .fontSize(9)
-          .font("Helvetica")
-          .fillColor("#6B7280")
-          .text(
-            "No payments recorded during this period.",
-          );
+        addEmptyMessage(
+          doc,
+          "No payments recorded during this period.",
+        );
       } else {
-        addTableHeader(
+        drawTable(
           doc,
           [
-            "Date",
-            "Amount",
-            "Payments",
+            {
+              title:
+                "Date",
+              width: 245,
+            },
+            {
+              title:
+                "Amount",
+              width: 175,
+              align:
+                "right",
+            },
+            {
+              title:
+                "Payments",
+              width: 75,
+              align:
+                "right",
+            },
           ],
-          [
-            250,
-            170,
-            75,
-          ],
-        );
-
-        report.trends.payments.forEach(
-          (item) => {
-            addTableRow(
-              doc,
-              [
+          report.trends
+            .payments.map(
+              (item) => [
                 formatDate(
                   item.date,
                 ),
@@ -739,19 +1139,15 @@ export async function generateReportPdf(
                   item.payments,
                 ),
               ],
-              [
-                250,
-                170,
-                75,
-              ],
-            );
-          },
+            ),
         );
       }
 
-      /* ==================================================== */
-      /* TOP PRODUCTS                                          */
-      /* ==================================================== */
+      /*
+       * ======================================================
+       * TOP PRODUCTS
+       * ======================================================
+       */
 
       addSectionTitle(
         doc,
@@ -762,35 +1158,42 @@ export async function generateReportPdf(
         report.topProducts
           .length === 0
       ) {
-        doc
-          .fontSize(9)
-          .font("Helvetica")
-          .fillColor("#6B7280")
-          .text(
-            "No product sales recorded during this period.",
-          );
+        addEmptyMessage(
+          doc,
+          "No product sales recorded during this period.",
+        );
       } else {
-        addTableHeader(
+        drawTable(
           doc,
           [
-            "Product",
-            "SKU",
-            "Quantity",
-            "Revenue",
+            {
+              title:
+                "Product",
+              width: 205,
+            },
+            {
+              title:
+                "SKU",
+              width: 115,
+            },
+            {
+              title:
+                "Quantity",
+              width: 80,
+              align:
+                "right",
+            },
+            {
+              title:
+                "Revenue",
+              width: 95,
+              align:
+                "right",
+            },
           ],
-          [
-            210,
-            110,
-            75,
-            100,
-          ],
-        );
-
-        report.topProducts.forEach(
-          (item) => {
-            addTableRow(
-              doc,
-              [
+          report.topProducts
+            .map(
+              (item) => [
                 item.productName,
                 item.sku ?? "—",
                 formatNumber(
@@ -800,20 +1203,15 @@ export async function generateReportPdf(
                   item.revenue,
                 ),
               ],
-              [
-                210,
-                110,
-                75,
-                100,
-              ],
-            );
-          },
+            ),
         );
       }
 
-      /* ==================================================== */
-      /* TOP CUSTOMERS                                         */
-      /* ==================================================== */
+      /*
+       * ======================================================
+       * TOP CUSTOMERS
+       * ======================================================
+       */
 
       addSectionTitle(
         doc,
@@ -824,37 +1222,51 @@ export async function generateReportPdf(
         report.topCustomers
           .length === 0
       ) {
-        doc
-          .fontSize(9)
-          .font("Helvetica")
-          .fillColor("#6B7280")
-          .text(
-            "No customer purchase data available.",
-          );
+        addEmptyMessage(
+          doc,
+          "No customer purchase data available.",
+        );
       } else {
-        addTableHeader(
+        drawTable(
           doc,
           [
-            "Customer",
-            "Invoices",
-            "Purchases",
-            "Paid",
-            "Due",
+            {
+              title:
+                "Customer",
+              width: 165,
+            },
+            {
+              title:
+                "Invoices",
+              width: 70,
+              align:
+                "right",
+            },
+            {
+              title:
+                "Purchases",
+              width: 110,
+              align:
+                "right",
+            },
+            {
+              title:
+                "Paid",
+              width: 100,
+              align:
+                "right",
+            },
+            {
+              title:
+                "Due",
+              width: 100,
+              align:
+                "right",
+            },
           ],
-          [
-            175,
-            70,
-            120,
-            115,
-            115,
-          ],
-        );
-
-        report.topCustomers.forEach(
-          (item) => {
-            addTableRow(
-              doc,
-              [
+          report.topCustomers
+            .map(
+              (item) => [
                 item.name,
                 formatNumber(
                   item.invoiceCount,
@@ -869,21 +1281,15 @@ export async function generateReportPdf(
                   item.totalDue,
                 ),
               ],
-              [
-                175,
-                70,
-                120,
-                115,
-                115,
-              ],
-            );
-          },
+            ),
         );
       }
 
-      /* ==================================================== */
-      /* OUTSTANDING INVOICES                                  */
-      /* ==================================================== */
+      /*
+       * ======================================================
+       * OUTSTANDING INVOICES
+       * ======================================================
+       */
 
       addSectionTitle(
         doc,
@@ -891,40 +1297,50 @@ export async function generateReportPdf(
       );
 
       if (
-        report.outstandingInvoices
+        report
+          .outstandingInvoices
           .length === 0
       ) {
-        doc
-          .fontSize(9)
-          .font("Helvetica")
-          .fillColor("#6B7280")
-          .text(
-            "No outstanding invoices for this period.",
-          );
+        addEmptyMessage(
+          doc,
+          "No outstanding invoices for this period.",
+        );
       } else {
-        addTableHeader(
+        drawTable(
           doc,
           [
-            "Invoice",
-            "Customer",
-            "Due Date",
-            "Status",
-            "Amount Due",
+            {
+              title:
+                "Invoice",
+              width: 85,
+            },
+            {
+              title:
+                "Customer",
+              width: 145,
+            },
+            {
+              title:
+                "Due Date",
+              width: 85,
+            },
+            {
+              title:
+                "Status",
+              width: 105,
+            },
+            {
+              title:
+                "Amount Due",
+              width: 125,
+              align:
+                "right",
+            },
           ],
-          [
-            90,
-            155,
-            90,
-            95,
-            115,
-          ],
-        );
-
-        report.outstandingInvoices.forEach(
-          (invoice) => {
-            addTableRow(
-              doc,
-              [
+          report
+            .outstandingInvoices
+            .map(
+              (invoice) => [
                 invoice.invoiceNumber,
                 invoice.customerName,
                 formatDate(
@@ -937,135 +1353,159 @@ export async function generateReportPdf(
                   invoice.amountDue,
                 ),
               ],
-              [
-                90,
-                155,
-                90,
-                95,
-                115,
-              ],
-            );
-          },
+            ),
         );
       }
 
-      /* ==================================================== */
-      /* INVENTORY                                             */
-      /* ==================================================== */
+      /*
+       * ======================================================
+       * INVENTORY OVERVIEW
+       * ======================================================
+       */
 
       addSectionTitle(
         doc,
         "Inventory Overview",
       );
 
-      addKeyValue(
+      addKeyValueGrid(
         doc,
-        "Total Products",
-        formatNumber(
-          report.inventory
-            .totalProducts,
-        ),
+        [
+          {
+            label:
+              "Total Products",
+            value:
+              formatNumber(
+                report
+                  .inventory
+                  .totalProducts,
+              ),
+          },
+          {
+            label:
+              "Active Products",
+            value:
+              formatNumber(
+                report
+                  .inventory
+                  .activeProducts,
+              ),
+          },
+          {
+            label:
+              "Inactive Products",
+            value:
+              formatNumber(
+                report
+                  .inventory
+                  .inactiveProducts,
+              ),
+          },
+          {
+            label:
+              "Total Stock Units",
+            value:
+              formatNumber(
+                report
+                  .inventory
+                  .totalStockUnits,
+              ),
+          },
+          {
+            label:
+              "Low Stock Products",
+            value:
+              formatNumber(
+                report
+                  .inventory
+                  .lowStockProducts,
+              ),
+          },
+          {
+            label:
+              "Out of Stock Products",
+            value:
+              formatNumber(
+                report
+                  .inventory
+                  .outOfStockProducts,
+              ),
+          },
+        ],
       );
 
-      addKeyValue(
-        doc,
-        "Active Products",
-        formatNumber(
-          report.inventory
-            .activeProducts,
-        ),
-      );
-
-      addKeyValue(
-        doc,
-        "Inactive Products",
-        formatNumber(
-          report.inventory
-            .inactiveProducts,
-        ),
-      );
-
-      addKeyValue(
-        doc,
-        "Total Stock Units",
-        formatNumber(
-          report.inventory
-            .totalStockUnits,
-        ),
-      );
-
-      addKeyValue(
-        doc,
-        "Low Stock Products",
-        formatNumber(
-          report.inventory
-            .lowStockProducts,
-        ),
-      );
-
-      addKeyValue(
-        doc,
-        "Out of Stock Products",
-        formatNumber(
-          report.inventory
-            .outOfStockProducts,
-        ),
-      );
-
-      /* ==================================================== */
-      /* WARRANTY                                              */
-      /* ==================================================== */
+      /*
+       * ======================================================
+       * WARRANTY OVERVIEW
+       * ======================================================
+       */
 
       addSectionTitle(
         doc,
         "Warranty Overview",
       );
 
-      addKeyValue(
+      addKeyValueGrid(
         doc,
-        "Total",
-        formatNumber(
-          report.warranties.total,
-        ),
+        [
+          {
+            label:
+              "Total",
+            value:
+              formatNumber(
+                report
+                  .warranties
+                  .total,
+              ),
+          },
+          {
+            label:
+              "Active",
+            value:
+              formatNumber(
+                report
+                  .warranties
+                  .active,
+              ),
+          },
+          {
+            label:
+              "Expiring Soon",
+            value:
+              formatNumber(
+                report
+                  .warranties
+                  .expiringSoon,
+              ),
+          },
+          {
+            label:
+              "Expired",
+            value:
+              formatNumber(
+                report
+                  .warranties
+                  .expired,
+              ),
+          },
+          {
+            label:
+              "No Warranty",
+            value:
+              formatNumber(
+                report
+                  .warranties
+                  .noWarranty,
+              ),
+          },
+        ],
       );
 
-      addKeyValue(
-        doc,
-        "Active",
-        formatNumber(
-          report.warranties.active,
-        ),
-      );
-
-      addKeyValue(
-        doc,
-        "Expiring Soon",
-        formatNumber(
-          report.warranties
-            .expiringSoon,
-        ),
-      );
-
-      addKeyValue(
-        doc,
-        "Expired",
-        formatNumber(
-          report.warranties.expired,
-        ),
-      );
-
-      addKeyValue(
-        doc,
-        "No Warranty",
-        formatNumber(
-          report.warranties
-            .noWarranty,
-        ),
-      );
-
-      /* ==================================================== */
-      /* FOOTER                                                */
-      /* ==================================================== */
+      /*
+       * ======================================================
+       * FOOTER
+       * ======================================================
+       */
 
       addFooter(doc);
 

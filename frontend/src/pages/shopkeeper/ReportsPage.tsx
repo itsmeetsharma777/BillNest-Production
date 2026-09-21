@@ -640,6 +640,9 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] =
     useState(true);
 
+  const [isExportingPdf, setIsExportingPdf] =
+    useState(false);
+
   const [error, setError] = useState("");
 
   async function loadReports() {
@@ -831,6 +834,109 @@ export default function ReportsPage() {
     );
   }
 
+  /* ========================================================= */
+  /* PDF EXPORT — FEATURE 19.4.2                              */
+  /* ========================================================= */
+
+  async function handleExportPdf() {
+    if (!report || isExportingPdf) {
+      return;
+    }
+
+    try {
+      setIsExportingPdf(true);
+      setError("");
+
+      const params = new URLSearchParams();
+
+      if (startDate) {
+        params.set(
+          "startDate",
+          startDate,
+        );
+      }
+
+      if (endDate) {
+        params.set(
+          "endDate",
+          `${endDate}T23:59:59.999`,
+        );
+      }
+
+      const response = await fetch(
+        `${API_URL}/reports/pdf?${params.toString()}`,
+        {
+          method: "GET",
+          credentials: "include",
+        },
+      );
+
+      if (!response.ok) {
+        let message =
+          `Failed to generate PDF (${response.status}).`;
+
+        try {
+          const result =
+            (await response.json()) as {
+              message?: string;
+            };
+
+          if (result.message) {
+            message = result.message;
+          }
+        } catch {
+          // Keep default message.
+        }
+
+        throw new Error(message);
+      }
+
+      const blob =
+        await response.blob();
+
+      const url =
+        URL.createObjectURL(blob);
+
+      const anchor =
+        document.createElement("a");
+
+      anchor.href = url;
+
+      const periodStart =
+        report.period.startDate ??
+        startDate ??
+        "report";
+
+      const periodEnd =
+        report.period.endDate ??
+        endDate ??
+        "report";
+
+      anchor.download =
+        `billnest-report-${periodStart.slice(
+          0,
+          10,
+        )}-to-${periodEnd.slice(
+          0,
+          10,
+        )}.pdf`;
+
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+
+      URL.revokeObjectURL(url);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Failed to generate report PDF.",
+      );
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
       {/* ===================================================== */}
@@ -866,7 +972,8 @@ export default function ReportsPage() {
             onClick={handleExportCsv}
             disabled={
               isLoading ||
-              !report
+              !report ||
+              isExportingPdf
             }
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border bg-card px-4 text-sm font-medium shadow-sm transition hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
           >
@@ -876,13 +983,41 @@ export default function ReportsPage() {
           </button>
 
           {/* ================================================= */}
+          {/* PDF EXPORT                                        */}
+          {/* ================================================= */}
+
+          <button
+            type="button"
+            onClick={() => void handleExportPdf()}
+            disabled={
+              isLoading ||
+              !report ||
+              isExportingPdf
+            }
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border bg-card px-4 text-sm font-medium shadow-sm transition hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+          >
+            {isExportingPdf ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <FileText className="size-4" />
+            )}
+
+            {isExportingPdf
+              ? "Generating PDF..."
+              : "Export PDF"}
+          </button>
+
+          {/* ================================================= */}
           {/* REFRESH                                            */}
           {/* ================================================= */}
 
           <button
             type="button"
             onClick={() => void loadReports()}
-            disabled={isLoading}
+            disabled={
+              isLoading ||
+              isExportingPdf
+            }
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border bg-card px-4 text-sm font-medium shadow-sm transition hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
           >
             <RefreshCw
@@ -899,7 +1034,7 @@ export default function ReportsPage() {
       </div>
 
       {/* ===================================================== */}
-      {/* DATE FILTER                                            */}
+      {/* DATE FILTER                                           */}
       {/* ===================================================== */}
 
       <form
@@ -965,7 +1100,10 @@ export default function ReportsPage() {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={
+              isLoading ||
+              isExportingPdf
+            }
             className="h-10 self-end rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
           >
             {isLoading
@@ -976,7 +1114,7 @@ export default function ReportsPage() {
       </form>
 
       {/* ===================================================== */}
-      {/* ERROR                                                  */}
+      {/* ERROR                                                 */}
       {/* ===================================================== */}
 
       {error && (
@@ -2070,7 +2208,7 @@ function PaymentBarChart({
 }
 
 /* ========================================================= */
-/* PAYMENT METHOD DONUT                                     */
+/* PAYMENT METHOD DONUT                                      */
 /* ========================================================= */
 
 function PaymentMethodChart({

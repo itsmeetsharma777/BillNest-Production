@@ -17,6 +17,7 @@ import customerPortalRoutes from "./routes/customer-portal.routes";
 import customerNotificationRoutes from "./routes/customer-notification.routes";
 import customerAccountRoutes from "./routes/customer-account.routes";
 import productRoutes from "./routes/product.routes";
+import inventoryRoutes from "./routes/inventory.routes";
 import invoiceRoutes from "./routes/invoice.routes";
 import warrantyRoutes from "./routes/warranty.routes";
 import reportRoutes from "./routes/report.routes";
@@ -37,7 +38,10 @@ const app = express();
  * BillNest is deployed behind platforms/proxies
  * such as Vercel/Render/etc.
  */
-app.set("trust proxy", 1);
+app.set(
+  "trust proxy",
+  1,
+);
 
 /**
  * ============================================================
@@ -57,13 +61,12 @@ app.use(
  * ============================================================
  * CORS
  * ============================================================
- *
- * Only the configured frontend origin is allowed
- * to make credentialed browser requests.
  */
+
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    origin:
+      env.FRONTEND_URL,
     credentials: true,
   }),
 );
@@ -93,32 +96,38 @@ app.use(
  * ============================================================
  */
 
-app.use(cookieParser());
+app.use(
+  cookieParser(),
+);
 
 /**
  * ============================================================
  * CSRF PROTECTION
  * ============================================================
- *
- * Must run after cookie/body parsing and before
- * application routes.
  */
-app.use(csrfProtection);
+
+app.use(
+  csrfProtection,
+);
 
 /**
  * ============================================================
  * GENERAL API RATE LIMITER
  * ============================================================
- *
- * Authentication routes have additional,
- * stricter rate limits inside their own routes.
  */
+
 const generalRateLimiter =
   rateLimit({
-    windowMs: 15 * 60 * 1000,
+    windowMs:
+      15 * 60 * 1000,
+
     limit: 200,
-    standardHeaders: "draft-7",
-    legacyHeaders: false,
+
+    standardHeaders:
+      "draft-7",
+
+    legacyHeaders:
+      false,
   });
 
 app.use(
@@ -129,10 +138,8 @@ app.use(
  * ============================================================
  * HEALTH CHECK
  * ============================================================
- *
- * Kept outside authentication so hosting platforms
- * can verify that the backend is alive.
  */
+
 app.get(
   "/health",
   (_req, res) => {
@@ -185,6 +192,17 @@ app.use(
 app.use(
   "/api/products",
   productRoutes,
+);
+
+/**
+ * ============================================================
+ * INVENTORY MANAGEMENT
+ * ============================================================
+ */
+
+app.use(
+  "/api/inventory",
+  inventoryRoutes,
 );
 
 app.use(
@@ -253,10 +271,8 @@ app.use(
  * ============================================================
  * WARRANTY NOTIFICATION SCHEDULER
  * ============================================================
- *
- * Runs once when the server starts and then
- * once every hour.
  */
+
 const WARRANTY_NOTIFICATION_INTERVAL_MS =
   60 * 60 * 1000;
 
@@ -297,14 +313,8 @@ function startWarrantyNotificationScheduler() {
       }
     };
 
-  /**
-   * Run immediately when the server starts.
-   */
   void runCheck();
 
-  /**
-   * Continue checking every hour.
-   */
   return setInterval(
     () => {
       void runCheck();
@@ -317,10 +327,8 @@ function startWarrantyNotificationScheduler() {
  * ============================================================
  * START SERVER
  * ============================================================
- *
- * Start the BillNest backend only after the
- * database connection succeeds.
  */
+
 async function startServer() {
   await connectDatabase();
 
