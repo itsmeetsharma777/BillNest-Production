@@ -28,49 +28,79 @@ interface AuthContextValue {
 }
 
 const API_URL =
-  import.meta.env.VITE_API_URL ?? "http://localhost:5001/api";
+  import.meta.env.VITE_API_URL ??
+  "http://localhost:5001/api";
 
-const AuthContext = createContext<AuthContextValue | undefined>(
-  undefined,
-);
+const AuthContext =
+  createContext<AuthContextValue | undefined>(
+    undefined,
+  );
 
 export function AuthProvider({
   children,
 }: {
   children: ReactNode;
 }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] =
+    useState<AuthUser | null>(null);
 
-  const refreshUser = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_URL}/auth/me`, {
-        method: "GET",
-        credentials: "include",
-      });
+  const [isLoading, setIsLoading] =
+    useState(true);
 
-      if (!response.ok) {
+  /**
+   * Fetch the currently authenticated user.
+   *
+   * IMPORTANT:
+   * We intentionally do NOT logout the user when
+   * the page is refreshed or closed.
+   *
+   * Authentication is controlled by the server
+   * session/cookie and explicit logout.
+   */
+  const refreshUser =
+    useCallback(async () => {
+      try {
+        const response = await fetch(
+          `${API_URL}/auth/me`,
+          {
+            method: "GET",
+            credentials: "include",
+          },
+        );
+
+        if (!response.ok) {
+          setUser(null);
+          return;
+        }
+
+        const result =
+          await response.json();
+
+        setUser(
+          result?.data?.user ?? null,
+        );
+      } catch {
         setUser(null);
-        return;
       }
+    }, []);
 
-      const result = await response.json();
-
-      setUser(result?.data?.user ?? null);
-    } catch {
-      setUser(null);
-    }
-  }, []);
-
+  /**
+   * Restore the authenticated session when
+   * the application starts or the page is refreshed.
+   */
   useEffect(() => {
     let isMounted = true;
 
     async function loadUser() {
       try {
-        const response = await fetch(`${API_URL}/auth/me`, {
-          method: "GET",
-          credentials: "include",
-        });
+        const response =
+          await fetch(
+            `${API_URL}/auth/me`,
+            {
+              method: "GET",
+              credentials: "include",
+            },
+          );
 
         if (!response.ok) {
           if (isMounted) {
@@ -80,10 +110,13 @@ export function AuthProvider({
           return;
         }
 
-        const result = await response.json();
+        const result =
+          await response.json();
 
         if (isMounted) {
-          setUser(result?.data?.user ?? null);
+          setUser(
+            result?.data?.user ?? null,
+          );
         }
       } catch {
         if (isMounted) {
@@ -103,95 +136,60 @@ export function AuthProvider({
     };
   }, []);
 
-  /*
-   * Automatically invalidate the server session when
-   * the BillNest page is unloaded.
+  /**
+   * Explicit logout only.
    *
-   * This handles:
-   * - closing the browser window
-   * - closing the browser
-   * - closing the BillNest tab
-   * - refreshing the page
-   * - navigating away from BillNest
+   * Refreshing, closing the tab, closing the browser,
+   * or reopening the application does NOT call this.
    *
-   * Normal React Router navigation inside BillNest does
-   * NOT unload the page, so it does not log the user out.
+   * The user remains authenticated until they explicitly
+   * choose "Sign out" or the server session expires.
    */
-  useEffect(() => {
-    if (!user) {
-      return;
-    }
-
-    let logoutSent = false;
-
-    const handlePageHide = () => {
-      if (logoutSent) {
-        return;
+  const logout =
+    useCallback(async () => {
+      try {
+        await fetch(
+          `${API_URL}/auth/logout`,
+          {
+            method: "POST",
+            credentials: "include",
+          },
+        );
+      } finally {
+        setUser(null);
       }
+    }, []);
 
-      logoutSent = true;
-
-      void fetch(`${API_URL}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-        keepalive: true,
-      }).catch(() => {
-        /*
-         * The browser may terminate the request during shutdown.
-         * The server session will expire normally if this happens.
-         */
-      });
-    };
-
-    window.addEventListener(
-      "pagehide",
-      handlePageHide,
+  const value =
+    useMemo<AuthContextValue>(
+      () => ({
+        user,
+        isLoading,
+        isAuthenticated:
+          Boolean(user),
+        refreshUser,
+        logout,
+      }),
+      [
+        user,
+        isLoading,
+        refreshUser,
+        logout,
+      ],
     );
 
-    return () => {
-      window.removeEventListener(
-        "pagehide",
-        handlePageHide,
-      );
-    };
-  }, [user]);
-
-  const logout = useCallback(async () => {
-    try {
-      await fetch(`${API_URL}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
-    } finally {
-      setUser(null);
-    }
-  }, []);
-
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      user,
-      isLoading,
-      isAuthenticated: Boolean(user),
-      refreshUser,
-      logout,
-    }),
-    [
-      user,
-      isLoading,
-      refreshUser,
-      logout,
-    ],
-  );
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={value}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
+  const context =
+    useContext(AuthContext);
 
   if (!context) {
     throw new Error(

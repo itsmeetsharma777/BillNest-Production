@@ -1,5 +1,6 @@
 import {
   Bell,
+  CreditCard,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -9,6 +10,7 @@ import {
   Store,
   UserCircle,
 } from "lucide-react";
+
 import {
   NavLink,
   Outlet,
@@ -31,6 +33,11 @@ const navigation = [
     icon: Receipt,
   },
   {
+    label: "Payments",
+    href: "/customer/payments",
+    icon: CreditCard,
+  },
+  {
     label: "Warranties",
     href: "/customer/warranties",
     icon: ShieldCheck,
@@ -47,14 +54,45 @@ export function CustomerLayout() {
   const navigate = useNavigate();
 
   async function handleLogout() {
-    await logout();
-    navigate("/register", { replace: true });
+    /*
+     * Save the role before logout clears the user.
+     */
+    const role = user?.role;
+
+    try {
+      await logout();
+    } finally {
+      /*
+       * Customer logout MUST go to customer login.
+       *
+       * We intentionally do not use:
+       * /login
+       * /register
+       *
+       * because those are legacy shopkeeper routes.
+       */
+      if (role === "customer") {
+        window.location.replace("/customer/login");
+        return;
+      }
+
+      /*
+       * Safety fallback.
+       */
+      window.location.replace("/customer/login");
+    }
   }
 
   return (
     <div className="min-h-screen bg-muted/30 text-foreground">
       <div className="flex min-h-screen">
+
+        {/* ===================================================== */}
+        {/* DESKTOP SIDEBAR                                      */}
+        {/* ===================================================== */}
+
         <aside className="hidden w-64 shrink-0 border-r bg-card lg:flex lg:flex-col">
+
           <div className="flex h-16 items-center gap-3 border-b px-5">
             <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <FileText className="size-5" />
@@ -71,6 +109,7 @@ export function CustomerLayout() {
             </div>
           </div>
 
+          {/* Navigation */}
           <nav className="flex-1 space-y-1 p-4">
             {navigation.map((item) => {
               const Icon = item.icon;
@@ -90,14 +129,18 @@ export function CustomerLayout() {
                   }
                 >
                   <Icon className="size-4.5" />
+
                   {item.label}
                 </NavLink>
               );
             })}
           </nav>
 
+          {/* User section */}
           <div className="border-t p-4">
+
             <div className="mb-3 flex items-center gap-3 rounded-xl bg-muted/60 p-3">
+
               <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                 <UserCircle className="size-5" />
               </div>
@@ -111,6 +154,7 @@ export function CustomerLayout() {
                   {user?.email ?? ""}
                 </p>
               </div>
+
             </div>
 
             <Button
@@ -119,14 +163,25 @@ export function CustomerLayout() {
               onClick={handleLogout}
             >
               <LogOut className="size-4" />
+
               Sign out
             </Button>
+
           </div>
         </aside>
 
+        {/* ===================================================== */}
+        {/* MAIN AREA                                             */}
+        {/* ===================================================== */}
+
         <div className="flex min-w-0 flex-1 flex-col">
+
+          {/* Header */}
           <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur sm:px-6 lg:px-8">
+
+            {/* Mobile logo */}
             <div className="flex items-center gap-3 lg:hidden">
+
               <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
                 <FileText className="size-5" />
               </div>
@@ -140,8 +195,10 @@ export function CustomerLayout() {
                   Customer Portal
                 </p>
               </div>
+
             </div>
 
+            {/* Desktop label */}
             <div className="hidden items-center gap-2 lg:flex">
               <Store className="size-4 text-muted-foreground" />
 
@@ -150,15 +207,15 @@ export function CustomerLayout() {
               </span>
             </div>
 
+            {/* Header actions */}
             <div className="flex items-center gap-2">
+
               <Button
                 variant="ghost"
                 size="icon"
                 className="text-muted-foreground"
                 onClick={() =>
-                  navigate(
-                    "/customer/notifications",
-                  )
+                  navigate("/customer/notifications")
                 }
               >
                 <Bell className="size-4" />
@@ -169,11 +226,15 @@ export function CustomerLayout() {
               </Button>
 
               <ThemeSelector />
+
             </div>
           </header>
 
+          {/* Mobile navigation */}
           <div className="border-b bg-card px-4 py-2 lg:hidden">
+
             <nav className="flex gap-1 overflow-x-auto">
+
               {navigation.map((item) => {
                 const Icon = item.icon;
 
@@ -192,18 +253,25 @@ export function CustomerLayout() {
                     }
                   >
                     <Icon className="size-4" />
+
                     {item.label}
                   </NavLink>
                 );
               })}
+
             </nav>
+
           </div>
 
+          {/* Page */}
           <main className="flex-1">
             <Outlet />
           </main>
+
         </div>
       </div>
     </div>
   );
 }
+
+export default CustomerLayout;

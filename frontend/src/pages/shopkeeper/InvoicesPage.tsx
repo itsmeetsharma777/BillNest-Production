@@ -5,6 +5,8 @@ import {
   useRef,
   useState,
 } from "react";
+import type { ReactNode } from "react";
+
 import {
   AlertCircle,
   CalendarDays,
@@ -18,6 +20,7 @@ import {
   Search,
   XCircle,
 } from "lucide-react";
+
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 
@@ -49,18 +52,10 @@ interface Invoice {
   updatedAt: string;
 }
 
-interface InvoicesResponse {
-  success: boolean;
-  data?: {
-    invoices?: InvoiceApiRecord[];
-    total?: number;
-  };
-  message?: string;
-}
-
 interface InvoiceApiRecord {
   id?: string;
   _id?: string;
+
   invoiceNo?: string;
   invoiceNumber?: string;
   number?: string;
@@ -93,6 +88,20 @@ interface InvoiceApiRecord {
   updatedAt?: string;
 }
 
+interface InvoicesResponse {
+  success: boolean;
+  data?: {
+    invoices?: InvoiceApiRecord[];
+    total?: number;
+  };
+  message?: string;
+}
+
+interface MenuPosition {
+  top: number;
+  left: number;
+}
+
 function normalizeInvoice(
   invoice: InvoiceApiRecord,
 ): Invoice {
@@ -118,10 +127,13 @@ function normalizeInvoice(
       invoice.customer?.name,
 
     productNames:
-      Array.isArray(invoice.productNames)
+      Array.isArray(
+        invoice.productNames,
+      )
         ? invoice.productNames.filter(
             (name): name is string =>
-              typeof name === "string" &&
+              typeof name ===
+                "string" &&
               name.trim().length > 0,
           )
         : [],
@@ -137,10 +149,14 @@ function normalizeInvoice(
       "DRAFT",
 
     subtotal:
-      Number(invoice.subtotal ?? 0),
+      Number(
+        invoice.subtotal ?? 0,
+      ),
 
     discount:
-      Number(invoice.discount ?? 0),
+      Number(
+        invoice.discount ?? 0,
+      ),
 
     tax:
       Number(invoice.tax ?? 0),
@@ -149,7 +165,9 @@ function normalizeInvoice(
       Number(invoice.total ?? 0),
 
     amountPaid:
-      Number(invoice.amountPaid ?? 0),
+      Number(
+        invoice.amountPaid ?? 0,
+      ),
 
     paymentMethod:
       invoice.paymentMethod,
@@ -164,20 +182,28 @@ function normalizeInvoice(
   };
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 2,
-  }).format(value);
+function formatCurrency(
+  value: number,
+) {
+  return new Intl.NumberFormat(
+    "en-IN",
+    {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 2,
+    },
+  ).format(value);
 }
 
-function formatDate(date: string) {
+function formatDate(
+  date: string,
+) {
   if (!date) {
     return "—";
   }
 
-  const parsed = new Date(date);
+  const parsed =
+    new Date(date);
 
   if (
     Number.isNaN(
@@ -291,12 +317,31 @@ export default function InvoicesPage() {
     "ALL" | InvoiceStatus
   >("ALL");
 
+  /*
+   * There is now ONLY ONE action menu
+   * for the entire page.
+   */
   const [
-    openMenuId,
-    setOpenMenuId,
+    actionInvoiceId,
+    setActionInvoiceId,
   ] = useState<string | null>(
     null,
   );
+
+  const [
+    actionMenuPosition,
+    setActionMenuPosition,
+  ] = useState<MenuPosition | null>(
+    null,
+  );
+
+  const [
+    actionButtonElement,
+    setActionButtonElement,
+  ] =
+    useState<HTMLButtonElement | null>(
+      null,
+    );
 
   const loadInvoices =
     useCallback(async () => {
@@ -428,13 +473,258 @@ export default function InvoicesPage() {
           "DRAFT",
     ).length;
 
+  /*
+   * Close the global menu.
+   */
+  const closeActionMenu =
+    useCallback(() => {
+      setActionInvoiceId(null);
+      setActionMenuPosition(null);
+      setActionButtonElement(null);
+    }, []);
+
+  /*
+   * Calculate where the ONE global menu should appear.
+   */
+  const calculateMenuPosition =
+    useCallback(
+      (
+        button: HTMLButtonElement,
+      ) => {
+        const rect =
+          button.getBoundingClientRect();
+
+        const menuWidth = 192;
+        const menuHeight = 190;
+        const gap = 6;
+        const padding = 8;
+
+        let left =
+          rect.right -
+          menuWidth;
+
+        if (
+          left < padding
+        ) {
+          left = padding;
+        }
+
+        if (
+          left + menuWidth >
+          window.innerWidth -
+            padding
+        ) {
+          left =
+            window.innerWidth -
+            menuWidth -
+            padding;
+        }
+
+        const spaceBelow =
+          window.innerHeight -
+          rect.bottom;
+
+        const spaceAbove =
+          rect.top;
+
+        const openAbove =
+          spaceBelow <
+            menuHeight +
+              gap &&
+          spaceAbove >
+            menuHeight +
+              gap;
+
+        let top = openAbove
+          ? rect.top -
+            menuHeight -
+            gap
+          : rect.bottom +
+            gap;
+
+        top = Math.max(
+          padding,
+          top,
+        );
+
+        return {
+          top,
+          left,
+        };
+      },
+      [],
+    );
+
+  /*
+   * Open the ONE global menu.
+   */
+  const openActionMenu =
+    useCallback(
+      (
+        invoiceId: string,
+        button: HTMLButtonElement,
+      ) => {
+        /*
+         * Clicking the currently-open button
+         * closes the menu.
+         */
+        if (
+          actionInvoiceId ===
+          invoiceId
+        ) {
+          closeActionMenu();
+          return;
+        }
+
+        const position =
+          calculateMenuPosition(
+            button,
+          );
+
+        setActionInvoiceId(
+          invoiceId,
+        );
+
+        setActionMenuPosition(
+          position,
+        );
+
+        setActionButtonElement(
+          button,
+        );
+      },
+      [
+        actionInvoiceId,
+        calculateMenuPosition,
+        closeActionMenu,
+      ],
+    );
+
+  /*
+   * Keep the single menu aligned with its button.
+   */
+  useEffect(() => {
+    if (
+      !actionInvoiceId ||
+      !actionButtonElement
+    ) {
+      return;
+    }
+
+    const updatePosition =
+      () => {
+        if (
+          !document.body.contains(
+            actionButtonElement,
+          )
+        ) {
+          closeActionMenu();
+          return;
+        }
+
+        setActionMenuPosition(
+          calculateMenuPosition(
+            actionButtonElement,
+          ),
+        );
+      };
+
+    window.addEventListener(
+      "resize",
+      updatePosition,
+    );
+
+    window.addEventListener(
+      "scroll",
+      updatePosition,
+      true,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "resize",
+        updatePosition,
+      );
+
+      window.removeEventListener(
+        "scroll",
+        updatePosition,
+        true,
+      );
+    };
+  }, [
+    actionInvoiceId,
+    actionButtonElement,
+    calculateMenuPosition,
+    closeActionMenu,
+  ]);
+
+  /*
+   * Close menu if user clicks outside.
+   */
+  useEffect(() => {
+    if (!actionInvoiceId) {
+      return;
+    }
+
+    const handlePointerDown =
+      (event: MouseEvent) => {
+        const target =
+          event.target as
+            | HTMLElement
+            | null;
+
+        if (
+          target?.closest(
+            "[data-invoice-action-menu]",
+          ) ||
+          target?.closest(
+            "[data-invoice-action-trigger]",
+          )
+        ) {
+          return;
+        }
+
+        closeActionMenu();
+      };
+
+    document.addEventListener(
+      "mousedown",
+      handlePointerDown,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handlePointerDown,
+      );
+    };
+  }, [
+    actionInvoiceId,
+    closeActionMenu,
+  ]);
+
+  /*
+   * Currently selected invoice.
+   */
+  const selectedInvoice =
+    actionInvoiceId
+      ? invoices.find(
+          (invoice) =>
+            invoice.id ===
+            actionInvoiceId,
+        ) ?? null
+      : null;
+
   return (
     <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
-      {/* Header */}
+      {/* HEADER */}
+
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
             <FileText className="size-4" />
+
             <span>Invoices</span>
           </div>
 
@@ -443,7 +733,8 @@ export default function InvoicesPage() {
           </h1>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Create, manage and track your business invoices.
+            Create, manage and track
+            your business invoices.
           </p>
         </div>
 
@@ -457,11 +748,13 @@ export default function InvoicesPage() {
           className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
         >
           <Plus className="size-4" />
+
           Create Invoice
         </button>
       </div>
 
-      {/* Stats */}
+      {/* STATS */}
+
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={
@@ -507,7 +800,8 @@ export default function InvoicesPage() {
         />
       </div>
 
-      {/* Toolbar */}
+      {/* TOOLBAR */}
+
       <div className="mb-4 flex flex-col gap-3 rounded-2xl border bg-card p-3 shadow-sm lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -579,7 +873,8 @@ export default function InvoicesPage() {
         </button>
       </div>
 
-      {/* Error */}
+      {/* ERROR */}
+
       {error && (
         <div className="mb-4 flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
           <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
@@ -606,7 +901,8 @@ export default function InvoicesPage() {
         </div>
       )}
 
-      {/* Loading */}
+      {/* LOADING */}
+
       {isLoading && (
         <div className="flex min-h-72 items-center justify-center rounded-2xl border bg-card shadow-sm">
           <div className="flex flex-col items-center gap-3 text-center">
@@ -618,14 +914,16 @@ export default function InvoicesPage() {
               </p>
 
               <p className="mt-1 text-xs text-muted-foreground">
-                Fetching your invoice records...
+                Fetching your invoice
+                records...
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Empty state */}
+      {/* EMPTY */}
+
       {!isLoading &&
         !error &&
         filteredInvoices.length ===
@@ -664,18 +962,21 @@ export default function InvoicesPage() {
                   className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
                 >
                   <Plus className="size-4" />
+
                   Create Invoice
                 </button>
               )}
           </div>
         )}
 
-      {/* Invoice list */}
+      {/* INVOICES */}
+
       {!isLoading &&
         filteredInvoices.length >
           0 && (
           <>
-            {/* Desktop */}
+            {/* DESKTOP */}
+
             <div className="hidden rounded-2xl border bg-card shadow-sm md:block">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[1100px] text-left">
@@ -724,7 +1025,6 @@ export default function InvoicesPage() {
                           }
                           className="transition-colors hover:bg-muted/30"
                         >
-                          {/* Invoice */}
                           <td className="whitespace-nowrap px-5 py-4">
                             <div className="flex items-center gap-3">
                               <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -749,7 +1049,6 @@ export default function InvoicesPage() {
                             </div>
                           </td>
 
-                          {/* Customer */}
                           <td className="px-5 py-4">
                             <p className="max-w-52 truncate text-sm font-medium">
                               {
@@ -767,9 +1066,9 @@ export default function InvoicesPage() {
                             )}
                           </td>
 
-                          {/* Products */}
                           <td className="px-5 py-4">
-                            {invoice.productNames.length >
+                            {invoice.productNames
+                              .length >
                             0 ? (
                               <div className="max-w-64">
                                 <p
@@ -783,7 +1082,9 @@ export default function InvoicesPage() {
                                   )}
                                 </p>
 
-                                {invoice.productNames.length >
+                                {invoice
+                                  .productNames
+                                  .length >
                                   1 && (
                                   <p className="mt-0.5 text-xs text-muted-foreground">
                                     {
@@ -802,28 +1103,24 @@ export default function InvoicesPage() {
                             )}
                           </td>
 
-                          {/* Date */}
                           <td className="whitespace-nowrap px-5 py-4 text-xs text-muted-foreground">
                             {formatDate(
                               invoice.date,
                             )}
                           </td>
 
-                          {/* Amount */}
                           <td className="whitespace-nowrap px-5 py-4 text-sm font-semibold">
                             {formatCurrency(
                               invoice.total,
                             )}
                           </td>
 
-                          {/* Paid */}
                           <td className="whitespace-nowrap px-5 py-4 text-sm text-muted-foreground">
                             {formatCurrency(
                               invoice.amountPaid,
                             )}
                           </td>
 
-                          {/* Status */}
                           <td className="px-5 py-4">
                             <StatusBadge
                               status={
@@ -832,31 +1129,17 @@ export default function InvoicesPage() {
                             />
                           </td>
 
-                          {/* Action */}
                           <td className="px-5 py-4 text-right">
-                            <InvoiceActions
-                              invoice={
-                                invoice
-                              }
-                              open={
-                                openMenuId ===
+                            <ActionButton
+                              invoiceId={
                                 invoice.id
                               }
-                              onToggle={() =>
-                                setOpenMenuId(
-                                  (
-                                    current,
-                                  ) =>
-                                    current ===
-                                    invoice.id
-                                      ? null
-                                      : invoice.id,
-                                )
+                              isOpen={
+                                actionInvoiceId ===
+                                invoice.id
                               }
-                              onClose={() =>
-                                setOpenMenuId(
-                                  null,
-                                )
+                              onClick={
+                                openActionMenu
                               }
                             />
                           </td>
@@ -878,7 +1161,8 @@ export default function InvoicesPage() {
               </div>
             </div>
 
-            {/* Mobile */}
+            {/* MOBILE */}
+
             <div className="space-y-3 md:hidden">
               {filteredInvoices.map(
                 (invoice) => (
@@ -917,19 +1201,14 @@ export default function InvoicesPage() {
                           />
                         </div>
 
-                        {/* Product(s) */}
                         <div className="mt-3 rounded-xl bg-muted/40 px-3 py-2.5">
                           <p className="text-[11px] font-medium text-muted-foreground">
                             Product(s)
                           </p>
 
-                          <p
-                            className="mt-0.5 text-sm font-medium"
-                            title={invoice.productNames.join(
-                              ", ",
-                            )}
-                          >
-                            {invoice.productNames.length >
+                          <p className="mt-0.5 text-sm font-medium">
+                            {invoice.productNames
+                              .length >
                             0
                               ? invoice.productNames.join(
                                   ", ",
@@ -988,29 +1267,16 @@ export default function InvoicesPage() {
                         </div>
 
                         <div className="mt-4">
-                          <InvoiceActions
-                            invoice={
-                              invoice
-                            }
-                            open={
-                              openMenuId ===
+                          <ActionButton
+                            invoiceId={
                               invoice.id
                             }
-                            onToggle={() =>
-                              setOpenMenuId(
-                                (
-                                  current,
-                                ) =>
-                                  current ===
-                                  invoice.id
-                                    ? null
-                                    : invoice.id,
-                              )
+                            isOpen={
+                              actionInvoiceId ===
+                              invoice.id
                             }
-                            onClose={() =>
-                              setOpenMenuId(
-                                null,
-                              )
+                            onClick={
+                              openActionMenu
                             }
                             fullWidth
                           />
@@ -1033,9 +1299,41 @@ export default function InvoicesPage() {
             </div>
           </>
         )}
+
+      {/* =================================================
+          ONE AND ONLY ONE ACTION MENU
+      ================================================= */}
+
+      {selectedInvoice &&
+        actionMenuPosition &&
+        createPortal(
+          <InvoiceActionMenu
+            invoice={
+              selectedInvoice
+            }
+            position={
+              actionMenuPosition
+            }
+            onClose={
+              closeActionMenu
+            }
+            onView={() => {
+              closeActionMenu();
+
+              navigate(
+                `/shopkeeper/invoices/${selectedInvoice.id}`,
+              );
+            }}
+          />,
+          document.body,
+        )}
     </div>
   );
 }
+
+/* =========================================================
+   STAT CARD
+========================================================= */
 
 function StatCard({
   icon,
@@ -1044,7 +1342,7 @@ function StatCard({
   iconClassName =
     "bg-primary/10 text-primary",
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
   iconClassName?: string;
@@ -1072,6 +1370,10 @@ function StatCard({
   );
 }
 
+/* =========================================================
+   STATUS BADGE
+========================================================= */
+
 function StatusBadge({
   status,
 }: {
@@ -1094,236 +1396,146 @@ function StatusBadge({
   );
 }
 
-function InvoiceActions({
-  invoice,
-  open,
-  onToggle,
-  onClose,
+/* =========================================================
+   ACTION BUTTON
+========================================================= */
+
+function ActionButton({
+  invoiceId,
+  isOpen,
+  onClick,
   fullWidth = false,
 }: {
-  invoice: Invoice;
-  open: boolean;
-  onToggle: () => void;
-  onClose: () => void;
+  invoiceId: string;
+  isOpen: boolean;
+  onClick: (
+    invoiceId: string,
+    button: HTMLButtonElement,
+  ) => void;
   fullWidth?: boolean;
 }) {
-  const navigate =
-    useNavigate();
-
   const buttonRef =
     useRef<HTMLButtonElement | null>(
       null,
     );
 
-  const [
-    menuPosition,
-    setMenuPosition,
-  ] = useState({
-    top: 0,
-    left: 0,
-  });
+  return (
+    <button
+      ref={buttonRef}
+      type="button"
+      data-invoice-action-trigger
+      onClick={() => {
+        if (
+          buttonRef.current
+        ) {
+          onClick(
+            invoiceId,
+            buttonRef.current,
+          );
+        }
+      }}
+      className={[
+        "inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-3",
+        "text-xs font-medium text-muted-foreground transition-colors",
+        "hover:bg-muted hover:text-foreground",
+        fullWidth
+          ? "w-full"
+          : "",
+      ].join(" ")}
+      aria-label="Invoice actions"
+      aria-expanded={isOpen}
+      aria-haspopup="menu"
+    >
+      <MoreHorizontal className="size-4" />
 
-  const updateMenuPosition =
-    useCallback(() => {
-      if (!buttonRef.current) {
-        return;
-      }
+      {fullWidth && (
+        <span>Actions</span>
+      )}
+    </button>
+  );
+}
 
-      const rect =
-        buttonRef.current.getBoundingClientRect();
+/* =========================================================
+   GLOBAL INVOICE ACTION MENU
+========================================================= */
 
-      const menuWidth = 192;
-
-      const left = Math.max(
-        8,
-        Math.min(
-          rect.right -
-            menuWidth,
-          window.innerWidth -
-            menuWidth -
-            8,
-        ),
-      );
-
-      const top =
-        rect.bottom + 6;
-
-      setMenuPosition({
-        top,
-        left,
-      });
-    }, []);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    updateMenuPosition();
-
-    const handleViewportChange =
-      () => {
-        updateMenuPosition();
-      };
-
-    window.addEventListener(
-      "resize",
-      handleViewportChange,
-    );
-
-    window.addEventListener(
-      "scroll",
-      handleViewportChange,
-      true,
-    );
-
-    return () => {
-      window.removeEventListener(
-        "resize",
-        handleViewportChange,
-      );
-
-      window.removeEventListener(
-        "scroll",
-        handleViewportChange,
-        true,
-      );
-    };
-  }, [
-    open,
-    updateMenuPosition,
-  ]);
-
-  function viewInvoice() {
-    onClose();
-
-    if (!invoice.id) {
-      return;
-    }
-
-    navigate(
-      `/shopkeeper/invoices/${invoice.id}`,
-    );
-  }
-
-  const menu =
-    open &&
-    typeof document !==
-      "undefined"
-      ? createPortal(
-          <>
-            <button
-              type="button"
-              className="fixed inset-0 z-[90] cursor-default"
-              aria-label="Close invoice actions"
-              onClick={onClose}
-            />
-
-            <div
-              className="fixed z-[100] w-48 overflow-hidden rounded-xl border bg-popover p-1 shadow-xl"
-              style={{
-                top: `${menuPosition.top}px`,
-                left: `${menuPosition.left}px`,
-              }}
-              role="menu"
-            >
-              <button
-                type="button"
-                onClick={
-                  viewInvoice
-                }
-                className="w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
-                role="menuitem"
-              >
-                View invoice
-              </button>
-
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
-                role="menuitem"
-              >
-                Download PDF
-              </button>
-
-              {invoice.status !==
-                "PAID" &&
-                invoice.status !==
-                  "CANCELLED" && (
-                  <button
-                    type="button"
-                    onClick={
-                      onClose
-                    }
-                    className="w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
-                    role="menuitem"
-                  >
-                    Mark as paid
-                  </button>
-                )}
-
-              {invoice.status !==
-                "CANCELLED" && (
-                <button
-                  type="button"
-                  onClick={
-                    onClose
-                  }
-                  className="w-full rounded-lg px-3 py-2 text-left text-sm text-destructive transition-colors hover:bg-destructive/10"
-                  role="menuitem"
-                >
-                  Cancel invoice
-                </button>
-              )}
-            </div>
-          </>,
-          document.body,
-        )
-      : null;
-
+function InvoiceActionMenu({
+  invoice,
+  position,
+  onClose,
+  onView,
+}: {
+  invoice: Invoice;
+  position: MenuPosition;
+  onClose: () => void;
+  onView: () => void;
+}) {
   return (
     <>
+      {/* Backdrop */}
+
+      <button
+        type="button"
+        className="fixed inset-0 z-[90] cursor-default"
+        aria-label="Close invoice actions"
+        onClick={onClose}
+      />
+
+      {/* ONE menu */}
+
       <div
-        className={
-          fullWidth
-            ? "w-full"
-            : "inline-block"
-        }
+        data-invoice-action-menu
+        className="fixed z-[100] w-48 overflow-hidden rounded-xl border bg-popover p-1 shadow-2xl"
+        style={{
+          top: `${position.top}px`,
+          left: `${position.left}px`,
+        }}
+        role="menu"
       >
         <button
-          ref={buttonRef}
           type="button"
-          onClick={() => {
-            if (!open) {
-              updateMenuPosition();
-            }
-
-            onToggle();
-          }}
-          className={[
-            "inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-3",
-            "text-xs font-medium text-muted-foreground transition-colors",
-            "hover:bg-muted hover:text-foreground",
-            fullWidth
-              ? "w-full"
-              : "",
-          ].join(" ")}
-          aria-label={`Actions for ${invoice.invoiceNo}`}
-          aria-expanded={open}
-          aria-haspopup="menu"
+          onClick={onView}
+          className="w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted"
+          role="menuitem"
         >
-          <MoreHorizontal className="size-4" />
-
-          {fullWidth && (
-            <span>
-              Actions
-            </span>
-          )}
+          View invoice
         </button>
-      </div>
 
-      {menu}
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted"
+          role="menuitem"
+        >
+          Download PDF
+        </button>
+
+        {invoice.status !==
+          "PAID" &&
+          invoice.status !==
+            "CANCELLED" && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted"
+              role="menuitem"
+            >
+              Mark as paid
+            </button>
+          )}
+
+        {invoice.status !==
+          "CANCELLED" && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full rounded-lg px-3 py-2.5 text-left text-sm text-destructive transition-colors hover:bg-destructive/10"
+            role="menuitem"
+          >
+            Cancel invoice
+          </button>
+        )}
+      </div>
     </>
   );
 }

@@ -9,6 +9,10 @@ import {
   getWarranty,
 } from "../controllers/customer-portal.controller";
 
+import {
+  getOwnCustomerLedger,
+} from "../controllers/customer-ledger.controller";
+
 import { requireAuth } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import { asyncHandler } from "../utils/async-handler";
@@ -23,6 +27,14 @@ router.get(
   asyncHandler(getDashboard),
 );
 
+/*
+ * Customer financial ledger.
+ */
+router.get(
+  "/ledger",
+  asyncHandler(getOwnCustomerLedger),
+);
+
 router.get(
   "/invoices",
   asyncHandler(getInvoices),
@@ -30,7 +42,9 @@ router.get(
 
 router.get(
   "/invoices/:invoiceId/pdf",
-  asyncHandler(downloadCustomerInvoicePdf),
+  asyncHandler(
+    downloadCustomerInvoicePdf,
+  ),
 );
 
 router.get(

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   CheckCircle2,
@@ -36,10 +43,29 @@ interface Customer {
   updatedAt: string;
 }
 
+interface ApiCustomer {
+  _id?: string;
+  id?: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: {
+    line1?: string;
+    line2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  };
+  isActive?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface CustomersResponse {
   success: boolean;
   data?: {
-    customers?: Customer[];
+    customers?: ApiCustomer[];
     total?: number;
   };
   message?: string;
@@ -48,9 +74,14 @@ interface CustomersResponse {
 interface CustomerResponse {
   success: boolean;
   data?: {
-    customer?: Customer;
+    customer?: ApiCustomer;
   };
   message?: string;
+}
+
+interface MenuPosition {
+  top: number;
+  left: number;
 }
 
 function getInitials(name: string) {
@@ -58,7 +89,10 @@ function getInitials(name: string) {
     .trim()
     .split(/\s+/)
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
+    .map(
+      (part) =>
+        part[0]?.toUpperCase() ?? "",
+    )
     .join("");
 }
 
@@ -96,12 +130,21 @@ function getAddress(customer: Customer) {
   );
 }
 
+/**
+ * MongoDB/Mongoose normally returns `_id`.
+ * Some API responses may already provide `id`.
+ *
+ * Always normalize both formats into the frontend's
+ * single `id` property.
+ */
 function normalizeCustomer(
-  customer: Customer,
+  customer: ApiCustomer,
 ): Customer {
+  const customerId =
+    customer.id ?? customer._id;
+
   return {
-    ...customer,
-    id: customer.id,
+    id: customerId ?? "",
     name: customer.name,
     email: customer.email || undefined,
     phone: customer.phone || undefined,
@@ -113,61 +156,85 @@ function normalizeCustomer(
 }
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
+
+  const [customers, setCustomers] =
+    useState<Customer[]>([]);
+
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
 
   const [error, setError] = useState("");
-  const [formError, setFormError] = useState("");
+  const [formError, setFormError] =
+    useState("");
 
   const [search, setSearch] = useState("");
-  const [showInactive, setShowInactive] = useState(false);
+  const [showInactive, setShowInactive] =
+    useState(false);
 
-  const [formOpen, setFormOpen] = useState(false);
+  const [formOpen, setFormOpen] =
+    useState(false);
+
   const [editingCustomer, setEditingCustomer] =
     useState<Customer | null>(null);
 
   const [successMessage, setSuccessMessage] =
     useState("");
 
-  const [openMenuId, setOpenMenuId] = useState<string | null>(
-    null,
-  );
+  const [openMenuId, setOpenMenuId] =
+    useState<string | null>(null);
 
-  const loadCustomers = useCallback(async () => {
-    setIsLoading(true);
-    setError("");
+  const [menuPosition, setMenuPosition] =
+    useState<MenuPosition | null>(null);
 
-    try {
-      const response = await fetch(`${API_URL}/customers`, {
-        method: "GET",
-        credentials: "include",
-      });
+  const loadCustomers = useCallback(
+    async () => {
+      setIsLoading(true);
+      setError("");
 
-      const result =
-        (await response.json()) as CustomersResponse;
-
-      if (!response.ok) {
-        throw new Error(
-          result.message ?? "Unable to load customers.",
+      try {
+        const response = await fetch(
+          `${API_URL}/customers`,
+          {
+            method: "GET",
+            credentials: "include",
+          },
         );
+
+        const result =
+          (await response.json()) as CustomersResponse;
+
+        if (!response.ok) {
+          throw new Error(
+            result.message ??
+              "Unable to load customers.",
+          );
+        }
+
+        const loadedCustomers = (
+          result.data?.customers ?? []
+        )
+          .map(normalizeCustomer)
+          .filter(
+            (customer) => Boolean(customer.id),
+          );
+
+        setCustomers(loadedCustomers);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load customers.",
+        );
+      } finally {
+        setIsLoading(false);
       }
-
-      const loadedCustomers = (
-        result.data?.customers ?? []
-      ).map(normalizeCustomer);
-
-      setCustomers(loadedCustomers);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to load customers.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     void loadCustomers();
@@ -187,11 +254,98 @@ export default function CustomersPage() {
     };
   }, [successMessage]);
 
+  /**
+   * Close dropdown when clicking anywhere outside.
+   */
+  useEffect(() => {
+    if (!openMenuId) {
+      return;
+    }
+
+    const handlePointerDown = (
+      event: MouseEvent,
+    ) => {
+      const target =
+        event.target as HTMLElement | null;
+
+      if (
+        target?.closest(
+          "[data-customer-action-menu]",
+        ) ||
+        target?.closest(
+          "[data-customer-action-trigger]",
+        )
+      ) {
+        return;
+      }
+
+      setOpenMenuId(null);
+      setMenuPosition(null);
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handlePointerDown,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handlePointerDown,
+      );
+    };
+  }, [openMenuId]);
+
+  /**
+   * Close dropdown on scroll/resize.
+   * This prevents the fixed menu from becoming detached
+   * from its three-dot button.
+   */
+  useEffect(() => {
+    if (!openMenuId) {
+      return;
+    }
+
+    const closeMenu = () => {
+      setOpenMenuId(null);
+      setMenuPosition(null);
+    };
+
+    window.addEventListener(
+      "resize",
+      closeMenu,
+    );
+
+    window.addEventListener(
+      "scroll",
+      closeMenu,
+      true,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "resize",
+        closeMenu,
+      );
+
+      window.removeEventListener(
+        "scroll",
+        closeMenu,
+        true,
+      );
+    };
+  }, [openMenuId]);
+
   const filteredCustomers = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = search
+      .trim()
+      .toLowerCase();
 
     return customers.filter((customer) => {
-      if (!showInactive && !customer.isActive) {
+      if (
+        !showInactive &&
+        !customer.isActive
+      ) {
         return false;
       }
 
@@ -207,18 +361,26 @@ export default function CustomersPage() {
       ]
         .filter(Boolean)
         .some((value) =>
-          String(value).toLowerCase().includes(query),
+          String(value)
+            .toLowerCase()
+            .includes(query),
         );
     });
-  }, [customers, search, showInactive]);
+  }, [
+    customers,
+    search,
+    showInactive,
+  ]);
 
-  const activeCustomerCount = customers.filter(
-    (customer) => customer.isActive,
-  ).length;
+  const activeCustomerCount =
+    customers.filter(
+      (customer) => customer.isActive,
+    ).length;
 
-  const inactiveCustomerCount = customers.filter(
-    (customer) => !customer.isActive,
-  ).length;
+  const inactiveCustomerCount =
+    customers.filter(
+      (customer) => !customer.isActive,
+    ).length;
 
   const openCreateForm = () => {
     setEditingCustomer(null);
@@ -226,10 +388,12 @@ export default function CustomersPage() {
     setFormOpen(true);
   };
 
-  const openEditForm = (customer: Customer) => {
+  const openEditForm = (
+    customer: Customer,
+  ) => {
     setEditingCustomer(customer);
     setFormError("");
-    setOpenMenuId(null);
+    closeActionMenu();
     setFormOpen(true);
   };
 
@@ -243,105 +407,236 @@ export default function CustomersPage() {
     setFormError("");
   };
 
-  const handleCustomerSubmit = async (
-    values: CustomerFormValues,
-  ) => {
-    setIsSubmitting(true);
-    setFormError("");
-    setSuccessMessage("");
-
-    try {
-      const payload = {
-        name: values.name.trim(),
-        email: values.email.trim() || undefined,
-        phone: values.phone.trim() || undefined,
-        address: {
-          line1: values.line1.trim() || undefined,
-          line2: values.line2.trim() || undefined,
-          city: values.city.trim() || undefined,
-          state: values.state.trim() || undefined,
-          postalCode:
-            values.postalCode.trim() || undefined,
-          country:
-            values.country.trim() || undefined,
-        },
-      };
-
-      const isEditing = Boolean(editingCustomer);
-
-      const response = await fetch(
-        isEditing
-          ? `${API_URL}/customers/${editingCustomer!.id}`
-          : `${API_URL}/customers`,
-        {
-          method: isEditing ? "PATCH" : "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        },
-      );
-
-      const result =
-        (await response.json()) as CustomerResponse;
-
-      if (!response.ok) {
-        throw new Error(
-          result.message ??
-            (isEditing
-              ? "Unable to update customer."
-              : "Unable to create customer."),
-        );
-      }
-
-      const savedCustomer = result.data?.customer;
-
-      if (!savedCustomer) {
-        throw new Error(
-          "The server did not return the saved customer.",
-        );
-      }
-
-      const normalized = normalizeCustomer(
-        savedCustomer,
-      );
-
-      if (isEditing) {
-        setCustomers((current) =>
-          current.map((customer) =>
-            customer.id === normalized.id
-              ? normalized
-              : customer,
-          ),
-        );
-
-        setSuccessMessage(
-          "Customer updated successfully.",
-        );
-      } else {
-        setCustomers((current) => [
-          normalized,
-          ...current,
-        ]);
-
-        setSuccessMessage(
-          "Customer added successfully.",
-        );
-      }
-
-      setFormOpen(false);
-      setEditingCustomer(null);
-    } catch (err) {
-      setFormError(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong. Please try again.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+  const closeActionMenu = () => {
+    setOpenMenuId(null);
+    setMenuPosition(null);
   };
+
+  /**
+   * Open the customer ledger.
+   *
+   * The important part here is that `customer.id`
+   * has already been normalized from MongoDB `_id`.
+   */
+  const openCustomerLedger = (
+    customer: Customer,
+  ) => {
+    closeActionMenu();
+
+    if (!customer.id) {
+      setError(
+        "Unable to open customer ledger because the customer ID is missing.",
+      );
+      return;
+    }
+
+    navigate(
+      `/shopkeeper/customers/${customer.id}`,
+    );
+  };
+
+  /**
+   * Position the action menu relative to the
+   * three-dot button.
+   *
+   * We render it through a portal directly under
+   * document.body, so table overflow cannot clip it.
+   */
+  const toggleActionMenu = (
+    customerId: string,
+    button: HTMLButtonElement,
+  ) => {
+    if (openMenuId === customerId) {
+      closeActionMenu();
+      return;
+    }
+
+    const rect =
+      button.getBoundingClientRect();
+
+    const menuWidth = 192;
+    const menuHeight = 220;
+    const gap = 6;
+    const viewportPadding = 12;
+
+    let left =
+      rect.right - menuWidth;
+
+    if (
+      left < viewportPadding
+    ) {
+      left = viewportPadding;
+    }
+
+    if (
+      left + menuWidth >
+      window.innerWidth -
+        viewportPadding
+    ) {
+      left =
+        window.innerWidth -
+        menuWidth -
+        viewportPadding;
+    }
+
+    const spaceBelow =
+      window.innerHeight -
+      rect.bottom;
+
+    const shouldOpenAbove =
+      spaceBelow < menuHeight &&
+      rect.top > menuHeight;
+
+    const top = shouldOpenAbove
+      ? rect.top -
+        menuHeight -
+        gap
+      : rect.bottom + gap;
+
+    setMenuPosition({
+      top: Math.max(
+        viewportPadding,
+        top,
+      ),
+      left,
+    });
+
+    setOpenMenuId(customerId);
+  };
+
+  const handleCustomerSubmit =
+    async (
+      values: CustomerFormValues,
+    ) => {
+      setIsSubmitting(true);
+      setFormError("");
+      setSuccessMessage("");
+
+      try {
+        const payload = {
+          name: values.name.trim(),
+          email:
+            values.email.trim() ||
+            undefined,
+          phone:
+            values.phone.trim() ||
+            undefined,
+          address: {
+            line1:
+              values.line1.trim() ||
+              undefined,
+            line2:
+              values.line2.trim() ||
+              undefined,
+            city:
+              values.city.trim() ||
+              undefined,
+            state:
+              values.state.trim() ||
+              undefined,
+            postalCode:
+              values.postalCode.trim() ||
+              undefined,
+            country:
+              values.country.trim() ||
+              undefined,
+          },
+        };
+
+        const isEditing =
+          Boolean(editingCustomer);
+
+        const response = await fetch(
+          isEditing
+            ? `${API_URL}/customers/${editingCustomer!.id}`
+            : `${API_URL}/customers`,
+          {
+            method: isEditing
+              ? "PATCH"
+              : "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify(
+              payload,
+            ),
+          },
+        );
+
+        const result =
+          (await response.json()) as CustomerResponse;
+
+        if (!response.ok) {
+          throw new Error(
+            result.message ??
+              (isEditing
+                ? "Unable to update customer."
+                : "Unable to create customer."),
+          );
+        }
+
+        const savedCustomer =
+          result.data?.customer;
+
+        if (!savedCustomer) {
+          throw new Error(
+            "The server did not return the saved customer.",
+          );
+        }
+
+        const normalized =
+          normalizeCustomer(
+            savedCustomer,
+          );
+
+        if (!normalized.id) {
+          throw new Error(
+            "The server did not return a valid customer ID.",
+          );
+        }
+
+        if (isEditing) {
+          setCustomers(
+            (current) =>
+              current.map(
+                (customer) =>
+                  customer.id ===
+                  normalized.id
+                    ? normalized
+                    : customer,
+              ),
+          );
+
+          setSuccessMessage(
+            "Customer updated successfully.",
+          );
+        } else {
+          setCustomers(
+            (current) => [
+              normalized,
+              ...current,
+            ],
+          );
+
+          setSuccessMessage(
+            "Customer added successfully.",
+          );
+        }
+
+        setFormOpen(false);
+        setEditingCustomer(null);
+      } catch (err) {
+        setFormError(
+          err instanceof Error
+            ? err.message
+            : "Something went wrong. Please try again.",
+        );
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
 
   return (
     <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
@@ -358,8 +653,8 @@ export default function CustomersPage() {
           </h1>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage customer profiles, purchases and
-            warranties.
+            Manage customer profiles,
+            purchases and warranties.
           </p>
         </div>
 
@@ -387,19 +682,25 @@ export default function CustomersPage() {
       {/* Stats */}
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
-          icon={<Users className="size-5" />}
+          icon={
+            <Users className="size-5" />
+          }
           label="Total customers"
           value={customers.length}
         />
 
         <StatCard
-          icon={<UserRound className="size-5" />}
+          icon={
+            <UserRound className="size-5" />
+          }
           label="Active customers"
           value={activeCustomerCount}
         />
 
         <StatCard
-          icon={<UserRound className="size-5" />}
+          icon={
+            <UserRound className="size-5" />
+          }
           label="Inactive customers"
           value={inactiveCustomerCount}
         />
@@ -414,7 +715,9 @@ export default function CustomersPage() {
             type="search"
             value={search}
             onChange={(event) =>
-              setSearch(event.target.value)
+              setSearch(
+                event.target.value,
+              )
             }
             placeholder="Search by name, email or phone..."
             className="h-10 w-full rounded-xl border bg-background pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
@@ -426,7 +729,9 @@ export default function CustomersPage() {
             type="checkbox"
             checked={showInactive}
             onChange={(event) =>
-              setShowInactive(event.target.checked)
+              setShowInactive(
+                event.target.checked,
+              )
             }
             className="size-4 rounded border-input accent-primary"
           />
@@ -435,7 +740,9 @@ export default function CustomersPage() {
 
         <button
           type="button"
-          onClick={() => void loadCustomers()}
+          onClick={() =>
+            void loadCustomers()
+          }
           disabled={isLoading}
           className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-medium transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -463,7 +770,9 @@ export default function CustomersPage() {
 
           <button
             type="button"
-            onClick={() => void loadCustomers()}
+            onClick={() =>
+              void loadCustomers()
+            }
             className="shrink-0 font-medium text-destructive hover:underline"
           >
             Retry
@@ -483,7 +792,8 @@ export default function CustomersPage() {
               </p>
 
               <p className="mt-1 text-xs text-muted-foreground">
-                Fetching your customer records...
+                Fetching your customer
+                records...
               </p>
             </div>
           </div>
@@ -493,7 +803,8 @@ export default function CustomersPage() {
       {/* Empty */}
       {!isLoading &&
         !error &&
-        filteredCustomers.length === 0 && (
+        filteredCustomers.length ===
+          0 && (
           <div className="flex min-h-80 flex-col items-center justify-center rounded-2xl border bg-card px-6 text-center shadow-sm">
             <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <Users className="size-7" />
@@ -516,7 +827,9 @@ export default function CustomersPage() {
             {!search && (
               <button
                 type="button"
-                onClick={openCreateForm}
+                onClick={
+                  openCreateForm
+                }
                 className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 <Plus className="size-4" />
@@ -527,283 +840,333 @@ export default function CustomersPage() {
         )}
 
       {/* Customers */}
-      {!isLoading && filteredCustomers.length > 0 && (
-        <>
-          {/* Desktop */}
-          <div className="hidden overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="border-b bg-muted/40">
-                  <tr className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    <th className="px-5 py-3.5">
-                      Customer
-                    </th>
+      {!isLoading &&
+        filteredCustomers.length >
+          0 && (
+          <>
+            {/* Desktop */}
+            <div className="overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px] text-left">
+                  <thead className="border-b bg-muted/40">
+                    <tr className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <th className="px-5 py-3.5">
+                        Customer
+                      </th>
 
-                    <th className="px-5 py-3.5">
-                      Contact
-                    </th>
+                      <th className="px-5 py-3.5">
+                        Contact
+                      </th>
 
-                    <th className="px-5 py-3.5">
-                      Address
-                    </th>
+                      <th className="px-5 py-3.5">
+                        Address
+                      </th>
 
-                    <th className="px-5 py-3.5">
-                      Added
-                    </th>
+                      <th className="px-5 py-3.5">
+                        Added
+                      </th>
 
-                    <th className="px-5 py-3.5">
-                      Status
-                    </th>
+                      <th className="px-5 py-3.5">
+                        Status
+                      </th>
 
-                    <th className="px-5 py-3.5 text-right">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
+                      <th className="px-5 py-3.5 text-right">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
 
-                <tbody className="divide-y">
-                  {filteredCustomers.map((customer) => (
-                    <tr
-                      key={customer.id}
-                      className="transition-colors hover:bg-muted/30"
-                    >
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                            {getInitials(customer.name)}
-                          </div>
+                  <tbody className="divide-y">
+                    {filteredCustomers.map(
+                      (customer) => (
+                        <tr
+                          key={
+                            customer.id
+                          }
+                          className="transition-colors hover:bg-muted/30"
+                        >
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                                {getInitials(
+                                  customer.name,
+                                )}
+                              </div>
 
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold">
+                                  {
+                                    customer.name
+                                  }
+                                </p>
+
+                                <p className="text-xs text-muted-foreground">
+                                  Customer
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="px-5 py-4">
+                            <div className="space-y-1">
+                              {customer.email && (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Mail className="size-3.5" />
+
+                                  <span className="max-w-48 truncate">
+                                    {
+                                      customer.email
+                                    }
+                                  </span>
+                                </div>
+                              )}
+
+                              {customer.phone && (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Phone className="size-3.5" />
+
+                                  <span>
+                                    {
+                                      customer.phone
+                                    }
+                                  </span>
+                                </div>
+                              )}
+
+                              {!customer.email &&
+                                !customer.phone && (
+                                  <span className="text-xs text-muted-foreground">
+                                    No contact
+                                    details
+                                  </span>
+                                )}
+                            </div>
+                          </td>
+
+                          <td className="max-w-56 px-5 py-4">
+                            <p className="truncate text-xs text-muted-foreground">
+                              {getAddress(
+                                customer,
+                              )}
+                            </p>
+                          </td>
+
+                          <td className="whitespace-nowrap px-5 py-4 text-xs text-muted-foreground">
+                            {formatDate(
+                              customer.createdAt,
+                            )}
+                          </td>
+
+                          <td className="px-5 py-4">
+                            <StatusBadge
+                              active={
+                                customer.isActive
+                              }
+                            />
+                          </td>
+
+                          <td className="px-5 py-4 text-right">
+                            <button
+                              type="button"
+                              data-customer-action-trigger
+                              onClick={(
+                                event,
+                              ) =>
+                                toggleActionMenu(
+                                  customer.id,
+                                  event.currentTarget,
+                                )
+                              }
+                              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                              aria-label={`Actions for ${customer.name}`}
+                            >
+                              <MoreHorizontal className="size-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ),
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="border-t px-5 py-3 text-xs text-muted-foreground">
+                Showing{" "}
+                {
+                  filteredCustomers.length
+                }{" "}
+                of{" "}
+                {customers.length}{" "}
+                customers
+              </div>
+            </div>
+
+            {/* Mobile */}
+            <div className="space-y-3 md:hidden">
+              {filteredCustomers.map(
+                (customer) => (
+                  <div
+                    key={
+                      customer.id
+                    }
+                    className="rounded-2xl border bg-card p-4 shadow-sm"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                        {getInitials(
+                          customer.name,
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold">
-                              {customer.name}
+                            <p className="truncate font-semibold">
+                              {
+                                customer.name
+                              }
                             </p>
 
-                            <p className="text-xs text-muted-foreground">
-                              Customer
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              Added{" "}
+                              {formatDate(
+                                customer.createdAt,
+                              )}
                             </p>
                           </div>
-                        </div>
-                      </td>
 
-                      <td className="px-5 py-4">
-                        <div className="space-y-1">
+                          <StatusBadge
+                            active={
+                              customer.isActive
+                            }
+                          />
+                        </div>
+
+                        <div className="mt-4 space-y-2">
                           {customer.email && (
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Mail className="size-3.5" />
-                              <span className="max-w-48 truncate">
-                                {customer.email}
+                              <Mail className="size-3.5 shrink-0" />
+
+                              <span className="truncate">
+                                {
+                                  customer.email
+                                }
                               </span>
                             </div>
                           )}
 
                           {customer.phone && (
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Phone className="size-3.5" />
+                              <Phone className="size-3.5 shrink-0" />
+
                               <span>
-                                {customer.phone}
+                                {
+                                  customer.phone
+                                }
                               </span>
                             </div>
                           )}
 
-                          {!customer.email &&
-                            !customer.phone && (
-                              <span className="text-xs text-muted-foreground">
-                                No contact details
-                              </span>
+                          <p className="text-xs text-muted-foreground">
+                            {getAddress(
+                              customer,
                             )}
+                          </p>
                         </div>
-                      </td>
 
-                      <td className="max-w-56 px-5 py-4">
-                        <p className="truncate text-xs text-muted-foreground">
-                          {getAddress(customer)}
-                        </p>
-                      </td>
-
-                      <td className="whitespace-nowrap px-5 py-4 text-xs text-muted-foreground">
-                        {formatDate(customer.createdAt)}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <StatusBadge
-                          active={customer.isActive}
-                        />
-                      </td>
-
-                      <td className="px-5 py-4 text-right">
-                        <div className="relative inline-block">
+                        <div className="mt-4 flex gap-2">
                           <button
                             type="button"
                             onClick={() =>
-                              setOpenMenuId((current) =>
-                                current === customer.id
-                                  ? null
-                                  : customer.id,
+                              openCustomerLedger(
+                                customer,
                               )
                             }
-                            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            className="h-9 flex-1 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                          >
+                            View ledger
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openEditForm(
+                                customer,
+                              )
+                            }
+                            className="h-9 flex-1 rounded-lg border px-3 text-xs font-medium transition-colors hover:bg-muted"
+                          >
+                            Edit customer
+                          </button>
+
+                          <button
+                            type="button"
+                            data-customer-action-trigger
+                            onClick={(
+                              event,
+                            ) =>
+                              toggleActionMenu(
+                                customer.id,
+                                event.currentTarget,
+                              )
+                            }
+                            className="flex size-9 shrink-0 items-center justify-center rounded-lg border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                             aria-label={`Actions for ${customer.name}`}
                           >
                             <MoreHorizontal className="size-4" />
                           </button>
-
-                          {openMenuId ===
-                            customer.id && (
-                            <CustomerActionMenu
-                              customer={customer}
-                              onClose={() =>
-                                setOpenMenuId(null)
-                              }
-                              onEdit={() =>
-                                openEditForm(customer)
-                              }
-                            />
-                          )}
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="border-t px-5 py-3 text-xs text-muted-foreground">
-              Showing {filteredCustomers.length} of{" "}
-              {customers.length} customers
-            </div>
-          </div>
-
-          {/* Mobile */}
-          <div className="space-y-3 md:hidden">
-            {filteredCustomers.map((customer) => (
-              <div
-                key={customer.id}
-                className="rounded-2xl border bg-card p-4 shadow-sm"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                    {getInitials(customer.name)}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold">
-                          {customer.name}
-                        </p>
-
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          Added{" "}
-                          {formatDate(
-                            customer.createdAt,
-                          )}
-                        </p>
-                      </div>
-
-                      <StatusBadge
-                        active={customer.isActive}
-                      />
-                    </div>
-
-                    <div className="mt-4 space-y-2">
-                      {customer.email && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Mail className="size-3.5 shrink-0" />
-                          <span className="truncate">
-                            {customer.email}
-                          </span>
-                        </div>
-                      )}
-
-                      {customer.phone && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Phone className="size-3.5 shrink-0" />
-                          <span>
-                            {customer.phone}
-                          </span>
-                        </div>
-                      )}
-
-                      <p className="text-xs text-muted-foreground">
-                        {getAddress(customer)}
-                      </p>
-                    </div>
-
-                    <div className="mt-4 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openEditForm(customer)
-                        }
-                        className="h-9 flex-1 rounded-lg border px-3 text-xs font-medium transition-colors hover:bg-muted"
-                      >
-                        Edit customer
-                      </button>
-
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setOpenMenuId((current) =>
-                              current === customer.id
-                                ? null
-                                : customer.id,
-                            )
-                          }
-                          className="flex size-9 items-center justify-center rounded-lg border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                          aria-label={`Actions for ${customer.name}`}
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </button>
-
-                        {openMenuId ===
-                          customer.id && (
-                          <CustomerActionMenu
-                            customer={customer}
-                            onClose={() =>
-                              setOpenMenuId(null)
-                            }
-                            onEdit={() =>
-                              openEditForm(customer)
-                            }
-                          />
-                        )}
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+                ),
+              )}
+            </div>
+          </>
+        )}
 
       {/* Customer form */}
       <CustomerForm
         open={formOpen}
         onClose={closeForm}
-        onSubmit={handleCustomerSubmit}
+        onSubmit={
+          handleCustomerSubmit
+        }
         isSubmitting={isSubmitting}
-        mode={editingCustomer ? "edit" : "create"}
+        mode={
+          editingCustomer
+            ? "edit"
+            : "create"
+        }
         initialValues={
           editingCustomer
             ? {
-                name: editingCustomer.name,
-                email: editingCustomer.email ?? "",
-                phone: editingCustomer.phone ?? "",
-                line1:
-                  editingCustomer.address?.line1 ?? "",
-                line2:
-                  editingCustomer.address?.line2 ?? "",
-                city:
-                  editingCustomer.address?.city ?? "",
-                state:
-                  editingCustomer.address?.state ?? "",
-                postalCode:
-                  editingCustomer.address?.postalCode ??
+                name:
+                  editingCustomer.name,
+                email:
+                  editingCustomer.email ??
                   "",
+                phone:
+                  editingCustomer.phone ??
+                  "",
+                line1:
+                  editingCustomer.address
+                    ?.line1 ?? "",
+                line2:
+                  editingCustomer.address
+                    ?.line2 ?? "",
+                city:
+                  editingCustomer.address
+                    ?.city ?? "",
+                state:
+                  editingCustomer.address
+                    ?.state ?? "",
+                postalCode:
+                  editingCustomer.address
+                    ?.postalCode ?? "",
                 country:
-                  editingCustomer.address?.country ??
+                  editingCustomer.address
+                    ?.country ??
                   "India",
               }
             : undefined
@@ -817,7 +1180,8 @@ export default function CustomersPage() {
 
             <div>
               <p className="text-sm font-semibold text-destructive">
-                Unable to save customer
+                Unable to save
+                customer
               </p>
 
               <p className="mt-1 text-xs text-muted-foreground">
@@ -827,6 +1191,43 @@ export default function CustomersPage() {
           </div>
         </div>
       )}
+
+      {/* Action menu portal */}
+      {openMenuId &&
+        menuPosition &&
+        (() => {
+          const customer =
+            customers.find(
+              (item) =>
+                item.id ===
+                openMenuId,
+            );
+
+          if (!customer) {
+            return null;
+          }
+
+          return createPortal(
+            <CustomerActionMenu
+              customer={customer}
+              position={menuPosition}
+              onClose={
+                closeActionMenu
+              }
+              onEdit={() =>
+                openEditForm(
+                  customer,
+                )
+              }
+              onView={() =>
+                openCustomerLedger(
+                  customer,
+                )
+              }
+            />,
+            document.body,
+          );
+        })()}
     </div>
   );
 }
@@ -852,14 +1253,20 @@ function StatCard({
             {label}
           </p>
 
-          <p className="text-xl font-bold">{value}</p>
+          <p className="text-xl font-bold">
+            {value}
+          </p>
         </div>
       </div>
     </div>
   );
 }
 
-function StatusBadge({ active }: { active: boolean }) {
+function StatusBadge({
+  active,
+}: {
+  active: boolean;
+}) {
   return (
     <span
       className={[
@@ -872,30 +1279,45 @@ function StatusBadge({ active }: { active: boolean }) {
       <span
         className={[
           "mr-1.5 size-1.5 rounded-full",
-          active ? "bg-green-500" : "bg-muted-foreground",
+          active
+            ? "bg-green-500"
+            : "bg-muted-foreground",
         ].join(" ")}
       />
 
-      {active ? "Active" : "Inactive"}
+      {active
+        ? "Active"
+        : "Inactive"}
     </span>
   );
 }
 
 function CustomerActionMenu({
   customer,
+  position,
   onClose,
   onEdit,
+  onView,
 }: {
   customer: Customer;
+  position: MenuPosition;
   onClose: () => void;
   onEdit: () => void;
+  onView: () => void;
 }) {
-  return (
-    <div className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border bg-popover p-1 shadow-lg">
+  return createPortal(
+    <div
+      data-customer-action-menu
+      className="fixed z-[9999] w-48 overflow-hidden rounded-xl border bg-popover p-1 shadow-2xl"
+      style={{
+        top: position.top,
+        left: position.left,
+      }}
+    >
       <button
         type="button"
-        onClick={onClose}
-        className="w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+        onClick={onView}
+        className="w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted"
       >
         View customer
       </button>
@@ -903,7 +1325,7 @@ function CustomerActionMenu({
       <button
         type="button"
         onClick={onEdit}
-        className="w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+        className="w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted"
       >
         Edit customer
       </button>
@@ -911,7 +1333,7 @@ function CustomerActionMenu({
       <button
         type="button"
         onClick={onClose}
-        className="w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+        className="w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted"
       >
         View invoices
       </button>
@@ -919,7 +1341,7 @@ function CustomerActionMenu({
       <button
         type="button"
         onClick={onClose}
-        className="w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+        className="w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted"
       >
         View warranties
       </button>
@@ -928,11 +1350,12 @@ function CustomerActionMenu({
         <button
           type="button"
           onClick={onClose}
-          className="w-full rounded-lg px-3 py-2 text-left text-sm text-destructive transition-colors hover:bg-destructive/10"
+          className="w-full rounded-lg px-3 py-2.5 text-left text-sm text-destructive transition-colors hover:bg-destructive/10"
         >
           Deactivate
         </button>
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }

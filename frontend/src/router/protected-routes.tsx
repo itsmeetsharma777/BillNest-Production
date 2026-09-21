@@ -10,14 +10,17 @@ import CustomerDashboardPage from "@/pages/customer/CustomerDashboardPage";
 import CustomerInvoiceDetailsPage from "@/pages/customer/CustomerInvoiceDetailsPage";
 import CustomerInvoicesPage from "@/pages/customer/CustomerInvoicesPage";
 import CustomerNotificationsPage from "@/pages/customer/CustomerNotificationsPage";
+import CustomerPaymentsPage from "@/pages/customer/CustomerPaymentsPage";
 import CustomerSettingsPage from "@/pages/customer/CustomerSettingsPage";
 import CustomerWarrantyDetailsPage from "@/pages/customer/CustomerWarrantyDetailsPage";
 import CustomerWarrantiesPage from "@/pages/customer/CustomerWarrantiesPage";
+
 import CustomersPage from "@/pages/customer/CustomersPage";
 
 import CreateInvoicePage from "@/pages/shopkeeper/CreateInvoicePage";
 import CreateWarrantyPage from "@/pages/shopkeeper/CreateWarrantyPage";
 import CreateShopPage from "@/pages/shopkeeper/CreateShopPage";
+import CustomerLedgerPage from "@/pages/shopkeeper/CustomerLedgerPage";
 import InvoiceDetailsPage from "@/pages/shopkeeper/InvoiceDetailsPage";
 import InvoicesPage from "@/pages/shopkeeper/InvoicesPage";
 import NotificationsPage from "@/pages/shopkeeper/NotificationsPage";
@@ -30,9 +33,9 @@ import WarrantiesPage from "@/pages/shopkeeper/WarrantiesPage";
 export function ProtectedRoutes() {
   return (
     <>
-      {/* =====================================================
-          SHOPKEEPER AUTHENTICATION
-      ===================================================== */}
+      {/* ===================================================== */}
+      {/* SHOPKEEPER AUTHENTICATION                             */}
+      {/* ===================================================== */}
 
       <Route
         element={
@@ -41,34 +44,32 @@ export function ProtectedRoutes() {
           />
         }
       >
-        {/* ===================================================
-            FIRST-TIME SHOP SETUP
-
-            This route deliberately sits OUTSIDE
-            ShopkeeperShopRequired because a new
-            shopkeeper does not have a shop yet.
-        =================================================== */}
+        {/* =================================================== */}
+        {/* FIRST-TIME SHOP SETUP                              */}
+        {/* =================================================== */}
 
         <Route
           path="/shopkeeper/create-shop"
           element={<CreateShopPage />}
         />
 
-        {/* ===================================================
-            SHOPKEEPER APPLICATION
+        {/* =================================================== */}
+        {/* SHOPKEEPER APPLICATION                              */}
+        {/* =================================================== */}
 
-            Every route inside this block requires:
-            1. authenticated shopkeeper
-            2. an active shop belonging to that owner
-        =================================================== */}
-
-        <Route element={<ShopkeeperShopRequired />}>
-          <Route element={<ShopkeeperLayout />}>
+        <Route
+          element={<ShopkeeperShopRequired />}
+        >
+          <Route
+            element={<ShopkeeperLayout />}
+          >
+            {/* Dashboard */}
             <Route
               path="/shopkeeper"
               element={<ShopkeeperDashboard />}
             />
 
+            {/* Invoices */}
             <Route
               path="/shopkeeper/invoices"
               element={<InvoicesPage />}
@@ -84,10 +85,27 @@ export function ProtectedRoutes() {
               element={<InvoiceDetailsPage />}
             />
 
+            {/* ================================================= */}
+            {/* CUSTOMER MANAGEMENT                              */}
+            {/* ================================================= */}
+
             <Route
               path="/shopkeeper/customers"
               element={<CustomersPage />}
             />
+
+            {/* ================================================= */}
+            {/* CUSTOMER LEDGER                                  */}
+            {/* ================================================= */}
+
+            <Route
+              path="/shopkeeper/customers/:customerId"
+              element={<CustomerLedgerPage />}
+            />
+
+            {/* ================================================= */}
+            {/* WARRANTIES                                       */}
+            {/* ================================================= */}
 
             <Route
               path="/shopkeeper/warranties"
@@ -104,15 +122,27 @@ export function ProtectedRoutes() {
               element={<WarrantyDetailsPage />}
             />
 
+            {/* ================================================= */}
+            {/* REPORTS                                           */}
+            {/* ================================================= */}
+
             <Route
               path="/shopkeeper/reports"
               element={<ReportsPage />}
             />
 
+            {/* ================================================= */}
+            {/* NOTIFICATIONS                                     */}
+            {/* ================================================= */}
+
             <Route
               path="/shopkeeper/notifications"
               element={<NotificationsPage />}
             />
+
+            {/* ================================================= */}
+            {/* SETTINGS                                          */}
+            {/* ================================================= */}
 
             <Route
               path="/shopkeeper/settings"
@@ -122,9 +152,9 @@ export function ProtectedRoutes() {
         </Route>
       </Route>
 
-      {/* =====================================================
-          CUSTOMER
-      ===================================================== */}
+      {/* ===================================================== */}
+      {/* CUSTOMER                                             */}
+      {/* ===================================================== */}
 
       <Route
         element={
@@ -133,11 +163,21 @@ export function ProtectedRoutes() {
           />
         }
       >
-        <Route element={<CustomerLayout />}>
+        <Route
+          element={<CustomerLayout />}
+        >
+          {/* ================================================= */}
+          {/* CUSTOMER DASHBOARD                               */}
+          {/* ================================================= */}
+
           <Route
             path="/customer"
             element={<CustomerDashboardPage />}
           />
+
+          {/* ================================================= */}
+          {/* CUSTOMER INVOICES                                */}
+          {/* ================================================= */}
 
           <Route
             path="/customer/invoices"
@@ -149,6 +189,19 @@ export function ProtectedRoutes() {
             element={<CustomerInvoiceDetailsPage />}
           />
 
+          {/* ================================================= */}
+          {/* CUSTOMER PAYMENTS / LEDGER                        */}
+          {/* ================================================= */}
+
+          <Route
+            path="/customer/payments"
+            element={<CustomerPaymentsPage />}
+          />
+
+          {/* ================================================= */}
+          {/* CUSTOMER WARRANTIES                               */}
+          {/* ================================================= */}
+
           <Route
             path="/customer/warranties"
             element={<CustomerWarrantiesPage />}
@@ -156,17 +209,21 @@ export function ProtectedRoutes() {
 
           <Route
             path="/customer/warranties/:warrantyId"
-            element={
-              <CustomerWarrantyDetailsPage />
-            }
+            element={<CustomerWarrantyDetailsPage />}
           />
+
+          {/* ================================================= */}
+          {/* CUSTOMER NOTIFICATIONS                             */}
+          {/* ================================================= */}
 
           <Route
             path="/customer/notifications"
-            element={
-              <CustomerNotificationsPage />
-            }
+            element={<CustomerNotificationsPage />}
           />
+
+          {/* ================================================= */}
+          {/* CUSTOMER SETTINGS                                  */}
+          {/* ================================================= */}
 
           <Route
             path="/customer/settings"
@@ -175,9 +232,9 @@ export function ProtectedRoutes() {
         </Route>
       </Route>
 
-      {/* =====================================================
-          LEGACY DASHBOARD REDIRECT
-      ===================================================== */}
+      {/* ===================================================== */}
+      {/* LEGACY DASHBOARD REDIRECT                             */}
+      {/* ===================================================== */}
 
       <Route
         path="/dashboard"
