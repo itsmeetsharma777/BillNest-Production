@@ -1,12 +1,7 @@
 import { useState } from "react";
 import {
-  NavLink,
-  Outlet,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
-import {
   Bell,
+  Boxes,
   ChevronDown,
   FileText,
   LayoutDashboard,
@@ -23,6 +18,12 @@ import {
   Users,
   X,
 } from "lucide-react";
+import {
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/theme-context";
@@ -43,6 +44,11 @@ const navigationItems: NavigationItem[] = [
     label: "Customers",
     href: "/shopkeeper/customers",
     icon: Users,
+  },
+  {
+    label: "Products",
+    href: "/shopkeeper/products",
+    icon: Boxes,
   },
   {
     label: "Invoices",
@@ -95,8 +101,10 @@ export function ShopkeeperLayout() {
   const [mobileOpen, setMobileOpen] =
     useState(false);
 
-  const [sidebarCollapsed, setSidebarCollapsed] =
-    useState(false);
+  const [
+    sidebarCollapsed,
+    setSidebarCollapsed,
+  ] = useState(false);
 
   const [profileOpen, setProfileOpen] =
     useState(false);
@@ -109,7 +117,9 @@ export function ShopkeeperLayout() {
     user?.name ?? "Shopkeeper",
   );
 
-  const isActiveRoute = (href: string) => {
+  const isActiveRoute = (
+    href: string,
+  ) => {
     if (href === "/shopkeeper") {
       return location.pathname === href;
     }
@@ -196,7 +206,6 @@ export function ShopkeeperLayout() {
             )}
           </div>
 
-          {/* Mobile close */}
           <button
             type="button"
             onClick={() =>
@@ -368,7 +377,6 @@ export function ShopkeeperLayout() {
             )}
           </div>
 
-          {/* Desktop collapse */}
           <button
             type="button"
             onClick={() =>
@@ -408,7 +416,6 @@ export function ShopkeeperLayout() {
       >
         {/* Top bar */}
         <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
-          {/* Mobile menu */}
           <button
             type="button"
             onClick={() =>
@@ -420,7 +427,6 @@ export function ShopkeeperLayout() {
             <Menu className="size-5" />
           </button>
 
-          {/* Page context */}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm text-muted-foreground">
               Welcome back,{" "}
@@ -430,9 +436,7 @@ export function ShopkeeperLayout() {
             </p>
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-1 sm:gap-2">
-            {/* Theme */}
             <button
               type="button"
               onClick={cycleTheme}
@@ -442,14 +446,11 @@ export function ShopkeeperLayout() {
             >
               {theme === "dark" ? (
                 <Moon className="size-[18px]" />
-              ) : theme === "light" ? (
-                <Sun className="size-[18px]" />
               ) : (
                 <Sun className="size-[18px]" />
               )}
             </button>
 
-            {/* Notifications */}
             <NavLink
               to="/shopkeeper/notifications"
               className="relative rounded-xl p-2.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -458,7 +459,6 @@ export function ShopkeeperLayout() {
               <Bell className="size-[18px]" />
             </NavLink>
 
-            {/* Profile */}
             <div className="relative ml-1">
               <button
                 type="button"
@@ -545,7 +545,6 @@ export function ShopkeeperLayout() {
           </div>
         </header>
 
-        {/* Page content */}
         <main className="min-h-[calc(100vh-4rem)]">
           <Outlet />
         </main>

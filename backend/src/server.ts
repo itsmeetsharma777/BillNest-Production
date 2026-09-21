@@ -16,6 +16,7 @@ import customerRoutes from "./routes/customer.routes";
 import customerPortalRoutes from "./routes/customer-portal.routes";
 import customerNotificationRoutes from "./routes/customer-notification.routes";
 import customerAccountRoutes from "./routes/customer-account.routes";
+import productRoutes from "./routes/product.routes";
 import invoiceRoutes from "./routes/invoice.routes";
 import warrantyRoutes from "./routes/warranty.routes";
 import reportRoutes from "./routes/report.routes";
@@ -39,8 +40,11 @@ const app = express();
 app.set("trust proxy", 1);
 
 /**
- * Security headers.
+ * ============================================================
+ * SECURITY HEADERS
+ * ============================================================
  */
+
 app.use(
   helmet({
     crossOriginResourcePolicy: {
@@ -50,10 +54,12 @@ app.use(
 );
 
 /**
+ * ============================================================
  * CORS
+ * ============================================================
  *
- * Only the configured frontend origin is
- * allowed to make credentialed browser requests.
+ * Only the configured frontend origin is allowed
+ * to make credentialed browser requests.
  */
 app.use(
   cors({
@@ -63,8 +69,11 @@ app.use(
 );
 
 /**
- * Request body limits.
+ * ============================================================
+ * REQUEST BODY LIMITS
+ * ============================================================
  */
+
 app.use(
   express.json({
     limit: "1mb",
@@ -79,12 +88,17 @@ app.use(
 );
 
 /**
- * Cookie parsing.
+ * ============================================================
+ * COOKIE PARSER
+ * ============================================================
  */
+
 app.use(cookieParser());
 
 /**
- * CSRF protection.
+ * ============================================================
+ * CSRF PROTECTION
+ * ============================================================
  *
  * Must run after cookie/body parsing and before
  * application routes.
@@ -92,7 +106,9 @@ app.use(cookieParser());
 app.use(csrfProtection);
 
 /**
- * General API rate limiter.
+ * ============================================================
+ * GENERAL API RATE LIMITER
+ * ============================================================
  *
  * Authentication routes have additional,
  * stricter rate limits inside their own routes.
@@ -105,24 +121,35 @@ const generalRateLimiter =
     legacyHeaders: false,
   });
 
-app.use(generalRateLimiter);
+app.use(
+  generalRateLimiter,
+);
 
 /**
- * Health check.
+ * ============================================================
+ * HEALTH CHECK
+ * ============================================================
  *
- * Kept outside authentication so hosting
- * platforms can verify the backend is alive.
+ * Kept outside authentication so hosting platforms
+ * can verify that the backend is alive.
  */
-app.get("/health", (_req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "BillNest API is healthy.",
-  });
-});
+app.get(
+  "/health",
+  (_req, res) => {
+    res.status(200).json({
+      success: true,
+      message:
+        "BillNest API is healthy.",
+    });
+  },
+);
 
 /**
- * Authentication.
+ * ============================================================
+ * AUTHENTICATION
+ * ============================================================
  */
+
 app.use(
   "/api/auth",
   authRoutes,
@@ -134,8 +161,11 @@ app.use(
 );
 
 /**
- * Shopkeeper APIs.
+ * ============================================================
+ * SHOPKEEPER APIs
+ * ============================================================
  */
+
 app.use(
   "/api/shops",
   shopRoutes,
@@ -144,6 +174,17 @@ app.use(
 app.use(
   "/api/customers",
   customerRoutes,
+);
+
+/**
+ * ============================================================
+ * PRODUCT MANAGEMENT
+ * ============================================================
+ */
+
+app.use(
+  "/api/products",
+  productRoutes,
 );
 
 app.use(
@@ -177,8 +218,11 @@ app.use(
 );
 
 /**
- * Customer APIs.
+ * ============================================================
+ * CUSTOMER APIs
+ * ============================================================
  */
+
 app.use(
   "/api/customer",
   customerPortalRoutes,
@@ -195,14 +239,20 @@ app.use(
 );
 
 /**
- * Global error handler.
+ * ============================================================
+ * GLOBAL ERROR HANDLER
+ * ============================================================
  *
  * This must remain after all routes.
  */
-app.use(errorMiddleware);
+app.use(
+  errorMiddleware,
+);
 
 /**
- * Warranty notification scheduler.
+ * ============================================================
+ * WARRANTY NOTIFICATION SCHEDULER
+ * ============================================================
  *
  * Runs once when the server starts and then
  * once every hour.
@@ -211,40 +261,41 @@ const WARRANTY_NOTIFICATION_INTERVAL_MS =
   60 * 60 * 1000;
 
 function startWarrantyNotificationScheduler() {
-  const runCheck = async () => {
-    try {
-      const result =
-        await runWarrantyNotificationCheck();
+  const runCheck =
+    async () => {
+      try {
+        const result =
+          await runWarrantyNotificationCheck();
 
-      console.log(
-        "[Warranty Notifications]",
-        {
-          statusUpdated:
-            result.statusUpdated,
+        console.log(
+          "[Warranty Notifications]",
+          {
+            statusUpdated:
+              result.statusUpdated,
 
-          expiringCreated:
-            result.expiringCreated,
+            expiringCreated:
+              result.expiringCreated,
 
-          customerExpiringCreated:
-            result.customerExpiringCreated,
+            customerExpiringCreated:
+              result.customerExpiringCreated,
 
-          expiredCreated:
-            result.expiredCreated,
+            expiredCreated:
+              result.expiredCreated,
 
-          customerExpiredCreated:
-            result.customerExpiredCreated,
+            customerExpiredCreated:
+              result.customerExpiredCreated,
 
-          checkedAt:
-            result.checkedAt.toISOString(),
-        },
-      );
-    } catch (error) {
-      console.error(
-        "[Warranty Notifications] Check failed:",
-        error,
-      );
-    }
-  };
+            checkedAt:
+              result.checkedAt.toISOString(),
+          },
+        );
+      } catch (error) {
+        console.error(
+          "[Warranty Notifications] Check failed:",
+          error,
+        );
+      }
+    };
 
   /**
    * Run immediately when the server starts.
@@ -254,12 +305,19 @@ function startWarrantyNotificationScheduler() {
   /**
    * Continue checking every hour.
    */
-  return setInterval(() => {
-    void runCheck();
-  }, WARRANTY_NOTIFICATION_INTERVAL_MS);
+  return setInterval(
+    () => {
+      void runCheck();
+    },
+    WARRANTY_NOTIFICATION_INTERVAL_MS,
+  );
 }
 
 /**
+ * ============================================================
+ * START SERVER
+ * ============================================================
+ *
  * Start the BillNest backend only after the
  * database connection succeeds.
  */
@@ -268,18 +326,23 @@ async function startServer() {
 
   startWarrantyNotificationScheduler();
 
-  app.listen(env.PORT, () => {
-    console.log(
-      `BillNest API running on port ${env.PORT}`,
-    );
-  });
+  app.listen(
+    env.PORT,
+    () => {
+      console.log(
+        `BillNest API running on port ${env.PORT}`,
+      );
+    },
+  );
 }
 
-startServer().catch((error) => {
-  console.error(
-    "Failed to start BillNest API:",
-    error,
-  );
+startServer().catch(
+  (error) => {
+    console.error(
+      "Failed to start BillNest API:",
+      error,
+    );
 
-  process.exit(1);
-});
+    process.exit(1);
+  },
+);
