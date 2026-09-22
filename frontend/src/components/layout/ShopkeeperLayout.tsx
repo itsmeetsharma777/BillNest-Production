@@ -5,6 +5,7 @@ import {
   Boxes,
   ChevronDown,
   FileText,
+  FolderTree,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -54,6 +55,11 @@ const navigationItems: NavigationItem[] = [
     icon: Boxes,
   },
   {
+    label: "Categories",
+    href: "/shopkeeper/categories",
+    icon: FolderTree,
+  },
+  {
     label: "Inventory",
     href: "/shopkeeper/inventory/history",
     icon: PackageSearch,
@@ -88,9 +94,7 @@ const secondaryNavigationItems: NavigationItem[] = [
   },
 ];
 
-function getInitials(
-  name: string,
-) {
+function getInitials(name: string) {
   return name
     .trim()
     .split(/\s+/)
@@ -207,7 +211,9 @@ export function ShopkeeperLayout() {
   return (
     <div className="min-h-screen bg-background text-foreground">
 
-      {/* Mobile overlay */}
+      {/* ===================================================== */}
+      {/* MOBILE OVERLAY                                        */}
+      {/* ===================================================== */}
 
       {mobileOpen && (
         <button
@@ -222,7 +228,9 @@ export function ShopkeeperLayout() {
         />
       )}
 
-      {/* Sidebar */}
+      {/* ===================================================== */}
+      {/* SIDEBAR                                               */}
+      {/* ===================================================== */}
 
       <aside
         className={[
@@ -239,7 +247,9 @@ export function ShopkeeperLayout() {
         ].join(" ")}
       >
 
-        {/* Logo */}
+        {/* =================================================== */}
+        {/* LOGO                                                 */}
+        {/* =================================================== */}
 
         <div className="flex h-16 shrink-0 items-center border-b px-4">
 
@@ -284,7 +294,9 @@ export function ShopkeeperLayout() {
 
         </div>
 
-        {/* Navigation */}
+        {/* =================================================== */}
+        {/* NAVIGATION                                           */}
+        {/* =================================================== */}
 
         <div className="flex-1 overflow-y-auto px-3 py-5">
 
@@ -313,8 +325,12 @@ export function ShopkeeperLayout() {
 
                 return (
                   <NavLink
-                    key={item.href}
-                    to={item.href}
+                    key={
+                      item.href
+                    }
+                    to={
+                      item.href
+                    }
                     onClick={() =>
                       setMobileOpen(
                         false,
@@ -346,7 +362,9 @@ export function ShopkeeperLayout() {
                           : "",
                       ].join(" ")}
                     >
-                      {item.label}
+                      {
+                        item.label
+                      }
                     </span>
                   </NavLink>
                 );
@@ -354,6 +372,10 @@ export function ShopkeeperLayout() {
             )}
 
           </nav>
+
+          {/* ================================================= */}
+          {/* DIVIDER                                             */}
+          {/* ================================================= */}
 
           <div className="my-5 border-t" />
 
@@ -382,8 +404,12 @@ export function ShopkeeperLayout() {
 
                 return (
                   <NavLink
-                    key={item.href}
-                    to={item.href}
+                    key={
+                      item.href
+                    }
+                    to={
+                      item.href
+                    }
                     onClick={() =>
                       setMobileOpen(
                         false,
@@ -415,7 +441,9 @@ export function ShopkeeperLayout() {
                           : "",
                       ].join(" ")}
                     >
-                      {item.label}
+                      {
+                        item.label
+                      }
                     </span>
                   </NavLink>
                 );
@@ -426,7 +454,9 @@ export function ShopkeeperLayout() {
 
         </div>
 
-        {/* Sidebar footer */}
+        {/* =================================================== */}
+        {/* SIDEBAR FOOTER                                       */}
+        {/* =================================================== */}
 
         <div className="border-t p-3">
 
@@ -440,25 +470,34 @@ export function ShopkeeperLayout() {
           >
 
             <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-              {initials}
+              {
+                initials
+              }
             </div>
 
             {!sidebarCollapsed && (
               <div className="min-w-0 flex-1">
 
                 <p className="truncate text-sm font-medium">
-                  {user?.name ??
-                    "Shopkeeper"}
+                  {
+                    user?.name ??
+                    "Shopkeeper"
+                  }
                 </p>
 
                 <p className="truncate text-xs text-muted-foreground">
-                  {user?.email ?? ""}
+                  {
+                    user?.email ??
+                    ""
+                  }
                 </p>
 
               </div>
             )}
 
           </div>
+
+          {/* Collapse sidebar */}
 
           <button
             type="button"
@@ -470,6 +509,7 @@ export function ShopkeeperLayout() {
             }
             className="mt-2 hidden w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:flex"
           >
+
             {sidebarCollapsed ? (
               <>
                 <PanelLeftOpen className="size-4" />
@@ -487,13 +527,16 @@ export function ShopkeeperLayout() {
                 </span>
               </>
             )}
+
           </button>
 
         </div>
 
       </aside>
 
-      {/* Main area */}
+      {/* ===================================================== */}
+      {/* MAIN AREA                                             */}
+      {/* ===================================================== */}
 
       <div
         className={[
@@ -504,9 +547,13 @@ export function ShopkeeperLayout() {
         ].join(" ")}
       >
 
-        {/* Top bar */}
+        {/* =================================================== */}
+        {/* TOP BAR                                              */}
+        {/* =================================================== */}
 
         <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+
+          {/* Mobile menu */}
 
           <button
             type="button"
@@ -521,6 +568,8 @@ export function ShopkeeperLayout() {
             <Menu className="size-5" />
           </button>
 
+          {/* Welcome */}
+
           <div className="min-w-0 flex-1">
 
             <p className="truncate text-sm text-muted-foreground">
@@ -528,7 +577,9 @@ export function ShopkeeperLayout() {
               Welcome back,{" "}
 
               <span className="font-medium text-foreground">
-                {firstName}
+                {
+                  firstName
+                }
               </span>
 
             </p>
@@ -537,11 +588,15 @@ export function ShopkeeperLayout() {
 
           <div className="flex items-center gap-1 sm:gap-2">
 
-            {/* Theme */}
+            {/* ================================================= */}
+            {/* THEME                                               */}
+            {/* ================================================= */}
 
             <button
               type="button"
-              onClick={cycleTheme}
+              onClick={
+                cycleTheme
+              }
               className="rounded-xl p-2.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               aria-label={`Current theme: ${theme}. Change theme`}
               title={`Theme: ${theme}`}
@@ -554,7 +609,9 @@ export function ShopkeeperLayout() {
               )}
             </button>
 
-            {/* Notifications */}
+            {/* ================================================= */}
+            {/* NOTIFICATIONS                                       */}
+            {/* ================================================= */}
 
             <NavLink
               to="/shopkeeper/notifications"
@@ -564,7 +621,9 @@ export function ShopkeeperLayout() {
               <Bell className="size-[18px]" />
             </NavLink>
 
-            {/* Profile */}
+            {/* ================================================= */}
+            {/* PROFILE                                             */}
+            {/* ================================================= */}
 
             <div className="relative ml-1">
 
@@ -584,7 +643,9 @@ export function ShopkeeperLayout() {
               >
 
                 <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                  {initials}
+                  {
+                    initials
+                  }
                 </div>
 
                 <ChevronDown
@@ -600,6 +661,8 @@ export function ShopkeeperLayout() {
 
               {profileOpen && (
                 <>
+                  {/* Profile backdrop */}
+
                   <button
                     type="button"
                     className="fixed inset-0 z-40 cursor-default"
@@ -611,6 +674,8 @@ export function ShopkeeperLayout() {
                     }
                   />
 
+                  {/* Profile menu */}
+
                   <div
                     className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border bg-popover p-1.5 shadow-lg"
                     role="menu"
@@ -619,15 +684,22 @@ export function ShopkeeperLayout() {
                     <div className="border-b px-3 py-3">
 
                       <p className="truncate text-sm font-semibold">
-                        {user?.name ??
-                          "Shopkeeper"}
+                        {
+                          user?.name ??
+                          "Shopkeeper"
+                        }
                       </p>
 
                       <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {user?.email ?? ""}
+                        {
+                          user?.email ??
+                          ""
+                        }
                       </p>
 
                     </div>
+
+                    {/* Settings */}
 
                     <NavLink
                       to="/shopkeeper/settings"
@@ -643,6 +715,8 @@ export function ShopkeeperLayout() {
 
                       Settings
                     </NavLink>
+
+                    {/* Logout */}
 
                     <button
                       type="button"
@@ -667,7 +741,9 @@ export function ShopkeeperLayout() {
 
         </header>
 
-        {/* Page content */}
+        {/* =================================================== */}
+        {/* PAGE CONTENT                                         */}
+        {/* =================================================== */}
 
         <main className="min-h-[calc(100vh-4rem)]">
           <Outlet />

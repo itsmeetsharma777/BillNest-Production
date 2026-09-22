@@ -32,6 +32,8 @@ import {
   runWarrantyNotificationCheck,
 } from "./services/warranty-notification.service";
 
+import categoryRoutes from "./routes/category.routes";
+
 const app = express();
 
 /**
@@ -190,6 +192,17 @@ app.use(
 app.use(
   "/api/products",
   productRoutes,
+);
+
+/**
+ * ============================================================
+ * CATEGORY MANAGEMENT
+ * ============================================================
+ */
+
+app.use(
+  "/api/categories",
+  categoryRoutes,
 );
 
 /**

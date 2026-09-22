@@ -12,6 +12,15 @@ interface ProductFilters {
   isActive?: boolean;
 }
 
+/*
+ * ============================================================
+ * BUILD PRODUCT FILTER
+ * ============================================================
+ *
+ * Every query starts with shopId so product data remains
+ * tenant-isolated.
+ */
+
 function buildProductFilter(
   shopId: string,
   options?: ProductFilters,
@@ -34,14 +43,33 @@ function buildProductFilter(
           $options: "i",
         },
       },
+
       {
         sku: {
           $regex: search,
           $options: "i",
         },
       },
+
       {
         category: {
+          $regex: search,
+          $options: "i",
+        },
+      },
+
+      /*
+       * Advanced catalog search foundation.
+       */
+      {
+        brand: {
+          $regex: search,
+          $options: "i",
+        },
+      },
+
+      {
+        barcode: {
           $regex: search,
           $options: "i",
         },
@@ -64,7 +92,7 @@ function buildProductFilter(
   return filter;
 }
 
-/**
+/*
  * ============================================================
  * CREATE PRODUCT
  * ============================================================
@@ -72,20 +100,23 @@ function buildProductFilter(
  * The optional MongoDB session allows product creation to
  * participate in a larger transaction.
  *
- * Feature 20.3 uses this to make:
- *
- *     product creation
- *     +
- *     initial inventory movement
- *
- * atomic.
+ * Product creation + initial inventory movement remain atomic.
  */
+
 export async function createProduct(
   data: {
     shopId: string;
     name: string;
     sku?: string;
     category?: string;
+
+    /*
+     * Advanced catalog foundation.
+     */
+    brand?: string;
+    barcode?: string;
+    unit?: string;
+
     purchasePrice: number;
     sellingPrice: number;
     stockQuantity: number;
@@ -112,6 +143,12 @@ export async function createProduct(
   return product;
 }
 
+/*
+ * ============================================================
+ * FIND PRODUCTS
+ * ============================================================
+ */
+
 export async function findProductsByShopId(
   shopId: string,
   options?: ProductFilters & {
@@ -134,6 +171,12 @@ export async function findProductsByShopId(
     .limit(options?.limit ?? 20);
 }
 
+/*
+ * ============================================================
+ * COUNT PRODUCTS
+ * ============================================================
+ */
+
 export async function countProductsByShopId(
   shopId: string,
   options?: ProductFilters,
@@ -149,6 +192,12 @@ export async function countProductsByShopId(
   );
 }
 
+/*
+ * ============================================================
+ * FIND ONE PRODUCT
+ * ============================================================
+ */
+
 export async function findProductByIdForShop(
   productId: string,
   shopId: string,
@@ -159,6 +208,18 @@ export async function findProductByIdForShop(
   });
 }
 
+/*
+ * ============================================================
+ * UPDATE PRODUCT
+ * ============================================================
+ *
+ * stockQuantity is technically retained in the repository
+ * type for compatibility with existing callers, but the
+ * product service intentionally does not update it.
+ *
+ * Inventory changes must go through inventory adjustment.
+ */
+
 export async function updateProductByIdForShop(
   productId: string,
   shopId: string,
@@ -166,6 +227,14 @@ export async function updateProductByIdForShop(
     name: string;
     sku: string;
     category: string;
+
+    /*
+     * Advanced catalog foundation.
+     */
+    brand: string;
+    barcode: string;
+    unit: string;
+
     purchasePrice: number;
     sellingPrice: number;
     stockQuantity: number;
@@ -189,6 +258,12 @@ export async function updateProductByIdForShop(
     },
   );
 }
+
+/*
+ * ============================================================
+ * DEACTIVATE PRODUCT
+ * ============================================================
+ */
 
 export async function deleteProductByIdForShop(
   productId: string,

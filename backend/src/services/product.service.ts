@@ -21,6 +21,12 @@ import {
   ApiError,
 } from "../utils/api-error";
 
+/*
+ * ============================================================
+ * HELPERS
+ * ============================================================
+ */
+
 function cleanOptionalText(
   value?: string,
 ) {
@@ -43,33 +49,29 @@ function isDuplicateKeyError(
   );
 }
 
-/**
+/*
  * ============================================================
  * CREATE PRODUCT
  * ============================================================
  *
- * Feature 20.3:
- *
  * Product creation and initial inventory movement happen
  * inside the SAME MongoDB transaction.
- *
- * Example:
- *
- *     Product stock = 4
- *
- * Movement:
- *
- *     initial_stock
- *     quantity = 4
- *     previousStock = 0
- *     newStock = 4
  */
+
 export async function createProductForOwner(
   ownerId: string,
   input: {
     name: string;
     sku?: string;
     category?: string;
+
+    /*
+     * Advanced catalog foundation.
+     */
+    brand?: string;
+    barcode?: string;
+    unit?: string;
+
     purchasePrice: number;
     sellingPrice: number;
     stockQuantity: number;
@@ -90,10 +92,12 @@ export async function createProductForOwner(
     const result =
       await session.withTransaction(
         async () => {
-          /**
-           * Create the product inside the
-           * transaction.
+          /*
+           * ======================================================
+           * CREATE PRODUCT
+           * ======================================================
            */
+
           const product =
             await createProduct(
               {
@@ -111,6 +115,25 @@ export async function createProductForOwner(
                 category:
                   cleanOptionalText(
                     input.category,
+                  ),
+
+                /*
+                 * Advanced catalog foundation.
+                 */
+
+                brand:
+                  cleanOptionalText(
+                    input.brand,
+                  ),
+
+                barcode:
+                  cleanOptionalText(
+                    input.barcode,
+                  ),
+
+                unit:
+                  cleanOptionalText(
+                    input.unit,
                   ),
 
                 purchasePrice:
@@ -136,18 +159,15 @@ export async function createProductForOwner(
               session,
             );
 
-          /**
+          /*
            * ======================================================
            * INITIAL STOCK MOVEMENT
            * ======================================================
            *
            * Only create a movement when the product
            * actually starts with stock.
-           *
-           * A product created with stock = 0 does not
-           * need an initial movement because no inventory
-           * entered the shop.
            */
+
           let movement = null;
 
           if (
@@ -219,6 +239,38 @@ export async function createProductForOwner(
         error,
       )
     ) {
+      /*
+       * At this stage both SKU and barcode can cause
+       * duplicate-key errors.
+       *
+       * We distinguish the likely field from MongoDB's
+       * duplicate-key metadata when available.
+       */
+
+      const duplicateKey =
+        error !== null &&
+        typeof error === "object" &&
+        "keyPattern" in error
+          ? (
+              error as {
+                keyPattern?: Record<
+                  string,
+                  unknown
+                >;
+              }
+            ).keyPattern
+          : undefined;
+
+      if (
+        duplicateKey?.barcode
+      ) {
+        throw new ApiError(
+          409,
+          "A product with this barcode already exists in your shop.",
+          "PRODUCT_BARCODE_ALREADY_EXISTS",
+        );
+      }
+
       throw new ApiError(
         409,
         "A product with this SKU already exists in your shop.",
@@ -232,11 +284,12 @@ export async function createProductForOwner(
   }
 }
 
-/**
+/*
  * ============================================================
  * GET PRODUCTS
  * ============================================================
  */
+
 export async function getProductsForOwner(
   ownerId: string,
   options: {
@@ -314,11 +367,12 @@ export async function getProductsForOwner(
   };
 }
 
-/**
+/*
  * ============================================================
  * GET ONE PRODUCT
  * ============================================================
  */
+
 export async function getProductForOwner(
   ownerId: string,
   productId: string,
@@ -345,16 +399,17 @@ export async function getProductForOwner(
   return product;
 }
 
-/**
+/*
  * ============================================================
  * UPDATE PRODUCT
  * ============================================================
  *
  * stockQuantity is intentionally NOT accepted here.
  *
- * Inventory changes must go through Feature 20.2
- * stock adjustment.
+ * Inventory changes must go through the inventory
+ * stock-adjustment workflow.
  */
+
 export async function updateProductForOwner(
   ownerId: string,
   productId: string,
@@ -362,6 +417,14 @@ export async function updateProductForOwner(
     name?: string;
     sku?: string;
     category?: string;
+
+    /*
+     * Advanced catalog foundation.
+     */
+    brand?: string;
+    barcode?: string;
+    unit?: string;
+
     purchasePrice?: number;
     sellingPrice?: number;
     lowStockThreshold?: number;
@@ -414,6 +477,34 @@ export async function updateProductForOwner(
             category:
               cleanOptionalText(
                 input.category,
+              ) ?? "",
+          }),
+
+          /*
+           * Advanced catalog foundation.
+           */
+
+          ...(input.brand !==
+            undefined && {
+            brand:
+              cleanOptionalText(
+                input.brand,
+              ) ?? "",
+          }),
+
+          ...(input.barcode !==
+            undefined && {
+            barcode:
+              cleanOptionalText(
+                input.barcode,
+              ) ?? "",
+          }),
+
+          ...(input.unit !==
+            undefined && {
+            unit:
+              cleanOptionalText(
+                input.unit,
               ) ?? "",
           }),
 
@@ -470,6 +561,30 @@ export async function updateProductForOwner(
         error,
       )
     ) {
+      const duplicateKey =
+        error !== null &&
+        typeof error === "object" &&
+        "keyPattern" in error
+          ? (
+              error as {
+                keyPattern?: Record<
+                  string,
+                  unknown
+                >;
+              }
+            ).keyPattern
+          : undefined;
+
+      if (
+        duplicateKey?.barcode
+      ) {
+        throw new ApiError(
+          409,
+          "A product with this barcode already exists in your shop.",
+          "PRODUCT_BARCODE_ALREADY_EXISTS",
+        );
+      }
+
       throw new ApiError(
         409,
         "A product with this SKU already exists in your shop.",
@@ -481,11 +596,12 @@ export async function updateProductForOwner(
   }
 }
 
-/**
+/*
  * ============================================================
  * DEACTIVATE PRODUCT
  * ============================================================
  */
+
 export async function deleteProductForOwner(
   ownerId: string,
   productId: string,

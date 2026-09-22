@@ -33,6 +33,35 @@ const productSchema = new Schema(
       maxlength: 100,
     },
 
+    /*
+     * ============================================================
+     * ADVANCED CATALOG FOUNDATION
+     * ============================================================
+     *
+     * These fields are optional for backward compatibility.
+     *
+     * Dedicated management functionality will be implemented
+     * in the later Feature 22.x steps.
+     */
+
+    brand: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+    },
+
+    barcode: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+    },
+
+    unit: {
+      type: String,
+      trim: true,
+      maxlength: 30,
+    },
+
     purchasePrice: {
       type: Number,
       required: true,
@@ -86,6 +115,12 @@ const productSchema = new Schema(
   },
 );
 
+/*
+ * ============================================================
+ * INDEXES
+ * ============================================================
+ */
+
 productSchema.index({
   shopId: 1,
   name: 1,
@@ -98,13 +133,49 @@ productSchema.index({
 
 productSchema.index({
   shopId: 1,
+  brand: 1,
+});
+
+productSchema.index({
+  shopId: 1,
+  unit: 1,
+});
+
+productSchema.index({
+  shopId: 1,
   isActive: 1,
 });
 
+/*
+ * SKU must be unique within a shop.
+ *
+ * sparse = true allows multiple products to have
+ * no SKU at all.
+ */
 productSchema.index(
   {
     shopId: 1,
     sku: 1,
+  },
+  {
+    unique: true,
+    sparse: true,
+  },
+);
+
+/*
+ * Barcode must also be unique within a shop.
+ *
+ * This allows the same barcode to technically exist
+ * in different shops while preventing duplicate barcode
+ * assignments inside one shop.
+ *
+ * sparse = true allows products without barcodes.
+ */
+productSchema.index(
+  {
+    shopId: 1,
+    barcode: 1,
   },
   {
     unique: true,

@@ -28,6 +28,40 @@ const nonNegativeNumber = (
       "Value must be a valid number.",
     );
 
+/*
+ * ============================================================
+ * ADVANCED CATALOG FOUNDATION FIELDS
+ * ============================================================
+ *
+ * These fields are optional for now.
+ *
+ * Their dedicated UI and management workflows will be added
+ * in the appropriate Feature 22.x steps.
+ */
+
+const productCatalogFields = {
+  brand: optionalText(
+    100,
+    "Brand cannot exceed 100 characters.",
+  ),
+
+  barcode: optionalText(
+    100,
+    "Barcode cannot exceed 100 characters.",
+  ),
+
+  unit: optionalText(
+    30,
+    "Unit cannot exceed 30 characters.",
+  ),
+};
+
+/*
+ * ============================================================
+ * CREATE PRODUCT
+ * ============================================================
+ */
+
 export const createProductSchema =
   z.object({
     name: z
@@ -52,6 +86,11 @@ export const createProductSchema =
       "Category cannot exceed 100 characters.",
     ),
 
+    /*
+     * Advanced catalog foundation.
+     */
+    ...productCatalogFields,
+
     purchasePrice:
       nonNegativeNumber(
         "Purchase price cannot be negative.",
@@ -66,8 +105,8 @@ export const createProductSchema =
      * Initial stock is allowed during
      * product creation.
      *
-     * 20.3 will record this as an
-     * initial_stock movement.
+     * The product service records the corresponding
+     * initial_stock inventory movement.
      */
     stockQuantity:
       nonNegativeNumber(
@@ -111,6 +150,7 @@ export const createProductSchema =
  *
  * /api/inventory/products/:productId/adjust
  */
+
 export const updateProductSchema =
   z.object({
     name: z
@@ -135,6 +175,11 @@ export const updateProductSchema =
       100,
       "Category cannot exceed 100 characters.",
     ),
+
+    /*
+     * Advanced catalog foundation.
+     */
+    ...productCatalogFields,
 
     purchasePrice:
       nonNegativeNumber(
@@ -177,6 +222,12 @@ export const updateProductSchema =
         .boolean()
         .optional(),
   });
+
+/*
+ * ============================================================
+ * PRODUCT LIST QUERY
+ * ============================================================
+ */
 
 export const productListQuerySchema =
   z.object({

@@ -31,6 +31,7 @@ import SettingsPage from "@/pages/shopkeeper/SettingsPage";
 import { ShopkeeperDashboard } from "@/pages/shopkeeper/dashboard";
 import WarrantyDetailsPage from "@/pages/shopkeeper/WarrantyDetailsPage";
 import WarrantiesPage from "@/pages/shopkeeper/WarrantiesPage";
+import CategoriesPage from "@/pages/shopkeeper/CategoriesPage";
 
 export function ProtectedRoutes() {
   return (
@@ -91,6 +92,11 @@ export function ProtectedRoutes() {
             <Route
               path="/shopkeeper/products"
               element={<ProductsPage />}
+            />
+
+            <Route
+              path="/shopkeeper/categories"
+              element={<CategoriesPage />}
             />
 
             {/* ================================================= */}
