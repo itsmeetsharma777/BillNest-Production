@@ -17,6 +17,8 @@ import customerPortalRoutes from "./routes/customer-portal.routes";
 import customerNotificationRoutes from "./routes/customer-notification.routes";
 import customerAccountRoutes from "./routes/customer-account.routes";
 import productRoutes from "./routes/product.routes";
+import categoryRoutes from "./routes/category.routes";
+import brandRoutes from "./routes/brand.routes";
 import invoiceRoutes from "./routes/invoice.routes";
 import warrantyRoutes from "./routes/warranty.routes";
 import reportRoutes from "./routes/report.routes";
@@ -32,8 +34,6 @@ import {
   runWarrantyNotificationCheck,
 } from "./services/warranty-notification.service";
 
-import categoryRoutes from "./routes/category.routes";
-
 const app = express();
 
 /**
@@ -44,7 +44,11 @@ const app = express();
  * BillNest may run behind platforms/proxies such as
  * Vercel, Render, Railway, etc.
  */
-app.set("trust proxy", 1);
+
+app.set(
+  "trust proxy",
+  1,
+);
 
 /**
  * ============================================================
@@ -68,6 +72,7 @@ app.use(
  * Only the configured frontend origin is allowed
  * to make credentialed browser requests.
  */
+
 app.use(
   cors({
     origin: env.FRONTEND_URL,
@@ -100,7 +105,9 @@ app.use(
  * ============================================================
  */
 
-app.use(cookieParser());
+app.use(
+  cookieParser(),
+);
 
 /**
  * ============================================================
@@ -110,7 +117,10 @@ app.use(cookieParser());
  * Must run after cookie/body parsing and before
  * application routes.
  */
-app.use(csrfProtection);
+
+app.use(
+  csrfProtection,
+);
 
 /**
  * ============================================================
@@ -120,12 +130,19 @@ app.use(csrfProtection);
  * Authentication routes have additional,
  * stricter rate limits inside their own routes.
  */
+
 const generalRateLimiter =
   rateLimit({
-    windowMs: 15 * 60 * 1000,
+    windowMs:
+      15 * 60 * 1000,
+
     limit: 200,
-    standardHeaders: "draft-7",
-    legacyHeaders: false,
+
+    standardHeaders:
+      "draft-7",
+
+    legacyHeaders:
+      false,
   });
 
 app.use(
@@ -140,11 +157,13 @@ app.use(
  * Kept outside authentication so hosting platforms
  * can verify that the backend is alive.
  */
+
 app.get(
   "/health",
   (_req, res) => {
     res.status(200).json({
       success: true,
+
       message:
         "BillNest API is healthy.",
     });
@@ -203,6 +222,34 @@ app.use(
 app.use(
   "/api/categories",
   categoryRoutes,
+);
+
+/**
+ * ============================================================
+ * BRAND MANAGEMENT
+ * ============================================================
+ *
+ * Feature 22.3:
+ *
+ * POST
+ * /api/brands
+ *
+ * GET
+ * /api/brands
+ *
+ * GET
+ * /api/brands/:brandId
+ *
+ * PATCH
+ * /api/brands/:brandId
+ *
+ * DELETE
+ * /api/brands/:brandId
+ */
+
+app.use(
+  "/api/brands",
+  brandRoutes,
 );
 
 /**
@@ -276,11 +323,6 @@ app.use(
  * INVENTORY MANAGEMENT
  * ============================================================
  *
- * Feature 20:
- *
- * 20.1 Inventory Movement Ledger
- * 20.2 Stock Adjustment
- *
  * Current endpoints include:
  *
  * GET
@@ -292,6 +334,7 @@ app.use(
  * POST
  * /api/inventory/products/:productId/adjust
  */
+
 app.use(
   "/api/inventory",
   inventoryRoutes,
@@ -325,6 +368,7 @@ app.use(
  *
  * This MUST remain after all application routes.
  */
+
 app.use(
   errorMiddleware,
 );
@@ -337,6 +381,7 @@ app.use(
  * Runs once when the server starts and then
  * once every hour.
  */
+
 const WARRANTY_NOTIFICATION_INTERVAL_MS =
   60 * 60 * 1000;
 
@@ -380,11 +425,13 @@ function startWarrantyNotificationScheduler() {
   /**
    * Run immediately when the server starts.
    */
+
   void runCheck();
 
   /**
    * Continue checking every hour.
    */
+
   return setInterval(
     () => {
       void runCheck();
@@ -401,6 +448,7 @@ function startWarrantyNotificationScheduler() {
  * Start the BillNest backend only after the
  * database connection succeeds.
  */
+
 async function startServer() {
   await connectDatabase();
 

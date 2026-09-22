@@ -31,20 +31,28 @@ function PublicRootRedirect() {
   }
 
   /*
-   * IMPORTANT:
+   * The landing page is available when there is
+   * no authenticated user.
    *
-   * The landing page should remain accessible when
-   * there is no logged-in user.
-   *
-   * If there is an authenticated user, send them to
-   * their dashboard.
+   * If an authenticated user visits "/",
+   * send them to their appropriate dashboard.
    */
   if (user?.role === "shopkeeper") {
-    return <Navigate to="/shopkeeper" replace />;
+    return (
+      <Navigate
+        to="/shopkeeper"
+        replace
+      />
+    );
   }
 
   if (user?.role === "customer") {
-    return <Navigate to="/customer" replace />;
+    return (
+      <Navigate
+        to="/customer"
+        replace
+      />
+    );
   }
 
   return <App />;
@@ -56,6 +64,7 @@ export function PublicRoutes() {
       {/* =====================================================
           LANDING
       ===================================================== */}
+
       <Route
         path="/"
         element={<PublicRootRedirect />}
@@ -64,6 +73,7 @@ export function PublicRoutes() {
       {/* =====================================================
           ACCOUNT SELECTION
       ===================================================== */}
+
       <Route
         path="/get-started"
         element={<GetStartedPage />}
@@ -72,6 +82,7 @@ export function PublicRoutes() {
       {/* =====================================================
           EXPLORE
       ===================================================== */}
+
       <Route
         path="/explore"
         element={<ExplorePage />}
@@ -80,6 +91,7 @@ export function PublicRoutes() {
       {/* =====================================================
           SHOPKEEPER AUTH
       ===================================================== */}
+
       <Route
         path="/shopkeeper/login"
         element={<ShopkeeperLoginPage />}
@@ -98,6 +110,7 @@ export function PublicRoutes() {
       {/* =====================================================
           CUSTOMER AUTH
       ===================================================== */}
+
       <Route
         path="/customer/login"
         element={<CustomerLoginPage />}
@@ -116,6 +129,7 @@ export function PublicRoutes() {
       {/* =====================================================
           PASSWORD
       ===================================================== */}
+
       <Route
         path="/forgot-password"
         element={<ForgotPasswordPage />}
@@ -129,6 +143,7 @@ export function PublicRoutes() {
       {/* =====================================================
           BACKWARD COMPATIBILITY
       ===================================================== */}
+
       <Route
         path="/login"
         element={
@@ -149,13 +164,23 @@ export function PublicRoutes() {
         }
       />
 
-      {/* =====================================================
-          FALLBACK
-      ===================================================== */}
-      <Route
-        path="*"
-        element={<Navigate to="/" replace />}
-      />
+      {/*
+       * IMPORTANT:
+       *
+       * Do NOT put a "*" catch-all route here.
+       *
+       * Protected routes such as:
+       * /shopkeeper/categories
+       * /shopkeeper/products
+       * /shopkeeper/inventory/history
+       *
+       * are registered separately in protected-routes.tsx.
+       *
+       * The global fallback belongs in index.tsx AFTER
+       * both PublicRoutes() and ProtectedRoutes().
+       */}
     </>
   );
 }
+
+export default PublicRoutes;
