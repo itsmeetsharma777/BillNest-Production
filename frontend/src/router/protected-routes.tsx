@@ -32,6 +32,7 @@ import { ShopkeeperDashboard } from "@/pages/shopkeeper/dashboard";
 import WarrantyDetailsPage from "@/pages/shopkeeper/WarrantyDetailsPage";
 import WarrantiesPage from "@/pages/shopkeeper/WarrantiesPage";
 import CategoriesPage from "@/pages/shopkeeper/CategoriesPage";
+import BrandsPage from "@/pages/shopkeeper/BrandsPage";
 
 export function ProtectedRoutes() {
   return (
@@ -42,16 +43,23 @@ export function ProtectedRoutes() {
 
       <Route
         element={
-          <ProtectedRoute allowedRoles={["shopkeeper"]} />
+          <ProtectedRoute
+            allowedRoles={[
+              "shopkeeper",
+            ]}
+          />
         }
       >
+
         {/* =================================================== */}
         {/* FIRST-TIME SHOP SETUP                               */}
         {/* =================================================== */}
 
         <Route
           path="/shopkeeper/create-shop"
-          element={<CreateShopPage />}
+          element={
+            <CreateShopPage />
+          }
         />
 
         {/* =================================================== */}
@@ -59,16 +67,26 @@ export function ProtectedRoutes() {
         {/* =================================================== */}
 
         <Route
-          element={<ShopkeeperShopRequired />}
+          element={
+            <ShopkeeperShopRequired />
+          }
         >
-          <Route element={<ShopkeeperLayout />}>
+
+          <Route
+            element={
+              <ShopkeeperLayout />
+            }
+          >
+
             {/* ================================================= */}
             {/* DASHBOARD                                         */}
             {/* ================================================= */}
 
             <Route
               path="/shopkeeper"
-              element={<ShopkeeperDashboard />}
+              element={
+                <ShopkeeperDashboard />
+              }
             />
 
             {/* ================================================= */}
@@ -77,12 +95,16 @@ export function ProtectedRoutes() {
 
             <Route
               path="/shopkeeper/customers"
-              element={<CustomersPage />}
+              element={
+                <CustomersPage />
+              }
             />
 
             <Route
               path="/shopkeeper/customers/:customerId"
-              element={<CustomerLedgerPage />}
+              element={
+                <CustomerLedgerPage />
+              }
             />
 
             {/* ================================================= */}
@@ -91,12 +113,31 @@ export function ProtectedRoutes() {
 
             <Route
               path="/shopkeeper/products"
-              element={<ProductsPage />}
+              element={
+                <ProductsPage />
+              }
             />
+
+            {/* ================================================= */}
+            {/* CATEGORIES                                        */}
+            {/* ================================================= */}
 
             <Route
               path="/shopkeeper/categories"
-              element={<CategoriesPage />}
+              element={
+                <CategoriesPage />
+              }
+            />
+
+            {/* ================================================= */}
+            {/* BRANDS                                            */}
+            {/* ================================================= */}
+
+            <Route
+              path="/shopkeeper/brands"
+              element={
+                <BrandsPage />
+              }
             />
 
             {/* ================================================= */}
@@ -105,7 +146,9 @@ export function ProtectedRoutes() {
 
             <Route
               path="/shopkeeper/inventory/history"
-              element={<InventoryHistoryPage />}
+              element={
+                <InventoryHistoryPage />
+              }
             />
 
             {/* ================================================= */}
@@ -114,17 +157,23 @@ export function ProtectedRoutes() {
 
             <Route
               path="/shopkeeper/invoices"
-              element={<InvoicesPage />}
+              element={
+                <InvoicesPage />
+              }
             />
 
             <Route
               path="/shopkeeper/invoices/new"
-              element={<CreateInvoicePage />}
+              element={
+                <CreateInvoicePage />
+              }
             />
 
             <Route
               path="/shopkeeper/invoices/:invoiceId"
-              element={<InvoiceDetailsPage />}
+              element={
+                <InvoiceDetailsPage />
+              }
             />
 
             {/* ================================================= */}
@@ -133,17 +182,23 @@ export function ProtectedRoutes() {
 
             <Route
               path="/shopkeeper/warranties"
-              element={<WarrantiesPage />}
+              element={
+                <WarrantiesPage />
+              }
             />
 
             <Route
               path="/shopkeeper/warranties/new"
-              element={<CreateWarrantyPage />}
+              element={
+                <CreateWarrantyPage />
+              }
             />
 
             <Route
               path="/shopkeeper/warranties/:warrantyId"
-              element={<WarrantyDetailsPage />}
+              element={
+                <WarrantyDetailsPage />
+              }
             />
 
             {/* ================================================= */}
@@ -152,7 +207,9 @@ export function ProtectedRoutes() {
 
             <Route
               path="/shopkeeper/reports"
-              element={<ReportsPage />}
+              element={
+                <ReportsPage />
+              }
             />
 
             {/* ================================================= */}
@@ -161,7 +218,9 @@ export function ProtectedRoutes() {
 
             <Route
               path="/shopkeeper/notifications"
-              element={<NotificationsPage />}
+              element={
+                <NotificationsPage />
+              }
             />
 
             {/* ================================================= */}
@@ -170,74 +229,107 @@ export function ProtectedRoutes() {
 
             <Route
               path="/shopkeeper/settings"
-              element={<SettingsPage />}
+              element={
+                <SettingsPage />
+              }
             />
+
           </Route>
+
         </Route>
+
       </Route>
 
       {/* ===================================================== */}
-      {/* CUSTOMER                                             */}
+      {/* CUSTOMER                                              */}
       {/* ===================================================== */}
 
       <Route
         element={
-          <ProtectedRoute allowedRoles={["customer"]} />
+          <ProtectedRoute
+            allowedRoles={[
+              "customer",
+            ]}
+          />
         }
       >
-        <Route element={<CustomerLayout />}>
+
+        <Route
+          element={
+            <CustomerLayout />
+          }
+        >
+
           {/* Dashboard */}
 
           <Route
             path="/customer"
-            element={<CustomerDashboardPage />}
+            element={
+              <CustomerDashboardPage />
+            }
           />
 
           {/* Invoices */}
 
           <Route
             path="/customer/invoices"
-            element={<CustomerInvoicesPage />}
+            element={
+              <CustomerInvoicesPage />
+            }
           />
 
           <Route
             path="/customer/invoices/:invoiceId"
-            element={<CustomerInvoiceDetailsPage />}
+            element={
+              <CustomerInvoiceDetailsPage />
+            }
           />
 
           {/* Payments */}
 
           <Route
             path="/customer/payments"
-            element={<CustomerPaymentsPage />}
+            element={
+              <CustomerPaymentsPage />
+            }
           />
 
           {/* Warranties */}
 
           <Route
             path="/customer/warranties"
-            element={<CustomerWarrantiesPage />}
+            element={
+              <CustomerWarrantiesPage />
+            }
           />
 
           <Route
             path="/customer/warranties/:warrantyId"
-            element={<CustomerWarrantyDetailsPage />}
+            element={
+              <CustomerWarrantyDetailsPage />
+            }
           />
 
           {/* Notifications */}
 
           <Route
             path="/customer/notifications"
-            element={<CustomerNotificationsPage />}
+            element={
+              <CustomerNotificationsPage />
+            }
           />
 
           {/* Settings */}
 
           <Route
             path="/customer/settings"
-            element={<CustomerSettingsPage />}
+            element={
+              <CustomerSettingsPage />
+            }
           />
+
         </Route>
+
       </Route>
 
       {/* ===================================================== */}

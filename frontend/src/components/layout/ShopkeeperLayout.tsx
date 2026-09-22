@@ -3,6 +3,7 @@ import { useState } from "react";
 import {
   Bell,
   Boxes,
+  Building2,
   ChevronDown,
   FileText,
   FolderTree,
@@ -58,6 +59,11 @@ const navigationItems: NavigationItem[] = [
     label: "Categories",
     href: "/shopkeeper/categories",
     icon: FolderTree,
+  },
+  {
+    label: "Brands",
+    href: "/shopkeeper/brands",
+    icon: Building2,
   },
   {
     label: "Inventory",
@@ -755,3 +761,4 @@ export function ShopkeeperLayout() {
 }
 
 export default ShopkeeperLayout;
+
