@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 export const productIdSchema = z
@@ -30,13 +31,116 @@ const nonNegativeNumber = (
 
 /*
  * ============================================================
- * ADVANCED CATALOG FOUNDATION FIELDS
+ * GTIN VALIDATION
  * ============================================================
  *
- * These fields are optional for now.
+ * Supported standard GTIN lengths:
  *
- * Their dedicated UI and management workflows will be added
- * in the appropriate Feature 22.x steps.
+ * GTIN-8
+ * GTIN-12 / UPC-A
+ * GTIN-13 / EAN-13
+ * GTIN-14
+ *
+ * We validate the check digit using the GS1 algorithm.
+ *
+ * Non-numeric barcode values are also allowed because many
+ * businesses use Code 128 / Code 39 / internal barcode formats.
+ */
+
+function isValidGtin(
+  value: string,
+) {
+  if (!/^\d+$/.test(value)) {
+    return true;
+  }
+
+  if (
+    ![8, 12, 13, 14].includes(
+      value.length,
+    )
+  ) {
+    return false;
+  }
+
+  const digits =
+    value.split("").map(Number);
+
+  const checkDigit =
+    digits.pop();
+
+  if (
+    checkDigit === undefined
+  ) {
+    return false;
+  }
+
+  let sum = 0;
+  let multiplier = 3;
+
+  for (
+    let index =
+      digits.length - 1;
+    index >= 0;
+    index--
+  ) {
+    sum +=
+      digits[index] *
+      multiplier;
+
+    multiplier =
+      multiplier === 3
+        ? 1
+        : 3;
+  }
+
+  const calculatedCheckDigit =
+    (10 - (sum % 10)) % 10;
+
+  return (
+    calculatedCheckDigit ===
+    checkDigit
+  );
+}
+
+/*
+ * ============================================================
+ * BARCODE / GTIN
+ * ============================================================
+ *
+ * Empty strings are allowed internally because barcode is
+ * optional.
+ *
+ * Numeric values that look like GTINs are validated.
+ *
+ * Non-numeric barcode formats remain supported.
+ */
+
+const barcodeField = z
+  .string()
+  .trim()
+  .max(
+    100,
+    "Barcode cannot exceed 100 characters.",
+  )
+  .refine(
+    (value) => {
+      if (!value) {
+        return true;
+      }
+
+      return isValidGtin(value);
+    },
+    {
+      message:
+        "Invalid GTIN. Use a valid GTIN-8, GTIN-12, GTIN-13, or GTIN-14 barcode, or use a supported non-numeric barcode format.",
+    },
+  )
+  .optional();
+
+/*
+ * ============================================================
+ * ADVANCED CATALOG FOUNDATION FIELDS
+ * ============================================================
  */
 
 const productCatalogFields = {
@@ -45,10 +149,7 @@ const productCatalogFields = {
     "Brand cannot exceed 100 characters.",
   ),
 
-  barcode: optionalText(
-    100,
-    "Barcode cannot exceed 100 characters.",
-  ),
+  barcode: barcodeField,
 
   unit: optionalText(
     30,
@@ -86,9 +187,6 @@ export const createProductSchema =
       "Category cannot exceed 100 characters.",
     ),
 
-    /*
-     * Advanced catalog foundation.
-     */
     ...productCatalogFields,
 
     purchasePrice:
@@ -101,13 +199,6 @@ export const createProductSchema =
         "Selling price cannot be negative.",
       ),
 
-    /*
-     * Initial stock is allowed during
-     * product creation.
-     *
-     * The product service records the corresponding
-     * initial_stock inventory movement.
-     */
     stockQuantity:
       nonNegativeNumber(
         "Stock quantity cannot be negative.",
@@ -144,7 +235,7 @@ export const createProductSchema =
  * PRODUCT UPDATE
  * ============================================================
  *
- * stockQuantity is intentionally NOT included here.
+ * stockQuantity is intentionally NOT included.
  *
  * Stock changes must go through:
  *
@@ -176,9 +267,6 @@ export const updateProductSchema =
       "Category cannot exceed 100 characters.",
     ),
 
-    /*
-     * Advanced catalog foundation.
-     */
     ...productCatalogFields,
 
     purchasePrice:
@@ -287,6 +375,27 @@ export const productListQuerySchema =
       .optional(),
   });
 
+/*
+ * ============================================================
+ * BARCODE LOOKUP
+ * ============================================================
+ */
+
+export const barcodeLookupSchema =
+  z.object({
+    barcode: z
+      .string()
+      .trim()
+      .min(
+        1,
+        "Barcode is required.",
+      )
+      .max(
+        100,
+        "Barcode cannot exceed 100 characters.",
+      ),
+  });
+
 export type CreateProductInput =
   z.infer<
     typeof createProductSchema
@@ -301,3 +410,9 @@ export type ProductListQuery =
   z.infer<
     typeof productListQuerySchema
   >;
+
+export type BarcodeLookupInput =
+  z.infer<
+    typeof barcodeLookupSchema
+  >;
+

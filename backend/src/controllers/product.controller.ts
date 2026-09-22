@@ -7,12 +7,14 @@ import mongoose from "mongoose";
 import {
   createProductForOwner,
   deleteProductForOwner,
+  getProductByBarcodeForOwner,
   getProductForOwner,
   getProductsForOwner,
   updateProductForOwner,
 } from "../services/product.service";
 
 import {
+  barcodeLookupSchema,
   createProductSchema,
   productListQuerySchema,
   updateProductSchema,
@@ -103,6 +105,41 @@ export async function getProduct(
     await getProductForOwner(
       req.user.id,
       getProductId(req),
+    );
+
+  res.status(200).json({
+    success: true,
+
+    data: {
+      product,
+    },
+  });
+}
+
+/*
+ * ============================================================
+ * BARCODE LOOKUP
+ * ============================================================
+ *
+ * GET /api/products/barcode/:barcode
+ *
+ * This route MUST appear before /:productId.
+ */
+
+export async function getProductByBarcode(
+  req: AuthenticatedRequest,
+  res: Response,
+) {
+  const input =
+    barcodeLookupSchema.parse({
+      barcode:
+        req.params.barcode,
+    });
+
+  const product =
+    await getProductByBarcodeForOwner(
+      req.user.id,
+      input.barcode,
     );
 
   res.status(200).json({

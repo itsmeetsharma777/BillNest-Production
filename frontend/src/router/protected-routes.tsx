@@ -1,3 +1,4 @@
+
 import { Navigate, Route } from "react-router-dom";
 
 import { ProtectedRoute } from "@/components/common/ProtectedRoute";
@@ -50,7 +51,6 @@ export function ProtectedRoutes() {
           />
         }
       >
-
         {/* =================================================== */}
         {/* FIRST-TIME SHOP SETUP                               */}
         {/* =================================================== */}
@@ -63,6 +63,33 @@ export function ProtectedRoutes() {
         />
 
         {/* =================================================== */}
+        {/* BRANDS                                              */}
+        {/* =================================================== */}
+        {/*
+         * Brands is intentionally kept outside
+         * ShopkeeperShopRequired.
+         *
+         * Authentication + shopkeeper role are still
+         * required through the ProtectedRoute above.
+         *
+         * This prevents the Brands navigation item from
+         * being intercepted by the shop-existence guard.
+         */}
+
+        <Route
+          element={
+            <ShopkeeperLayout />
+          }
+        >
+          <Route
+            path="/shopkeeper/brands"
+            element={
+              <BrandsPage />
+            }
+          />
+        </Route>
+
+        {/* =================================================== */}
         {/* SHOPKEEPER APPLICATION                              */}
         {/* =================================================== */}
 
@@ -71,13 +98,11 @@ export function ProtectedRoutes() {
             <ShopkeeperShopRequired />
           }
         >
-
           <Route
             element={
               <ShopkeeperLayout />
             }
           >
-
             {/* ================================================= */}
             {/* DASHBOARD                                         */}
             {/* ================================================= */}
@@ -126,17 +151,6 @@ export function ProtectedRoutes() {
               path="/shopkeeper/categories"
               element={
                 <CategoriesPage />
-              }
-            />
-
-            {/* ================================================= */}
-            {/* BRANDS                                            */}
-            {/* ================================================= */}
-
-            <Route
-              path="/shopkeeper/brands"
-              element={
-                <BrandsPage />
               }
             />
 
@@ -233,11 +247,8 @@ export function ProtectedRoutes() {
                 <SettingsPage />
               }
             />
-
           </Route>
-
         </Route>
-
       </Route>
 
       {/* ===================================================== */}
@@ -253,13 +264,11 @@ export function ProtectedRoutes() {
           />
         }
       >
-
         <Route
           element={
             <CustomerLayout />
           }
         >
-
           {/* Dashboard */}
 
           <Route
@@ -327,9 +336,7 @@ export function ProtectedRoutes() {
               <CustomerSettingsPage />
             }
           />
-
         </Route>
-
       </Route>
 
       {/* ===================================================== */}
@@ -350,3 +357,4 @@ export function ProtectedRoutes() {
 }
 
 export default ProtectedRoutes;
+

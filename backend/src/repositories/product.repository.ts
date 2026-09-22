@@ -1,3 +1,4 @@
+
 import {
   type ClientSession,
 } from "mongoose";
@@ -16,9 +17,6 @@ interface ProductFilters {
  * ============================================================
  * BUILD PRODUCT FILTER
  * ============================================================
- *
- * Every query starts with shopId so product data remains
- * tenant-isolated.
  */
 
 function buildProductFilter(
@@ -43,31 +41,24 @@ function buildProductFilter(
           $options: "i",
         },
       },
-
       {
         sku: {
           $regex: search,
           $options: "i",
         },
       },
-
       {
         category: {
           $regex: search,
           $options: "i",
         },
       },
-
-      /*
-       * Advanced catalog search foundation.
-       */
       {
         brand: {
           $regex: search,
           $options: "i",
         },
       },
-
       {
         barcode: {
           $regex: search,
@@ -96,11 +87,6 @@ function buildProductFilter(
  * ============================================================
  * CREATE PRODUCT
  * ============================================================
- *
- * The optional MongoDB session allows product creation to
- * participate in a larger transaction.
- *
- * Product creation + initial inventory movement remain atomic.
  */
 
 export async function createProduct(
@@ -109,14 +95,9 @@ export async function createProduct(
     name: string;
     sku?: string;
     category?: string;
-
-    /*
-     * Advanced catalog foundation.
-     */
     brand?: string;
     barcode?: string;
     unit?: string;
-
     purchasePrice: number;
     sellingPrice: number;
     stockQuantity: number;
@@ -210,14 +191,29 @@ export async function findProductByIdForShop(
 
 /*
  * ============================================================
- * UPDATE PRODUCT
+ * FIND PRODUCT BY BARCODE
  * ============================================================
  *
- * stockQuantity is technically retained in the repository
- * type for compatibility with existing callers, but the
- * product service intentionally does not update it.
+ * Barcode lookup is ALWAYS scoped by shopId.
  *
- * Inventory changes must go through inventory adjustment.
+ * This prevents one shopkeeper from ever resolving a
+ * barcode belonging to another shop.
+ */
+
+export async function findProductByBarcodeForShop(
+  barcode: string,
+  shopId: string,
+) {
+  return ProductModel.findOne({
+    shopId,
+    barcode,
+  });
+}
+
+/*
+ * ============================================================
+ * UPDATE PRODUCT
+ * ============================================================
  */
 
 export async function updateProductByIdForShop(
@@ -227,14 +223,9 @@ export async function updateProductByIdForShop(
     name: string;
     sku: string;
     category: string;
-
-    /*
-     * Advanced catalog foundation.
-     */
     brand: string;
     barcode: string;
     unit: string;
-
     purchasePrice: number;
     sellingPrice: number;
     stockQuantity: number;

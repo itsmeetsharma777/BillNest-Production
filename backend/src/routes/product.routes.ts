@@ -1,3 +1,4 @@
+
 import {
   Router,
 } from "express";
@@ -6,6 +7,7 @@ import {
   createProduct,
   deleteProduct,
   getProduct,
+  getProductByBarcode,
   getProducts,
   updateProduct,
 } from "../controllers/product.controller";
@@ -35,6 +37,12 @@ router.use(
   ),
 );
 
+/*
+ * ============================================================
+ * CREATE
+ * ============================================================
+ */
+
 router.post(
   "/",
   asyncHandler(
@@ -42,12 +50,39 @@ router.post(
   ),
 );
 
+/*
+ * ============================================================
+ * LIST
+ * ============================================================
+ */
+
 router.get(
   "/",
   asyncHandler(
     getProducts,
   ),
 );
+
+/*
+ * ============================================================
+ * BARCODE LOOKUP
+ * ============================================================
+ *
+ * Keep this BEFORE /:productId.
+ */
+
+router.get(
+  "/barcode/:barcode",
+  asyncHandler(
+    getProductByBarcode,
+  ),
+);
+
+/*
+ * ============================================================
+ * SINGLE PRODUCT
+ * ============================================================
+ */
 
 router.get(
   "/:productId",
