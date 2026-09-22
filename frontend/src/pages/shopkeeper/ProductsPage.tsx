@@ -1,8 +1,10 @@
+
 import {
   useEffect,
   useMemo,
   useState,
 } from "react";
+
 import {
   AlertTriangle,
   Boxes,
@@ -26,6 +28,7 @@ interface Product {
   name: string;
   sku?: string | null;
   category?: string | null;
+  brand?: string | null;
   purchasePrice: number;
   sellingPrice: number;
   stockQuantity: number;
@@ -37,10 +40,31 @@ interface Product {
   updatedAt?: string;
 }
 
+interface Category {
+  _id: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface Brand {
+  _id: string;
+  name: string;
+  manufacturer?: string | null;
+  description?: string | null;
+  website?: string | null;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 interface ProductForm {
   name: string;
   sku: string;
   category: string;
+  brand: string;
   purchasePrice: string;
   sellingPrice: string;
   stockQuantity: string;
@@ -53,6 +77,7 @@ const emptyForm: ProductForm = {
   name: "",
   sku: "",
   category: "",
+  brand: "",
   purchasePrice: "0",
   sellingPrice: "0",
   stockQuantity: "0",
@@ -79,6 +104,7 @@ function createForm(
     name: product.name,
     sku: product.sku ?? "",
     category: product.category ?? "",
+    brand: product.brand ?? "",
     purchasePrice: String(
       product.purchasePrice,
     ),
@@ -103,13 +129,114 @@ function isLowStock(product: Product) {
   return (
     product.isActive &&
     product.stockQuantity <=
-    product.lowStockThreshold
+      product.lowStockThreshold
   );
+}
+
+function extractCategories(
+  data: unknown,
+): Category[] {
+  if (
+    Array.isArray(
+      (
+        data as {
+          data?: {
+            categories?: Category[];
+          };
+        }
+      )?.data?.categories,
+    )
+  ) {
+    return (
+      data as {
+        data: {
+          categories: Category[];
+        };
+      }
+    ).data.categories;
+  }
+
+  if (
+    Array.isArray(
+      (
+        data as {
+          categories?: Category[];
+        }
+      )?.categories,
+    )
+  ) {
+    return (
+      data as {
+        categories: Category[];
+      }
+    ).categories;
+  }
+
+  if (Array.isArray(data)) {
+    return data as Category[];
+  }
+
+  return [];
+}
+
+function extractBrands(
+  data: unknown,
+): Brand[] {
+  if (
+    Array.isArray(
+      (
+        data as {
+          data?: {
+            brands?: Brand[];
+          };
+        }
+      )?.data?.brands,
+    )
+  ) {
+    return (
+      data as {
+        data: {
+          brands: Brand[];
+        };
+      }
+    ).data.brands;
+  }
+
+  if (
+    Array.isArray(
+      (
+        data as {
+          brands?: Brand[];
+        }
+      )?.brands,
+    )
+  ) {
+    return (
+      data as {
+        brands: Brand[];
+      }
+    ).brands;
+  }
+
+  if (Array.isArray(data)) {
+    return data as Brand[];
+  }
+
+  return [];
 }
 
 export default function ProductsPage() {
   const [products, setProducts] =
     useState<Product[]>([]);
+
+  const [categories, setCategories] =
+    useState<Category[]>([]);
+
+  const [brands, setBrands] =
+    useState<Brand[]>([]);
+
+  const [catalogLoading, setCatalogLoading] =
+    useState(true);
 
   const [search, setSearch] =
     useState("");
@@ -176,22 +303,24 @@ export default function ProductsPage() {
       if (!response.ok) {
         throw new Error(
           data?.message ??
-          "Unable to load products.",
+            "Unable to load products.",
         );
       }
 
       const nextProducts =
         Array.isArray(data)
           ? data
-          : Array.isArray(data?.products)
+          : Array.isArray(
+                data?.products,
+              )
             ? data.products
             : Array.isArray(
-              data?.data?.products,
-            )
+                  data?.data?.products,
+                )
               ? data.data.products
               : Array.isArray(
-                data?.data,
-              )
+                    data?.data,
+                  )
                 ? data.data
                 : [];
 
@@ -208,9 +337,112 @@ export default function ProductsPage() {
     }
   }
 
+  async function loadCatalogData() {
+    try {
+      setCatalogLoading(true);
+
+      const [
+        categoriesResponse,
+        brandsResponse,
+      ] = await Promise.all([
+        fetch(
+          `${API_URL}/categories?isActive=all`,
+          {
+            credentials: "include",
+          },
+        ),
+        fetch(
+          `${API_URL}/brands?isActive=all`,
+          {
+            credentials: "include",
+          },
+        ),
+      ]);
+
+      const [
+        categoriesData,
+        brandsData,
+      ] = await Promise.all([
+        categoriesResponse
+          .json()
+          .catch(() => null),
+        brandsResponse
+          .json()
+          .catch(() => null),
+      ]);
+
+      if (!categoriesResponse.ok) {
+        throw new Error(
+          categoriesData?.message ??
+            "Unable to load categories.",
+        );
+      }
+
+      if (!brandsResponse.ok) {
+        throw new Error(
+          brandsData?.message ??
+            "Unable to load brands.",
+        );
+      }
+
+      setCategories(
+        extractCategories(
+          categoriesData,
+        ),
+      );
+
+      setBrands(
+        extractBrands(
+          brandsData,
+        ),
+      );
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to load catalog data.",
+      );
+    } finally {
+      setCatalogLoading(false);
+    }
+  }
+
   useEffect(() => {
     void loadProducts();
+    void loadCatalogData();
   }, []);
+
+  const activeCategories =
+    useMemo(
+      () =>
+        categories
+          .filter(
+            (category) =>
+              category.isActive,
+          )
+          .sort((a, b) =>
+            a.name.localeCompare(
+              b.name,
+            ),
+          ),
+      [categories],
+    );
+
+  const activeBrands =
+    useMemo(
+      () =>
+        brands
+          .filter(
+            (brand) =>
+              brand.isActive,
+          )
+          .sort((a, b) =>
+            a.name.localeCompare(
+              b.name,
+            ),
+          ),
+      [brands],
+    );
 
   const filteredProducts =
     useMemo(() => {
@@ -235,13 +467,20 @@ export default function ProductsPage() {
               ?.toLowerCase()
               .includes(
                 normalizedSearch,
+              ) ||
+            product.brand
+              ?.toLowerCase()
+              .includes(
+                normalizedSearch,
               );
 
           const matchesStatus =
             statusFilter === "all" ||
-            (statusFilter === "active" &&
+            (statusFilter ===
+              "active" &&
               product.isActive) ||
-            (statusFilter === "inactive" &&
+            (statusFilter ===
+              "inactive" &&
               !product.isActive);
 
           return (
@@ -393,14 +632,46 @@ export default function ProductsPage() {
       return;
     }
 
+    if (
+      form.category &&
+      !categories.some(
+        (category) =>
+          category.name ===
+          form.category,
+      )
+    ) {
+      setFormError(
+        "Selected category is no longer available.",
+      );
+      return;
+    }
+
+    if (
+      form.brand &&
+      !brands.some(
+        (brand) =>
+          brand.name === form.brand,
+      )
+    ) {
+      setFormError(
+        "Selected brand is no longer available.",
+      );
+      return;
+    }
+
     try {
       setSaving(true);
 
       const payload = {
         name: form.name.trim(),
-        sku: form.sku.trim() || undefined,
+        sku:
+          form.sku.trim() ||
+          undefined,
         category:
           form.category.trim() ||
+          undefined,
+        brand:
+          form.brand.trim() ||
           undefined,
         purchasePrice,
         sellingPrice,
@@ -441,7 +712,7 @@ export default function ProductsPage() {
       if (!response.ok) {
         throw new Error(
           data?.message ??
-          "Unable to save product.",
+            "Unable to save product.",
         );
       }
 
@@ -483,7 +754,7 @@ export default function ProductsPage() {
       if (!response.ok) {
         throw new Error(
           data?.message ??
-          "Unable to deactivate product.",
+            "Unable to deactivate product.",
         );
       }
 
@@ -499,6 +770,13 @@ export default function ProductsPage() {
     } finally {
       setDeleting(false);
     }
+  }
+
+  async function refreshAll() {
+    await Promise.all([
+      loadProducts(true),
+      loadCatalogData(),
+    ]);
   }
 
   return (
@@ -518,7 +796,8 @@ export default function ProductsPage() {
 
               <p className="mt-1 text-sm text-muted-foreground">
                 Manage your product catalog,
-                pricing, stock and warranties.
+                pricing, stock, brands and
+                warranties.
               </p>
             </div>
           </div>
@@ -528,19 +807,24 @@ export default function ProductsPage() {
           <button
             type="button"
             onClick={() =>
-              void loadProducts(true)
+              void refreshAll()
             }
-            disabled={refreshing}
+            disabled={
+              refreshing ||
+              catalogLoading
+            }
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-60"
           >
             <RefreshCw
               className={[
                 "size-4",
-                refreshing
+                refreshing ||
+                catalogLoading
                   ? "animate-spin"
                   : "",
               ].join(" ")}
             />
+
             <span className="hidden sm:inline">
               Refresh
             </span>
@@ -560,13 +844,17 @@ export default function ProductsPage() {
       {/* Stats */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          icon={<Package className="size-5" />}
+          icon={
+            <Package className="size-5" />
+          }
           label="Total products"
           value={products.length}
         />
 
         <StatCard
-          icon={<Check className="size-5" />}
+          icon={
+            <Check className="size-5" />
+          }
           label="Active products"
           value={activeCount}
         />
@@ -580,7 +868,9 @@ export default function ProductsPage() {
         />
 
         <StatCard
-          icon={<Boxes className="size-5" />}
+          icon={
+            <Boxes className="size-5" />
+          }
           label="Inactive products"
           value={inactiveCount}
         />
@@ -595,6 +885,7 @@ export default function ProductsPage() {
             <p className="font-medium">
               Something went wrong
             </p>
+
             <p className="mt-1">
               {error}
             </p>
@@ -627,7 +918,7 @@ export default function ProductsPage() {
                   event.target.value,
                 )
               }
-              placeholder="Search by name, SKU or category..."
+              placeholder="Search by name, SKU, category or brand..."
               className="h-10 w-full rounded-xl border bg-background pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
           </div>
@@ -695,23 +986,23 @@ export default function ProductsPage() {
 
             {products.length ===
               0 && (
-                <button
-                  type="button"
-                  onClick={
-                    openCreateModal
-                  }
-                  className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-                >
-                  <Plus className="size-4" />
-                  Add your first product
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={
+                  openCreateModal
+                }
+                className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus className="size-4" />
+                Add your first product
+              </button>
+            )}
           </div>
         ) : (
           <>
             {/* Desktop */}
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[900px] text-sm">
+              <table className="w-full min-w-[1000px] text-sm">
                 <thead className="border-b bg-muted/30">
                   <tr className="text-left text-xs text-muted-foreground">
                     <th className="px-5 py-3 font-semibold">
@@ -720,6 +1011,10 @@ export default function ProductsPage() {
 
                     <th className="px-5 py-3 font-semibold">
                       Category
+                    </th>
+
+                    <th className="px-5 py-3 font-semibold">
+                      Brand
                     </th>
 
                     <th className="px-5 py-3 font-semibold">
@@ -789,6 +1084,11 @@ export default function ProductsPage() {
                               "—"}
                           </td>
 
+                          <td className="px-5 py-4 text-muted-foreground">
+                            {product.brand ||
+                              "—"}
+                          </td>
+
                           <td className="px-5 py-4 font-medium">
                             {formatCurrency(
                               product.sellingPrice,
@@ -824,7 +1124,7 @@ export default function ProductsPage() {
 
                           <td className="px-5 py-4 text-muted-foreground">
                             {product.warrantyPeriodMonths >
-                              0
+                            0
                               ? `${product.warrantyPeriodMonths} months`
                               : "No warranty"}
                           </td>
@@ -948,6 +1248,14 @@ export default function ProductsPage() {
                             />
 
                             <InfoItem
+                              label="Brand"
+                              value={
+                                product.brand ||
+                                "—"
+                              }
+                            />
+
+                            <InfoItem
                               label="Warranty"
                               value={
                                 product.warrantyPeriodMonths >
@@ -1057,7 +1365,8 @@ export default function ProductsPage() {
                   placeholder="e.g. KB-001"
                 />
 
-                <Field
+                {/* Category */}
+                <SelectField
                   label="Category"
                   value={form.category}
                   onChange={(value) =>
@@ -1066,7 +1375,65 @@ export default function ProductsPage() {
                       value,
                     )
                   }
-                  placeholder="e.g. Accessories"
+                  disabled={
+                    catalogLoading
+                  }
+                  options={activeCategories.map(
+                    (category) => ({
+                      value:
+                        category.name,
+                      label:
+                        category.name,
+                    }),
+                  )}
+                  currentValue={
+                    form.category
+                  }
+                  placeholder={
+                    catalogLoading
+                      ? "Loading categories..."
+                      : activeCategories.length ===
+                          0
+                        ? "No active categories"
+                        : "Select category"
+                  }
+                  emptyLabel="No category"
+                />
+
+                {/* Brand */}
+                <SelectField
+                  label="Brand"
+                  value={form.brand}
+                  onChange={(value) =>
+                    updateForm(
+                      "brand",
+                      value,
+                    )
+                  }
+                  disabled={
+                    catalogLoading
+                  }
+                  options={activeBrands.map(
+                    (brand) => ({
+                      value: brand.name,
+                      label:
+                        brand.manufacturer
+                          ? `${brand.name} · ${brand.manufacturer}`
+                          : brand.name,
+                    }),
+                  )}
+                  currentValue={
+                    form.brand
+                  }
+                  placeholder={
+                    catalogLoading
+                      ? "Loading brands..."
+                      : activeBrands.length ===
+                          0
+                        ? "No active brands"
+                        : "Select brand"
+                  }
+                  emptyLabel="No brand"
                 />
 
                 <Field
@@ -1230,9 +1597,10 @@ export default function ProductsPage() {
               <span className="font-medium text-foreground">
                 {deleteTarget.name}
               </span>{" "}
-              will no longer appear as an active
-              catalog product. Existing invoices
-              remain unchanged.
+              will no longer appear as an
+              active catalog product.
+              Existing invoices remain
+              unchanged.
             </p>
 
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -1262,6 +1630,7 @@ export default function ProductsPage() {
                 {deleting && (
                   <Loader2 className="size-4 animate-spin" />
                 )}
+
                 Deactivate
               </button>
             </div>
@@ -1347,6 +1716,92 @@ function InfoItem({
   );
 }
 
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+  emptyLabel,
+  currentValue,
+  disabled = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (
+    value: string,
+  ) => void;
+  options: Array<{
+    value: string;
+    label: string;
+  }>;
+  placeholder: string;
+  emptyLabel: string;
+  currentValue: string;
+  disabled?: boolean;
+}) {
+  const currentValueExists =
+    !currentValue ||
+    options.some(
+      (option) =>
+        option.value ===
+        currentValue,
+    );
+
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+        {label}
+      </span>
+
+      <select
+        value={value}
+        onChange={(event) =>
+          onChange(
+            event.target.value,
+          )
+        }
+        disabled={disabled}
+        className="h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <option value="">
+          {options.length > 0
+            ? emptyLabel
+            : placeholder}
+        </option>
+
+        {!currentValueExists &&
+          currentValue && (
+            <option
+              value={currentValue}
+            >
+              {currentValue}{" "}
+              (currently assigned)
+            </option>
+          )}
+
+        {options.map((option) => (
+          <option
+            key={option.value}
+            value={option.value}
+          >
+            {option.label}
+          </option>
+        ))}
+      </select>
+
+      {!disabled &&
+        options.length === 0 && (
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            Create an active{" "}
+            {label.toLowerCase()} from
+            its management page first.
+          </p>
+        )}
+    </label>
+  );
+}
+
 function Field({
   label,
   value,
@@ -1382,6 +1837,7 @@ function Field({
     >
       <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
         {label}
+
         {required && (
           <span className="ml-1 text-destructive">
             *
@@ -1411,8 +1867,12 @@ function Field({
           step={step}
           className={[
             "h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20",
-            prefix ? "pl-7" : "",
-            suffix ? "pr-16" : "",
+            prefix
+              ? "pl-7"
+              : "",
+            suffix
+              ? "pr-16"
+              : "",
           ].join(" ")}
         />
 
