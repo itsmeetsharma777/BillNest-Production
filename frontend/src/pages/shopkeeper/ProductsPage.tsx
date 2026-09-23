@@ -4,6 +4,7 @@ import {
   useState,
 } from "react";
 import ProductUnitSelect from "@/components/shopkeeper/ProductUnitSelect";
+import ProductImageManager from "@/components/shopkeeper/ProductImageManager";
 import {
   AlertTriangle,
   Barcode,
@@ -29,6 +30,14 @@ const API_URL =
  * TYPES
  * ============================================================
  */
+interface ProductImage {
+  _id: string;
+  url: string;
+  publicId: string;
+  isPrimary: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 interface Product {
   _id: string;
@@ -44,6 +53,7 @@ interface Product {
   lowStockThreshold: number;
   warrantyPeriodMonths: number;
   description?: string | null;
+  images?: ProductImage[];
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -2243,7 +2253,33 @@ export default function ProductsPage() {
                     />
                   </label>
                 </div>
+                {editingProduct && (
+                  <div className="sm:col-span-2">
+                    <ProductImageManager
+                      product={editingProduct}
+                      onProductUpdated={(updatedProduct) => {
+                        setEditingProduct(
+                          updatedProduct,
+                        );
 
+                        setProducts(
+                          (currentProducts) =>
+                            currentProducts.map(
+                              (currentProduct) =>
+                                currentProduct._id ===
+                                  updatedProduct._id
+                                  ? {
+                                    ...currentProduct,
+                                    ...updatedProduct,
+                                  }
+                                  : currentProduct,
+                            ),
+                        );
+                      }}
+                      disabled={saving}
+                    />
+                  </div>
+                )}
                 {formError && (
                   <div className="sm:col-span-2 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
                     {formError}
