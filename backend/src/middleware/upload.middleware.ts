@@ -31,7 +31,9 @@ const upload = multer({
   storage,
 
   limits: {
-    fileSize: MAX_FILE_SIZE,
+    fileSize:
+      MAX_FILE_SIZE,
+
     files: 1,
   },
 
@@ -56,9 +58,89 @@ const upload = multer({
       return;
     }
 
-    callback(null, true);
+    callback(
+      null,
+      true,
+    );
   },
 });
 
 export const uploadDocumentFile =
   upload.single("file");
+
+/*
+ * ============================================================
+ * PRODUCT IMAGE UPLOAD
+ * ============================================================
+ *
+ * Product images intentionally use a separate Multer instance.
+ *
+ * This prevents Feature 22.6 from changing the existing
+ * document-upload rules.
+ *
+ * Supported:
+ *
+ * JPG
+ * PNG
+ * WebP
+ *
+ * Maximum:
+ *
+ * 5 MB per image
+ * 1 image per request
+ */
+
+const productImageStorage =
+  multer.memoryStorage();
+
+const productImageUpload =
+  multer({
+    storage:
+      productImageStorage,
+
+    limits: {
+      fileSize:
+        5 * 1024 * 1024,
+
+      files: 1,
+    },
+
+    fileFilter: (
+      _req,
+      file,
+      callback,
+    ) => {
+      const allowedImageTypes =
+        new Set([
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+        ]);
+
+      if (
+        !allowedImageTypes.has(
+          file.mimetype.toLowerCase(),
+        )
+      ) {
+        callback(
+          new ApiError(
+            400,
+            "Only JPG, PNG, and WebP product images are supported.",
+            "UNSUPPORTED_PRODUCT_IMAGE_TYPE",
+          ),
+        );
+
+        return;
+      }
+
+      callback(
+        null,
+        true,
+      );
+    },
+  });
+
+export const uploadProductImage =
+  productImageUpload.single(
+    "image",
+  );

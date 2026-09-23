@@ -4,6 +4,47 @@ import {
   type InferSchemaType,
 } from "mongoose";
 
+const productImageSchema =
+  new Schema(
+    {
+      url: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
+      publicId: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
+      alt: {
+        type: String,
+        trim: true,
+        maxlength: 200,
+      },
+
+      width: {
+        type: Number,
+        min: 1,
+      },
+
+      height: {
+        type: Number,
+        min: 1,
+      },
+
+      isPrimary: {
+        type: Boolean,
+        default: false,
+      },
+    },
+    {
+      _id: true,
+    },
+  );
+
 const productSchema = new Schema(
   {
     shopId: {
@@ -40,8 +81,8 @@ const productSchema = new Schema(
      *
      * These fields are optional for backward compatibility.
      *
-     * Dedicated management functionality will be implemented
-     * in the later Feature 22.x steps.
+     * Dedicated management functionality is implemented
+     * throughout Feature 22.x.
      */
 
     brand: {
@@ -60,6 +101,33 @@ const productSchema = new Schema(
       type: String,
       trim: true,
       maxlength: 30,
+    },
+
+    /*
+     * ============================================================
+     * PRODUCT IMAGES
+     * ============================================================
+     *
+     * Maximum 5 images are supported per product.
+     *
+     * The first uploaded image becomes the primary image.
+     *
+     * Existing products automatically remain compatible because
+     * this field defaults to an empty array.
+     */
+
+    images: {
+      type: [productImageSchema],
+      default: [],
+      validate: {
+        validator: (
+          images: unknown[],
+        ) =>
+          images.length <= 5,
+
+        message:
+          "A product can have a maximum of 5 images.",
+      },
     },
 
     purchasePrice: {
@@ -184,7 +252,12 @@ productSchema.index(
 );
 
 export type Product =
-  InferSchemaType<typeof productSchema>;
+  InferSchemaType<
+    typeof productSchema
+  >;
 
 export const ProductModel =
-  model("Product", productSchema);
+  model(
+    "Product",
+    productSchema,
+  );

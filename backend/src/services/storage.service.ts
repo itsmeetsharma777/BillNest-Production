@@ -21,6 +21,13 @@ export interface UploadedDocumentFile {
   sizeBytes: number;
 }
 
+export interface UploadedProductImage {
+  url: string;
+  publicId: string;
+  width?: number;
+  height?: number;
+}
+
 function sanitizeFileName(
   fileName: string,
 ) {
@@ -79,7 +86,10 @@ function uploadBuffer(
   },
 ): Promise<UploadApiResponse> {
   return new Promise(
-    (resolve, reject) => {
+    (
+      resolve,
+      reject,
+    ) => {
       const stream =
         cloudinary.uploader.upload_stream(
           {
@@ -215,6 +225,86 @@ export async function deleteDocumentFileFromStorage(
     {
       resource_type:
         resourceType,
+
+      invalidate: true,
+    },
+  );
+}
+
+/*
+ * ============================================================
+ * PRODUCT IMAGE STORAGE
+ * ============================================================
+ */
+
+export async function uploadProductImageToStorage(
+  input: {
+    buffer: Buffer;
+    shopId: string;
+    productId: string;
+  },
+): Promise<UploadedProductImage> {
+  assertCloudinaryConfigured();
+
+  if (!input.buffer.length) {
+    throw new ApiError(
+      400,
+      "Uploaded image is empty.",
+      "EMPTY_PRODUCT_IMAGE",
+    );
+  }
+
+  const uploadResult =
+    await uploadBuffer(
+      input.buffer,
+      {
+        folder:
+          `billnest/products/${input.shopId}`,
+
+        publicId:
+          `product-${input.productId}-${Date.now()}`,
+
+        resourceType:
+          "image",
+
+        mimeType:
+          "image/*",
+      },
+    );
+
+  return {
+    url:
+      uploadResult.secure_url,
+
+    publicId:
+      uploadResult.public_id,
+
+    ...(uploadResult.width && {
+      width:
+        uploadResult.width,
+    }),
+
+    ...(uploadResult.height && {
+      height:
+        uploadResult.height,
+    }),
+  };
+}
+
+export async function deleteProductImageFromStorage(
+  publicId: string,
+) {
+  assertCloudinaryConfigured();
+
+  if (!publicId.trim()) {
+    return;
+  }
+
+  await cloudinary.uploader.destroy(
+    publicId,
+    {
+      resource_type:
+        "image",
 
       invalidate: true,
     },
