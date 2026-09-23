@@ -3,7 +3,7 @@ import {
   useMemo,
   useState,
 } from "react";
-
+import ProductUnitSelect from "@/components/shopkeeper/ProductUnitSelect";
 import {
   AlertTriangle,
   Barcode,
@@ -229,7 +229,7 @@ function isLowStock(
   return (
     product.isActive &&
     product.stockQuantity <=
-      product.lowStockThreshold
+    product.lowStockThreshold
   );
 }
 
@@ -484,7 +484,7 @@ export default function ProductsPage() {
       if (!response.ok) {
         throw new Error(
           data?.message ??
-            "Unable to load products.",
+          "Unable to load products.",
         );
       }
 
@@ -492,16 +492,16 @@ export default function ProductsPage() {
         Array.isArray(data)
           ? data
           : Array.isArray(
-                data?.products,
-              )
+            data?.products,
+          )
             ? data.products
             : Array.isArray(
-                  data?.data?.products,
-                )
+              data?.data?.products,
+            )
               ? data.data.products
               : Array.isArray(
-                    data?.data,
-                  )
+                data?.data,
+              )
                 ? data.data
                 : [];
 
@@ -509,7 +509,7 @@ export default function ProductsPage() {
         nextProducts,
       );
     } catch (
-      requestError
+    requestError
     ) {
       setError(
         requestError instanceof Error
@@ -575,7 +575,7 @@ export default function ProductsPage() {
       ) {
         throw new Error(
           categoriesData?.message ??
-            "Unable to load categories.",
+          "Unable to load categories.",
         );
       }
 
@@ -584,7 +584,7 @@ export default function ProductsPage() {
       ) {
         throw new Error(
           brandsData?.message ??
-            "Unable to load brands.",
+          "Unable to load brands.",
         );
       }
 
@@ -600,7 +600,7 @@ export default function ProductsPage() {
         ),
       );
     } catch (
-      requestError
+    requestError
     ) {
       setError(
         requestError instanceof Error
@@ -704,7 +704,7 @@ export default function ProductsPage() {
 
           const matchesStatus =
             statusFilter ===
-              "all" ||
+            "all" ||
             (statusFilter ===
               "active" &&
               product.isActive) ||
@@ -906,9 +906,9 @@ export default function ProductsPage() {
         warrantyPeriodMonths,
       ) ||
       warrantyPeriodMonths <
-        0 ||
+      0 ||
       warrantyPeriodMonths >
-        1200
+      1200
     ) {
       setFormError(
         "Warranty period must be a whole number between 0 and 1200 months.",
@@ -1023,7 +1023,7 @@ export default function ProductsPage() {
       if (!response.ok) {
         throw new Error(
           data?.message ??
-            "Unable to save product.",
+          "Unable to save product.",
         );
       }
 
@@ -1033,7 +1033,7 @@ export default function ProductsPage() {
 
       await loadProducts(true);
     } catch (
-      requestError
+    requestError
     ) {
       setFormError(
         requestError instanceof Error
@@ -1091,7 +1091,7 @@ export default function ProductsPage() {
       if (!response.ok) {
         throw new Error(
           data?.message ??
-            "No product was found with this barcode.",
+          "No product was found with this barcode.",
         );
       }
 
@@ -1108,7 +1108,7 @@ export default function ProductsPage() {
         product,
       );
     } catch (
-      requestError
+    requestError
     ) {
       setLookupError(
         requestError instanceof Error
@@ -1154,7 +1154,7 @@ export default function ProductsPage() {
       if (!response.ok) {
         throw new Error(
           data?.message ??
-            "Unable to deactivate product.",
+          "Unable to deactivate product.",
         );
       }
 
@@ -1162,7 +1162,7 @@ export default function ProductsPage() {
 
       await loadProducts(true);
     } catch (
-      requestError
+    requestError
     ) {
       setError(
         requestError instanceof Error
@@ -1227,7 +1227,7 @@ export default function ProductsPage() {
               className={[
                 "size-4",
                 refreshing ||
-                catalogLoading
+                  catalogLoading
                   ? "animate-spin"
                   : "",
               ].join(" ")}
@@ -1385,7 +1385,7 @@ export default function ProductsPage() {
                   className={[
                     "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
                     statusFilter ===
-                    value
+                      value
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground",
                   ].join(
@@ -1552,31 +1552,31 @@ export default function ProductsPage() {
 
             <h2 className="mt-4 font-semibold">
               {products.length ===
-              0
+                0
                 ? "No products yet"
                 : "No products found"}
             </h2>
 
             <p className="mt-1 max-w-md text-sm text-muted-foreground">
               {products.length ===
-              0
+                0
                 ? "Add your first product to start building your BillNest catalog."
                 : "Try changing your search or status filter."}
             </p>
 
             {products.length ===
               0 && (
-              <button
-                type="button"
-                onClick={
-                  openCreateModal
-                }
-                className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-              >
-                <Plus className="size-4" />
-                Add your first product
-              </button>
-            )}
+                <button
+                  type="button"
+                  onClick={
+                    openCreateModal
+                  }
+                  className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  <Plus className="size-4" />
+                  Add your first product
+                </button>
+              )}
           </div>
         ) : (
           <>
@@ -1726,7 +1726,7 @@ export default function ProductsPage() {
 
                           <td className="px-5 py-4 text-muted-foreground">
                             {product.warrantyPeriodMonths >
-                            0
+                              0
                               ? `${product.warrantyPeriodMonths} months`
                               : "No warranty"}
                           </td>
@@ -1874,7 +1874,7 @@ export default function ProductsPage() {
                               label="Warranty"
                               value={
                                 product.warrantyPeriodMonths >
-                                0
+                                  0
                                   ? `${product.warrantyPeriodMonths} months`
                                   : "None"
                               }
@@ -2060,7 +2060,7 @@ export default function ProductsPage() {
                     catalogLoading
                       ? "Loading categories..."
                       : activeCategories.length ===
-                          0
+                        0
                         ? "No active categories"
                         : "Select category"
                   }
@@ -2103,27 +2103,22 @@ export default function ProductsPage() {
                     catalogLoading
                       ? "Loading brands..."
                       : activeBrands.length ===
-                          0
+                        0
                         ? "No active brands"
                         : "Select brand"
                   }
                   emptyLabel="No brand"
                 />
 
-                <Field
-                  label="Unit"
-                  value={
-                    form.unit
-                  }
-                  onChange={(
-                    value,
-                  ) =>
+                <ProductUnitSelect
+                  value={form.unit}
+                  onChange={(value) =>
                     updateForm(
                       "unit",
                       value,
                     )
                   }
-                  placeholder="e.g. pcs, kg, box"
+                  disabled={saving}
                 />
 
                 <Field
@@ -2536,7 +2531,7 @@ function SelectField({
 
       {!disabled &&
         options.length ===
-          0 && (
+        0 && (
           <p className="mt-1.5 text-[11px] text-muted-foreground">
             Create an active{" "}
             {label.toLowerCase()}{" "}
@@ -2579,14 +2574,14 @@ function Field({
   suffix?: string;
   icon?: React.ReactNode;
   inputMode?:
-    | "none"
-    | "text"
-    | "tel"
-    | "url"
-    | "email"
-    | "numeric"
-    | "decimal"
-    | "search";
+  | "none"
+  | "text"
+  | "tel"
+  | "url"
+  | "email"
+  | "numeric"
+  | "decimal"
+  | "search";
   className?: string;
 }) {
   return (
@@ -2646,7 +2641,7 @@ function Field({
           className={[
             "h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20",
             prefix ||
-            icon
+              icon
               ? "pl-9"
               : "",
             suffix
