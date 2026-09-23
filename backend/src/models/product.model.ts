@@ -185,6 +185,101 @@ const productSchema = new Schema(
 
 /*
  * ============================================================
+ * DERIVED PRICING METRICS
+ * ============================================================
+ *
+ * These values are calculated from purchasePrice and
+ * sellingPrice. They are intentionally NOT stored in MongoDB.
+ *
+ * profitAmount
+ * = selling price - purchase price
+ *
+ * profitMarginPercent
+ * = profit / selling price × 100
+ *
+ * markupPercent
+ * = profit / purchase price × 100
+ *
+ * Negative profit is preserved so products sold below cost
+ * remain visible as a loss.
+ */
+
+productSchema.virtual(
+  "profitAmount",
+).get(function () {
+  return (
+    Math.round(
+      (
+        this.sellingPrice -
+        this.purchasePrice +
+        Number.EPSILON
+      ) * 100,
+    ) / 100
+  );
+});
+
+productSchema.virtual(
+  "profitMarginPercent",
+).get(function () {
+  if (this.sellingPrice <= 0) {
+    return 0;
+  }
+
+  const profit =
+    this.sellingPrice -
+    this.purchasePrice;
+
+  return (
+    Math.round(
+      (
+        (profit /
+          this.sellingPrice) *
+        100 +
+        Number.EPSILON
+      ) * 100,
+    ) / 100
+  );
+});
+
+productSchema.virtual(
+  "markupPercent",
+).get(function () {
+  if (this.purchasePrice <= 0) {
+    return 0;
+  }
+
+  const profit =
+    this.sellingPrice -
+    this.purchasePrice;
+
+  return (
+    Math.round(
+      (
+        (profit /
+          this.purchasePrice) *
+        100 +
+        Number.EPSILON
+      ) * 100,
+    ) / 100
+  );
+});
+
+productSchema.set(
+  "toJSON",
+  {
+    virtuals: true,
+  },
+);
+
+productSchema.set(
+  "toObject",
+  {
+    virtuals: true,
+  },
+);
+
+/*
+ * ============================================================
  * INDEXES
  * ============================================================
  */
