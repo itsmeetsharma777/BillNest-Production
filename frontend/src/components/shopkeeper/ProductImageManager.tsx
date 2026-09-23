@@ -179,7 +179,7 @@ export default function ProductImageManager({
       const formData = new FormData();
 
       formData.append(
-        "file",
+        "image",
         file,
       );
 
@@ -201,7 +201,7 @@ export default function ProductImageManager({
       if (!response.ok) {
         throw new Error(
           data?.message ??
-            "Unable to upload product image.",
+          "Unable to upload product image.",
         );
       }
 
@@ -266,7 +266,7 @@ export default function ProductImageManager({
       if (!response.ok) {
         throw new Error(
           data?.message ??
-            "Unable to set primary image.",
+          "Unable to set primary image.",
         );
       }
 
@@ -341,7 +341,7 @@ export default function ProductImageManager({
       if (!response.ok) {
         throw new Error(
           data?.message ??
-            "Unable to delete product image.",
+          "Unable to delete product image.",
         );
       }
 
