@@ -1,4 +1,3 @@
-
 import {
   useEffect,
   useMemo,
@@ -7,6 +6,7 @@ import {
 
 import {
   AlertTriangle,
+  Barcode,
   Boxes,
   Check,
   Edit3,
@@ -15,6 +15,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  ScanLine,
   Trash2,
   X,
 } from "lucide-react";
@@ -23,12 +24,20 @@ const API_URL =
   import.meta.env.VITE_API_URL ??
   "http://localhost:5001/api";
 
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
+
 interface Product {
   _id: string;
   name: string;
   sku?: string | null;
   category?: string | null;
   brand?: string | null;
+  barcode?: string | null;
+  unit?: string | null;
   purchasePrice: number;
   sellingPrice: number;
   stockQuantity: number;
@@ -65,6 +74,8 @@ interface ProductForm {
   sku: string;
   category: string;
   brand: string;
+  barcode: string;
+  unit: string;
   purchasePrice: string;
   sellingPrice: string;
   stockQuantity: string;
@@ -73,11 +84,19 @@ interface ProductForm {
   description: string;
 }
 
+/*
+ * ============================================================
+ * FORM DEFAULTS
+ * ============================================================
+ */
+
 const emptyForm: ProductForm = {
   name: "",
   sku: "",
   category: "",
   brand: "",
+  barcode: "",
+  unit: "",
   purchasePrice: "0",
   sellingPrice: "0",
   stockQuantity: "0",
@@ -86,7 +105,15 @@ const emptyForm: ProductForm = {
   description: "",
 };
 
-function formatCurrency(value: number) {
+/*
+ * ============================================================
+ * HELPERS
+ * ============================================================
+ */
+
+function formatCurrency(
+  value: number,
+) {
   return new Intl.NumberFormat(
     "en-IN",
     {
@@ -97,14 +124,85 @@ function formatCurrency(value: number) {
   ).format(value);
 }
 
+/*
+ * GTIN check-digit validation.
+ *
+ * Numeric barcodes with standard GTIN lengths are validated:
+ *
+ * GTIN-8
+ * GTIN-12 / UPC-A
+ * GTIN-13 / EAN-13
+ * GTIN-14
+ *
+ * Non-numeric barcode formats are allowed because businesses
+ * can use Code 128, Code 39, internal labels, etc.
+ */
+function isValidGtin(
+  value: string,
+) {
+  if (!/^\d+$/.test(value)) {
+    return true;
+  }
+
+  if (
+    ![8, 12, 13, 14].includes(
+      value.length,
+    )
+  ) {
+    return false;
+  }
+
+  const digits =
+    value.split("").map(Number);
+
+  const checkDigit =
+    digits.pop();
+
+  if (
+    checkDigit === undefined
+  ) {
+    return false;
+  }
+
+  let sum = 0;
+  let multiplier = 3;
+
+  for (
+    let index =
+      digits.length - 1;
+    index >= 0;
+    index--
+  ) {
+    sum +=
+      digits[index] *
+      multiplier;
+
+    multiplier =
+      multiplier === 3
+        ? 1
+        : 3;
+  }
+
+  const calculated =
+    (10 - (sum % 10)) % 10;
+
+  return (
+    calculated === checkDigit
+  );
+}
+
 function createForm(
   product: Product,
 ): ProductForm {
   return {
     name: product.name,
     sku: product.sku ?? "",
-    category: product.category ?? "",
+    category:
+      product.category ?? "",
     brand: product.brand ?? "",
+    barcode:
+      product.barcode ?? "",
+    unit: product.unit ?? "",
     purchasePrice: String(
       product.purchasePrice,
     ),
@@ -125,7 +223,9 @@ function createForm(
   };
 }
 
-function isLowStock(product: Product) {
+function isLowStock(
+  product: Product,
+) {
   return (
     product.isActive &&
     product.stockQuantity <=
@@ -136,40 +236,28 @@ function isLowStock(product: Product) {
 function extractCategories(
   data: unknown,
 ): Category[] {
+  const typed =
+    data as {
+      data?: {
+        categories?: Category[];
+      };
+      categories?: Category[];
+    };
+
   if (
     Array.isArray(
-      (
-        data as {
-          data?: {
-            categories?: Category[];
-          };
-        }
-      )?.data?.categories,
+      typed?.data?.categories,
     )
   ) {
-    return (
-      data as {
-        data: {
-          categories: Category[];
-        };
-      }
-    ).data.categories;
+    return typed.data.categories;
   }
 
   if (
     Array.isArray(
-      (
-        data as {
-          categories?: Category[];
-        }
-      )?.categories,
+      typed?.categories,
     )
   ) {
-    return (
-      data as {
-        categories: Category[];
-      }
-    ).categories;
+    return typed.categories;
   }
 
   if (Array.isArray(data)) {
@@ -182,40 +270,28 @@ function extractCategories(
 function extractBrands(
   data: unknown,
 ): Brand[] {
+  const typed =
+    data as {
+      data?: {
+        brands?: Brand[];
+      };
+      brands?: Brand[];
+    };
+
   if (
     Array.isArray(
-      (
-        data as {
-          data?: {
-            brands?: Brand[];
-          };
-        }
-      )?.data?.brands,
+      typed?.data?.brands,
     )
   ) {
-    return (
-      data as {
-        data: {
-          brands: Brand[];
-        };
-      }
-    ).data.brands;
+    return typed.data.brands;
   }
 
   if (
     Array.isArray(
-      (
-        data as {
-          brands?: Brand[];
-        }
-      )?.brands,
+      typed?.brands,
     )
   ) {
-    return (
-      data as {
-        brands: Brand[];
-      }
-    ).brands;
+    return typed.brands;
   }
 
   if (Array.isArray(data)) {
@@ -225,56 +301,158 @@ function extractBrands(
   return [];
 }
 
+function extractProduct(
+  data: unknown,
+): Product | null {
+  const typed =
+    data as {
+      data?: {
+        product?: Product;
+      };
+      product?: Product;
+    };
+
+  if (
+    typed?.data?.product
+  ) {
+    return typed.data.product;
+  }
+
+  if (typed?.product) {
+    return typed.product;
+  }
+
+  return null;
+}
+
+/*
+ * ============================================================
+ * PAGE
+ * ============================================================
+ */
+
 export default function ProductsPage() {
-  const [products, setProducts] =
-    useState<Product[]>([]);
+  const [
+    products,
+    setProducts,
+  ] = useState<Product[]>([]);
 
-  const [categories, setCategories] =
-    useState<Category[]>([]);
+  const [
+    categories,
+    setCategories,
+  ] = useState<Category[]>([]);
 
-  const [brands, setBrands] =
-    useState<Brand[]>([]);
+  const [
+    brands,
+    setBrands,
+  ] = useState<Brand[]>([]);
 
-  const [catalogLoading, setCatalogLoading] =
-    useState(true);
+  const [
+    catalogLoading,
+    setCatalogLoading,
+  ] = useState(true);
 
-  const [search, setSearch] =
-    useState("");
+  const [
+    search,
+    setSearch,
+  ] = useState("");
 
-  const [statusFilter, setStatusFilter] =
-    useState<
-      "all" | "active" | "inactive"
-    >("all");
+  const [
+    statusFilter,
+    setStatusFilter,
+  ] = useState<
+    "all" | "active" | "inactive"
+  >("all");
 
-  const [loading, setLoading] =
-    useState(true);
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-  const [refreshing, setRefreshing] =
-    useState(false);
+  const [
+    refreshing,
+    setRefreshing,
+  ] = useState(false);
 
-  const [saving, setSaving] =
-    useState(false);
+  const [
+    saving,
+    setSaving,
+  ] = useState(false);
 
-  const [error, setError] =
-    useState("");
+  const [
+    error,
+    setError,
+  ] = useState("");
 
-  const [modalOpen, setModalOpen] =
-    useState(false);
+  const [
+    modalOpen,
+    setModalOpen,
+  ] = useState(false);
 
-  const [editingProduct, setEditingProduct] =
-    useState<Product | null>(null);
+  const [
+    editingProduct,
+    setEditingProduct,
+  ] = useState<Product | null>(
+    null,
+  );
 
-  const [form, setForm] =
-    useState<ProductForm>(emptyForm);
+  const [
+    form,
+    setForm,
+  ] = useState<ProductForm>(
+    emptyForm,
+  );
 
-  const [formError, setFormError] =
-    useState("");
+  const [
+    formError,
+    setFormError,
+  ] = useState("");
 
-  const [deleteTarget, setDeleteTarget] =
-    useState<Product | null>(null);
+  const [
+    deleteTarget,
+    setDeleteTarget,
+  ] = useState<Product | null>(
+    null,
+  );
 
-  const [deleting, setDeleting] =
-    useState(false);
+  const [
+    deleting,
+    setDeleting,
+  ] = useState(false);
+
+  /*
+   * ==========================================================
+   * BARCODE LOOKUP STATE
+   * ==========================================================
+   */
+
+  const [
+    lookupBarcode,
+    setLookupBarcode,
+  ] = useState("");
+
+  const [
+    lookupLoading,
+    setLookupLoading,
+  ] = useState(false);
+
+  const [
+    lookupError,
+    setLookupError,
+  ] = useState("");
+
+  const [
+    lookupResult,
+    setLookupResult,
+  ] = useState<Product | null>(
+    null,
+  );
+
+  /*
+   * ==========================================================
+   * LOAD PRODUCTS
+   * ==========================================================
+   */
 
   async function loadProducts(
     showRefresh = false,
@@ -288,17 +466,20 @@ export default function ProductsPage() {
         setLoading(true);
       }
 
-      const response = await fetch(
-        `${API_URL}/products?limit=100`,
-        {
-          credentials: "include",
-        },
-      );
+      const response =
+        await fetch(
+          `${API_URL}/products?limit=100`,
+          {
+            credentials: "include",
+          },
+        );
 
       const data =
-        await response.json().catch(
-          () => null,
-        );
+        await response
+          .json()
+          .catch(
+            () => null,
+          );
 
       if (!response.ok) {
         throw new Error(
@@ -324,8 +505,12 @@ export default function ProductsPage() {
                 ? data.data
                 : [];
 
-      setProducts(nextProducts);
-    } catch (requestError) {
+      setProducts(
+        nextProducts,
+      );
+    } catch (
+      requestError
+    ) {
       setError(
         requestError instanceof Error
           ? requestError.message
@@ -337,6 +522,12 @@ export default function ProductsPage() {
     }
   }
 
+  /*
+   * ==========================================================
+   * LOAD CATEGORIES + BRANDS
+   * ==========================================================
+   */
+
   async function loadCatalogData() {
     try {
       setCatalogLoading(true);
@@ -344,41 +535,53 @@ export default function ProductsPage() {
       const [
         categoriesResponse,
         brandsResponse,
-      ] = await Promise.all([
-        fetch(
-          `${API_URL}/categories?isActive=all`,
-          {
-            credentials: "include",
-          },
-        ),
-        fetch(
-          `${API_URL}/brands?isActive=all`,
-          {
-            credentials: "include",
-          },
-        ),
-      ]);
+      ] =
+        await Promise.all([
+          fetch(
+            `${API_URL}/categories?isActive=all`,
+            {
+              credentials:
+                "include",
+            },
+          ),
+          fetch(
+            `${API_URL}/brands?isActive=all`,
+            {
+              credentials:
+                "include",
+            },
+          ),
+        ]);
 
       const [
         categoriesData,
         brandsData,
-      ] = await Promise.all([
-        categoriesResponse
-          .json()
-          .catch(() => null),
-        brandsResponse
-          .json()
-          .catch(() => null),
-      ]);
+      ] =
+        await Promise.all([
+          categoriesResponse
+            .json()
+            .catch(
+              () => null,
+            ),
+          brandsResponse
+            .json()
+            .catch(
+              () => null,
+            ),
+        ]);
 
-      if (!categoriesResponse.ok) {
+      if (
+        !categoriesResponse.ok
+      ) {
         throw new Error(
           categoriesData?.message ??
             "Unable to load categories.",
         );
       }
 
-      if (!brandsResponse.ok) {
+      if (
+        !brandsResponse.ok
+      ) {
         throw new Error(
           brandsData?.message ??
             "Unable to load brands.",
@@ -396,14 +599,18 @@ export default function ProductsPage() {
           brandsData,
         ),
       );
-    } catch (requestError) {
+    } catch (
+      requestError
+    ) {
       setError(
         requestError instanceof Error
           ? requestError.message
           : "Unable to load catalog data.",
       );
     } finally {
-      setCatalogLoading(false);
+      setCatalogLoading(
+        false,
+      );
     }
   }
 
@@ -411,6 +618,12 @@ export default function ProductsPage() {
     void loadProducts();
     void loadCatalogData();
   }, []);
+
+  /*
+   * ==========================================================
+   * ACTIVE CATALOG OPTIONS
+   * ==========================================================
+   */
 
   const activeCategories =
     useMemo(
@@ -420,10 +633,11 @@ export default function ProductsPage() {
             (category) =>
               category.isActive,
           )
-          .sort((a, b) =>
-            a.name.localeCompare(
-              b.name,
-            ),
+          .sort(
+            (a, b) =>
+              a.name.localeCompare(
+                b.name,
+              ),
           ),
       [categories],
     );
@@ -436,18 +650,27 @@ export default function ProductsPage() {
             (brand) =>
               brand.isActive,
           )
-          .sort((a, b) =>
-            a.name.localeCompare(
-              b.name,
-            ),
+          .sort(
+            (a, b) =>
+              a.name.localeCompare(
+                b.name,
+              ),
           ),
       [brands],
     );
 
+  /*
+   * ==========================================================
+   * FILTER PRODUCTS
+   * ==========================================================
+   */
+
   const filteredProducts =
     useMemo(() => {
       const normalizedSearch =
-        search.trim().toLowerCase();
+        search
+          .trim()
+          .toLowerCase();
 
       return products.filter(
         (product) => {
@@ -472,10 +695,16 @@ export default function ProductsPage() {
               ?.toLowerCase()
               .includes(
                 normalizedSearch,
+              ) ||
+            product.barcode
+              ?.toLowerCase()
+              .includes(
+                normalizedSearch,
               );
 
           const matchesStatus =
-            statusFilter === "all" ||
+            statusFilter ===
+              "all" ||
             (statusFilter ===
               "active" &&
               product.isActive) ||
@@ -495,16 +724,34 @@ export default function ProductsPage() {
       statusFilter,
     ]);
 
-  const activeCount = products.filter(
-    (product) => product.isActive,
-  ).length;
+  const activeCount =
+    products.filter(
+      (product) =>
+        product.isActive,
+    ).length;
 
   const inactiveCount =
-    products.length - activeCount;
+    products.length -
+    activeCount;
 
-  const lowStockCount = products.filter(
-    isLowStock,
-  ).length;
+  const lowStockCount =
+    products.filter(
+      isLowStock,
+    ).length;
+
+  const barcodeCount =
+    products.filter(
+      (product) =>
+        Boolean(
+          product.barcode,
+        ),
+    ).length;
+
+  /*
+   * ==========================================================
+   * MODAL
+   * ==========================================================
+   */
 
   function openCreateModal() {
     setEditingProduct(null);
@@ -516,14 +763,20 @@ export default function ProductsPage() {
   function openEditModal(
     product: Product,
   ) {
-    setEditingProduct(product);
-    setForm(createForm(product));
+    setEditingProduct(
+      product,
+    );
+    setForm(
+      createForm(product),
+    );
     setFormError("");
     setModalOpen(true);
   }
 
   function closeModal() {
-    if (saving) return;
+    if (saving) {
+      return;
+    }
 
     setModalOpen(false);
     setEditingProduct(null);
@@ -534,11 +787,19 @@ export default function ProductsPage() {
     field: keyof ProductForm,
     value: string,
   ) {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
+    setForm(
+      (current) => ({
+        ...current,
+        [field]: value,
+      }),
+    );
   }
+
+  /*
+   * ==========================================================
+   * SAVE PRODUCT
+   * ==========================================================
+   */
 
   async function handleSubmit(
     event: React.FormEvent,
@@ -554,17 +815,38 @@ export default function ProductsPage() {
       return;
     }
 
+    const barcode =
+      form.barcode.trim();
+
+    if (
+      barcode &&
+      !isValidGtin(barcode)
+    ) {
+      setFormError(
+        "Invalid GTIN barcode. Use a valid GTIN-8, GTIN-12, GTIN-13, GTIN-14, or a non-numeric barcode format.",
+      );
+      return;
+    }
+
     const purchasePrice =
-      Number(form.purchasePrice);
+      Number(
+        form.purchasePrice,
+      );
 
     const sellingPrice =
-      Number(form.sellingPrice);
+      Number(
+        form.sellingPrice,
+      );
 
     const stockQuantity =
-      Number(form.stockQuantity);
+      Number(
+        form.stockQuantity,
+      );
 
     const lowStockThreshold =
-      Number(form.lowStockThreshold);
+      Number(
+        form.lowStockThreshold,
+      );
 
     const warrantyPeriodMonths =
       Number(
@@ -623,8 +905,10 @@ export default function ProductsPage() {
       !Number.isInteger(
         warrantyPeriodMonths,
       ) ||
-      warrantyPeriodMonths < 0 ||
-      warrantyPeriodMonths > 1200
+      warrantyPeriodMonths <
+        0 ||
+      warrantyPeriodMonths >
+        1200
     ) {
       setFormError(
         "Warranty period must be a whole number between 0 and 1200 months.",
@@ -650,7 +934,8 @@ export default function ProductsPage() {
       form.brand &&
       !brands.some(
         (brand) =>
-          brand.name === form.brand,
+          brand.name ===
+          form.brand,
       )
     ) {
       setFormError(
@@ -663,51 +948,77 @@ export default function ProductsPage() {
       setSaving(true);
 
       const payload = {
-        name: form.name.trim(),
+        name:
+          form.name.trim(),
+
         sku:
           form.sku.trim() ||
           undefined,
+
         category:
           form.category.trim() ||
           undefined,
+
         brand:
           form.brand.trim() ||
           undefined,
+
+        barcode:
+          barcode || undefined,
+
+        unit:
+          form.unit.trim() ||
+          undefined,
+
         purchasePrice,
+
         sellingPrice,
+
         stockQuantity,
+
         lowStockThreshold,
+
         warrantyPeriodMonths,
+
         description:
           form.description.trim() ||
           undefined,
       };
 
-      const url = editingProduct
-        ? `${API_URL}/products/${editingProduct._id}`
-        : `${API_URL}/products`;
+      const url =
+        editingProduct
+          ? `${API_URL}/products/${editingProduct._id}`
+          : `${API_URL}/products`;
 
-      const method = editingProduct
-        ? "PATCH"
-        : "POST";
+      const method =
+        editingProduct
+          ? "PATCH"
+          : "POST";
 
-      const response = await fetch(
-        url,
-        {
-          method,
-          credentials: "include",
-          headers: {
-            "Content-Type":
-              "application/json",
+      const response =
+        await fetch(
+          url,
+          {
+            method,
+            credentials:
+              "include",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body:
+              JSON.stringify(
+                payload,
+              ),
           },
-          body: JSON.stringify(payload),
-        },
-      );
+        );
 
       const data =
-        await response.json().catch(
-          () => null,
-        );
+        await response
+          .json()
+          .catch(
+            () => null,
+          );
 
       if (!response.ok) {
         throw new Error(
@@ -721,7 +1032,9 @@ export default function ProductsPage() {
       setFormError("");
 
       await loadProducts(true);
-    } catch (requestError) {
+    } catch (
+      requestError
+    ) {
       setFormError(
         requestError instanceof Error
           ? requestError.message
@@ -732,24 +1045,111 @@ export default function ProductsPage() {
     }
   }
 
+  /*
+   * ==========================================================
+   * BARCODE LOOKUP
+   * ==========================================================
+   */
+
+  async function handleBarcodeLookup(
+    event?: React.FormEvent,
+  ) {
+    event?.preventDefault();
+
+    const barcode =
+      lookupBarcode.trim();
+
+    setLookupError("");
+    setLookupResult(null);
+
+    if (!barcode) {
+      setLookupError(
+        "Enter a barcode to search.",
+      );
+      return;
+    }
+
+    try {
+      setLookupLoading(true);
+
+      const response =
+        await fetch(
+          `${API_URL}/products/barcode/${encodeURIComponent(barcode)}`,
+          {
+            credentials:
+              "include",
+          },
+        );
+
+      const data =
+        await response
+          .json()
+          .catch(
+            () => null,
+          );
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ??
+            "No product was found with this barcode.",
+        );
+      }
+
+      const product =
+        extractProduct(data);
+
+      if (!product) {
+        throw new Error(
+          "The barcode lookup returned no product.",
+        );
+      }
+
+      setLookupResult(
+        product,
+      );
+    } catch (
+      requestError
+    ) {
+      setLookupError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to look up barcode.",
+      );
+    } finally {
+      setLookupLoading(
+        false,
+      );
+    }
+  }
+
+  /*
+   * ==========================================================
+   * DEACTIVATE
+   * ==========================================================
+   */
+
   async function handleDeactivate(
     product: Product,
   ) {
     try {
       setDeleting(true);
 
-      const response = await fetch(
-        `${API_URL}/products/${product._id}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        },
-      );
+      const response =
+        await fetch(
+          `${API_URL}/products/${product._id}`,
+          {
+            method: "DELETE",
+            credentials:
+              "include",
+          },
+        );
 
       const data =
-        await response.json().catch(
-          () => null,
-        );
+        await response
+          .json()
+          .catch(
+            () => null,
+          );
 
       if (!response.ok) {
         throw new Error(
@@ -761,7 +1161,9 @@ export default function ProductsPage() {
       setDeleteTarget(null);
 
       await loadProducts(true);
-    } catch (requestError) {
+    } catch (
+      requestError
+    ) {
       setError(
         requestError instanceof Error
           ? requestError.message
@@ -779,9 +1181,15 @@ export default function ProductsPage() {
     ]);
   }
 
+  /*
+   * ==========================================================
+   * RENDER
+   * ==========================================================
+   */
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
-      {/* Header */}
+      {/* HEADER */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
@@ -796,8 +1204,8 @@ export default function ProductsPage() {
 
               <p className="mt-1 text-sm text-muted-foreground">
                 Manage your product catalog,
-                pricing, stock, brands and
-                warranties.
+                pricing, stock, brands,
+                barcodes and warranties.
               </p>
             </div>
           </div>
@@ -832,7 +1240,9 @@ export default function ProductsPage() {
 
           <button
             type="button"
-            onClick={openCreateModal}
+            onClick={
+              openCreateModal
+            }
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
           >
             <Plus className="size-4" />
@@ -841,14 +1251,16 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {/* STATS */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           icon={
             <Package className="size-5" />
           }
           label="Total products"
-          value={products.length}
+          value={
+            products.length
+          }
         />
 
         <StatCard
@@ -856,7 +1268,9 @@ export default function ProductsPage() {
             <Check className="size-5" />
           }
           label="Active products"
-          value={activeCount}
+          value={
+            activeCount
+          }
         />
 
         <StatCard
@@ -864,7 +1278,19 @@ export default function ProductsPage() {
             <AlertTriangle className="size-5" />
           }
           label="Low stock"
-          value={lowStockCount}
+          value={
+            lowStockCount
+          }
+        />
+
+        <StatCard
+          icon={
+            <Barcode className="size-5" />
+          }
+          label="Barcoded"
+          value={
+            barcodeCount
+          }
         />
 
         <StatCard
@@ -872,11 +1298,13 @@ export default function ProductsPage() {
             <Boxes className="size-5" />
           }
           label="Inactive products"
-          value={inactiveCount}
+          value={
+            inactiveCount
+          }
         />
       </div>
 
-      {/* Error */}
+      {/* ERROR */}
       {error && (
         <div className="flex items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
@@ -904,8 +1332,8 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <section className="rounded-2xl border bg-card p-4 shadow-sm">
+      {/* SEARCH + BARCODE LOOKUP */}
+      <section className="space-y-4 rounded-2xl border bg-card p-4 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full lg:max-w-md">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -913,12 +1341,15 @@ export default function ProductsPage() {
             <input
               type="search"
               value={search}
-              onChange={(event) =>
+              onChange={(
+                event,
+              ) =>
                 setSearch(
-                  event.target.value,
+                  event.target
+                    .value,
                 )
               }
-              placeholder="Search by name, SKU, category or brand..."
+              placeholder="Search by name, SKU, category, brand or barcode..."
               className="h-10 w-full rounded-xl border bg-background pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
           </div>
@@ -927,13 +1358,24 @@ export default function ProductsPage() {
             {(
               [
                 ["all", "All"],
-                ["active", "Active"],
-                ["inactive", "Inactive"],
+                [
+                  "active",
+                  "Active",
+                ],
+                [
+                  "inactive",
+                  "Inactive",
+                ],
               ] as const
             ).map(
-              ([value, label]) => (
+              ([
+                value,
+                label,
+              ]) => (
                 <button
-                  key={value}
+                  key={
+                    value
+                  }
                   type="button"
                   onClick={() =>
                     setStatusFilter(
@@ -943,10 +1385,12 @@ export default function ProductsPage() {
                   className={[
                     "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
                     statusFilter ===
-                      value
+                    value
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground",
-                  ].join(" ")}
+                  ].join(
+                    " ",
+                  )}
                 >
                   {label}
                 </button>
@@ -954,9 +1398,143 @@ export default function ProductsPage() {
             )}
           </div>
         </div>
+
+        {/* EXACT BARCODE LOOKUP */}
+        <form
+          onSubmit={
+            handleBarcodeLookup
+          }
+          className="rounded-xl border bg-muted/20 p-3"
+        >
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="flex items-center gap-2 lg:w-52">
+              <ScanLine className="size-4 text-primary" />
+
+              <div>
+                <p className="text-xs font-semibold">
+                  Barcode lookup
+                </p>
+
+                <p className="text-[11px] text-muted-foreground">
+                  Exact product search
+                </p>
+              </div>
+            </div>
+
+            <div className="relative flex-1">
+              <Barcode className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+
+              <input
+                type="text"
+                value={
+                  lookupBarcode
+                }
+                onChange={(
+                  event,
+                ) => {
+                  setLookupBarcode(
+                    event.target
+                      .value,
+                  );
+                  setLookupError(
+                    "",
+                  );
+                  setLookupResult(
+                    null,
+                  );
+                }}
+                placeholder="Scan or enter barcode..."
+                autoComplete="off"
+                className="h-10 w-full rounded-xl border bg-background pl-9 pr-3 text-sm font-mono outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={
+                lookupLoading
+              }
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            >
+              {lookupLoading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Search className="size-4" />
+              )}
+
+              Lookup
+            </button>
+          </div>
+
+          {lookupError && (
+            <div className="mt-3 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              {lookupError}
+            </div>
+          )}
+
+          {lookupResult && (
+            <div className="mt-3 flex flex-col gap-3 rounded-xl border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Package className="size-4" />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">
+                    {
+                      lookupResult.name
+                    }
+                  </p>
+
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                    <span>
+                      Barcode:{" "}
+                      <span className="font-mono text-foreground">
+                        {
+                          lookupResult.barcode
+                        }
+                      </span>
+                    </span>
+
+                    <span>
+                      Stock:{" "}
+                      <span className="font-medium text-foreground">
+                        {
+                          lookupResult.stockQuantity
+                        }
+                      </span>
+                    </span>
+
+                    <span>
+                      Price:{" "}
+                      <span className="font-medium text-foreground">
+                        {formatCurrency(
+                          lookupResult.sellingPrice,
+                        )}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  openEditModal(
+                    lookupResult,
+                  )
+                }
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-semibold hover:bg-muted"
+              >
+                <Edit3 className="size-3.5" />
+                Edit product
+              </button>
+            </div>
+          )}
+        </form>
       </section>
 
-      {/* Products */}
+      {/* PRODUCTS */}
       <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         {loading ? (
           <div className="flex min-h-72 items-center justify-center">
@@ -973,13 +1551,15 @@ export default function ProductsPage() {
             </div>
 
             <h2 className="mt-4 font-semibold">
-              {products.length === 0
+              {products.length ===
+              0
                 ? "No products yet"
                 : "No products found"}
             </h2>
 
             <p className="mt-1 max-w-md text-sm text-muted-foreground">
-              {products.length === 0
+              {products.length ===
+              0
                 ? "Add your first product to start building your BillNest catalog."
                 : "Try changing your search or status filter."}
             </p>
@@ -1000,13 +1580,17 @@ export default function ProductsPage() {
           </div>
         ) : (
           <>
-            {/* Desktop */}
+            {/* DESKTOP */}
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[1000px] text-sm">
+              <table className="w-full min-w-[1150px] text-sm">
                 <thead className="border-b bg-muted/30">
                   <tr className="text-left text-xs text-muted-foreground">
                     <th className="px-5 py-3 font-semibold">
                       Product
+                    </th>
+
+                    <th className="px-5 py-3 font-semibold">
+                      Barcode
                     </th>
 
                     <th className="px-5 py-3 font-semibold">
@@ -1077,6 +1661,24 @@ export default function ProductsPage() {
                                 )}
                               </div>
                             </div>
+                          </td>
+
+                          <td className="px-5 py-4">
+                            {product.barcode ? (
+                              <div className="flex items-center gap-2">
+                                <Barcode className="size-4 text-muted-foreground" />
+
+                                <span className="font-mono text-xs">
+                                  {
+                                    product.barcode
+                                  }
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                —
+                              </span>
+                            )}
                           </td>
 
                           <td className="px-5 py-4 text-muted-foreground">
@@ -1176,7 +1778,7 @@ export default function ProductsPage() {
               </table>
             </div>
 
-            {/* Mobile */}
+            {/* MOBILE */}
             <div className="divide-y md:hidden">
               {filteredProducts.map(
                 (product) => {
@@ -1225,6 +1827,19 @@ export default function ProductsPage() {
 
                           <div className="mt-4 grid grid-cols-2 gap-3">
                             <InfoItem
+                              label="Barcode"
+                              value={
+                                product.barcode ||
+                                "—"
+                              }
+                              mono={
+                                Boolean(
+                                  product.barcode,
+                                )
+                              }
+                            />
+
+                            <InfoItem
                               label="Selling price"
                               value={formatCurrency(
                                 product.sellingPrice,
@@ -1259,7 +1874,7 @@ export default function ProductsPage() {
                               label="Warranty"
                               value={
                                 product.warrantyPeriodMonths >
-                                  0
+                                0
                                   ? `${product.warrantyPeriodMonths} months`
                                   : "None"
                               }
@@ -1306,7 +1921,7 @@ export default function ProductsPage() {
         )}
       </section>
 
-      {/* Create/Edit Modal */}
+      {/* CREATE / EDIT MODAL */}
       {modalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-2xl border bg-card shadow-2xl">
@@ -1326,7 +1941,9 @@ export default function ProductsPage() {
 
               <button
                 type="button"
-                onClick={closeModal}
+                onClick={
+                  closeModal
+                }
                 disabled={saving}
                 className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
               >
@@ -1335,15 +1952,21 @@ export default function ProductsPage() {
             </div>
 
             <form
-              onSubmit={handleSubmit}
+              onSubmit={
+                handleSubmit
+              }
               className="max-h-[calc(90vh-80px)] overflow-y-auto"
             >
               <div className="grid gap-4 p-5 sm:grid-cols-2">
                 <Field
                   label="Product name"
                   required
-                  value={form.name}
-                  onChange={(value) =>
+                  value={
+                    form.name
+                  }
+                  onChange={(
+                    value,
+                  ) =>
                     updateForm(
                       "name",
                       value,
@@ -1355,8 +1978,12 @@ export default function ProductsPage() {
 
                 <Field
                   label="SKU"
-                  value={form.sku}
-                  onChange={(value) =>
+                  value={
+                    form.sku
+                  }
+                  onChange={(
+                    value,
+                  ) =>
                     updateForm(
                       "sku",
                       value,
@@ -1365,11 +1992,49 @@ export default function ProductsPage() {
                   placeholder="e.g. KB-001"
                 />
 
-                {/* Category */}
+                <Field
+                  label="Barcode / GTIN"
+                  value={
+                    form.barcode
+                  }
+                  onChange={(
+                    value,
+                  ) =>
+                    updateForm(
+                      "barcode",
+                      value,
+                    )
+                  }
+                  placeholder="e.g. 8901234567890"
+                  inputMode="numeric"
+                  icon={
+                    <Barcode className="size-4" />
+                  }
+                />
+
+                <p className="sm:col-span-2 -mt-2 text-[11px] leading-5 text-muted-foreground">
+                  Optional. GTIN-8,
+                  GTIN-12,
+                  GTIN-13 and
+                  GTIN-14 numeric
+                  barcodes are
+                  check-digit
+                  validated.
+                  Non-numeric
+                  barcode formats
+                  are also
+                  supported.
+                </p>
+
+                {/* CATEGORY */}
                 <SelectField
                   label="Category"
-                  value={form.category}
-                  onChange={(value) =>
+                  value={
+                    form.category
+                  }
+                  onChange={(
+                    value,
+                  ) =>
                     updateForm(
                       "category",
                       value,
@@ -1379,7 +2044,9 @@ export default function ProductsPage() {
                     catalogLoading
                   }
                   options={activeCategories.map(
-                    (category) => ({
+                    (
+                      category,
+                    ) => ({
                       value:
                         category.name,
                       label:
@@ -1400,11 +2067,15 @@ export default function ProductsPage() {
                   emptyLabel="No category"
                 />
 
-                {/* Brand */}
+                {/* BRAND */}
                 <SelectField
                   label="Brand"
-                  value={form.brand}
-                  onChange={(value) =>
+                  value={
+                    form.brand
+                  }
+                  onChange={(
+                    value,
+                  ) =>
                     updateForm(
                       "brand",
                       value,
@@ -1414,8 +2085,11 @@ export default function ProductsPage() {
                     catalogLoading
                   }
                   options={activeBrands.map(
-                    (brand) => ({
-                      value: brand.name,
+                    (
+                      brand,
+                    ) => ({
+                      value:
+                        brand.name,
                       label:
                         brand.manufacturer
                           ? `${brand.name} · ${brand.manufacturer}`
@@ -1437,6 +2111,22 @@ export default function ProductsPage() {
                 />
 
                 <Field
+                  label="Unit"
+                  value={
+                    form.unit
+                  }
+                  onChange={(
+                    value,
+                  ) =>
+                    updateForm(
+                      "unit",
+                      value,
+                    )
+                  }
+                  placeholder="e.g. pcs, kg, box"
+                />
+
+                <Field
                   label="Purchase price"
                   type="number"
                   min="0"
@@ -1444,7 +2134,9 @@ export default function ProductsPage() {
                   value={
                     form.purchasePrice
                   }
-                  onChange={(value) =>
+                  onChange={(
+                    value,
+                  ) =>
                     updateForm(
                       "purchasePrice",
                       value,
@@ -1461,7 +2153,9 @@ export default function ProductsPage() {
                   value={
                     form.sellingPrice
                   }
-                  onChange={(value) =>
+                  onChange={(
+                    value,
+                  ) =>
                     updateForm(
                       "sellingPrice",
                       value,
@@ -1478,7 +2172,9 @@ export default function ProductsPage() {
                   value={
                     form.stockQuantity
                   }
-                  onChange={(value) =>
+                  onChange={(
+                    value,
+                  ) =>
                     updateForm(
                       "stockQuantity",
                       value,
@@ -1494,7 +2190,9 @@ export default function ProductsPage() {
                   value={
                     form.lowStockThreshold
                   }
-                  onChange={(value) =>
+                  onChange={(
+                    value,
+                  ) =>
                     updateForm(
                       "lowStockThreshold",
                       value,
@@ -1511,7 +2209,9 @@ export default function ProductsPage() {
                   value={
                     form.warrantyPeriodMonths
                   }
-                  onChange={(value) =>
+                  onChange={(
+                    value,
+                  ) =>
                     updateForm(
                       "warrantyPeriodMonths",
                       value,
@@ -1530,7 +2230,9 @@ export default function ProductsPage() {
                       value={
                         form.description
                       }
-                      onChange={(event) =>
+                      onChange={(
+                        event,
+                      ) =>
                         updateForm(
                           "description",
                           event.target
@@ -1538,7 +2240,9 @@ export default function ProductsPage() {
                         )
                       }
                       rows={4}
-                      maxLength={2000}
+                      maxLength={
+                        2000
+                      }
                       placeholder="Optional product description..."
                       className="w-full resize-none rounded-xl border bg-background p-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
@@ -1555,8 +2259,12 @@ export default function ProductsPage() {
               <div className="flex flex-col-reverse gap-2 border-t bg-muted/20 p-4 sm:flex-row sm:justify-end">
                 <button
                   type="button"
-                  onClick={closeModal}
-                  disabled={saving}
+                  onClick={
+                    closeModal
+                  }
+                  disabled={
+                    saving
+                  }
                   className="h-10 rounded-xl border px-4 text-sm font-medium hover:bg-muted disabled:opacity-50"
                 >
                   Cancel
@@ -1564,7 +2272,9 @@ export default function ProductsPage() {
 
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={
+                    saving
+                  }
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                 >
                   {saving && (
@@ -1581,7 +2291,7 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* Deactivate confirmation */}
+      {/* DEACTIVATE CONFIRMATION */}
       {deleteTarget && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-2xl">
@@ -1590,16 +2300,22 @@ export default function ProductsPage() {
             </div>
 
             <h2 className="mt-4 text-lg font-semibold">
-              Deactivate product?
+              Deactivate
+              product?
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               <span className="font-medium text-foreground">
-                {deleteTarget.name}
+                {
+                  deleteTarget.name
+                }
               </span>{" "}
-              will no longer appear as an
-              active catalog product.
-              Existing invoices remain
+              will no longer
+              appear as an
+              active catalog
+              product.
+              Existing
+              invoices remain
               unchanged.
             </p>
 
@@ -1611,7 +2327,9 @@ export default function ProductsPage() {
                     null,
                   )
                 }
-                disabled={deleting}
+                disabled={
+                  deleting
+                }
                 className="h-10 rounded-xl border px-4 text-sm font-medium hover:bg-muted disabled:opacity-50"
               >
                 Cancel
@@ -1624,7 +2342,9 @@ export default function ProductsPage() {
                     deleteTarget,
                   )
                 }
-                disabled={deleting}
+                disabled={
+                  deleting
+                }
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-destructive px-4 text-sm font-semibold text-destructive-foreground hover:bg-destructive/90 disabled:opacity-60"
               >
                 {deleting && (
@@ -1640,6 +2360,12 @@ export default function ProductsPage() {
     </div>
   );
 }
+
+/*
+ * ============================================================
+ * SMALL UI COMPONENTS
+ * ============================================================
+ */
 
 function StatCard({
   icon,
@@ -1683,7 +2409,9 @@ function StatusBadge({
           : "bg-muted text-muted-foreground",
       ].join(" ")}
     >
-      {active ? "Active" : "Inactive"}
+      {active
+        ? "Active"
+        : "Inactive"}
     </span>
   );
 }
@@ -1692,10 +2420,12 @@ function InfoItem({
   label,
   value,
   warning = false,
+  mono = false,
 }: {
   label: string;
   value: string;
   warning?: boolean;
+  mono?: boolean;
 }) {
   return (
     <div>
@@ -1704,11 +2434,15 @@ function InfoItem({
       </p>
 
       <p
-        className={
+        className={[
+          "mt-0.5 text-sm font-medium",
           warning
-            ? "mt-0.5 text-sm font-semibold text-amber-600 dark:text-amber-400"
-            : "mt-0.5 text-sm font-medium"
-        }
+            ? "font-semibold text-amber-600 dark:text-amber-400"
+            : "",
+          mono
+            ? "font-mono text-xs"
+            : "",
+        ].join(" ")}
       >
         {value}
       </p>
@@ -1773,29 +2507,41 @@ function SelectField({
         {!currentValueExists &&
           currentValue && (
             <option
-              value={currentValue}
+              value={
+                currentValue
+              }
             >
               {currentValue}{" "}
               (currently assigned)
             </option>
           )}
 
-        {options.map((option) => (
-          <option
-            key={option.value}
-            value={option.value}
-          >
-            {option.label}
-          </option>
-        ))}
+        {options.map(
+          (option) => (
+            <option
+              key={
+                option.value
+              }
+              value={
+                option.value
+              }
+            >
+              {
+                option.label
+              }
+            </option>
+          ),
+        )}
       </select>
 
       {!disabled &&
-        options.length === 0 && (
+        options.length ===
+          0 && (
           <p className="mt-1.5 text-[11px] text-muted-foreground">
             Create an active{" "}
-            {label.toLowerCase()} from
-            its management page first.
+            {label.toLowerCase()}{" "}
+            from its management
+            page first.
           </p>
         )}
     </label>
@@ -1814,6 +2560,8 @@ function Field({
   step,
   prefix,
   suffix,
+  icon,
+  inputMode,
   className = "",
 }: {
   label: string;
@@ -1829,6 +2577,16 @@ function Field({
   step?: string;
   prefix?: string;
   suffix?: string;
+  icon?: React.ReactNode;
+  inputMode?:
+    | "none"
+    | "text"
+    | "tel"
+    | "url"
+    | "email"
+    | "numeric"
+    | "decimal"
+    | "search";
   className?: string;
 }) {
   return (
@@ -1846,6 +2604,12 @@ function Field({
       </span>
 
       <div className="relative">
+        {icon && (
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+            {icon}
+          </span>
+        )}
+
         {prefix && (
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
             {prefix}
@@ -1860,15 +2624,30 @@ function Field({
               event.target.value,
             )
           }
-          placeholder={placeholder}
+          placeholder={
+            placeholder
+          }
           required={required}
           min={min}
           max={max}
           step={step}
+          inputMode={
+            inputMode
+          }
+          autoComplete={
+            label
+              .toLowerCase()
+              .includes(
+                "barcode",
+              )
+              ? "off"
+              : undefined
+          }
           className={[
             "h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20",
-            prefix
-              ? "pl-7"
+            prefix ||
+            icon
+              ? "pl-9"
               : "",
             suffix
               ? "pr-16"
