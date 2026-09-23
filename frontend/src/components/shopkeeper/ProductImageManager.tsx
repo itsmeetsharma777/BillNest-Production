@@ -3,6 +3,7 @@ import {
   useRef,
   useState,
 } from "react";
+
 import {
   Check,
   ImagePlus,
@@ -156,6 +157,7 @@ export default function ProductImageManager({
       setError(
         "Only JPG, PNG and WebP images are supported.",
       );
+
       return;
     }
 
@@ -163,6 +165,7 @@ export default function ProductImageManager({
       setError(
         "Each product image must be 5 MB or smaller.",
       );
+
       return;
     }
 
@@ -170,6 +173,7 @@ export default function ProductImageManager({
       setError(
         "A product can have a maximum of 5 images.",
       );
+
       return;
     }
 
@@ -178,6 +182,10 @@ export default function ProductImageManager({
 
       const formData = new FormData();
 
+      /*
+       * Backend expects the multipart field name:
+       * "image"
+       */
       formData.append(
         "image",
         file,
@@ -380,6 +388,10 @@ export default function ProductImageManager({
 
   return (
     <div className="rounded-2xl border bg-card p-4 shadow-sm">
+      {/* =====================================================
+          HEADER
+      ====================================================== */}
+
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-sm font-semibold">
@@ -396,6 +408,10 @@ export default function ProductImageManager({
         </span>
       </div>
 
+      {/* =====================================================
+          HIDDEN FILE INPUT
+      ====================================================== */}
+
       <input
         ref={fileInputRef}
         type="file"
@@ -408,6 +424,10 @@ export default function ProductImageManager({
           images.length >= 5
         }
       />
+
+      {/* =====================================================
+          EMPTY STATE
+      ====================================================== */}
 
       {images.length === 0 ? (
         <button
@@ -438,6 +458,10 @@ export default function ProductImageManager({
           </span>
         </button>
       ) : (
+        /* ===================================================
+           IMAGE GRID
+        ==================================================== */
+
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {images.map((image) => {
             const isDeleting =
@@ -451,6 +475,10 @@ export default function ProductImageManager({
                 key={image._id}
                 className="group relative overflow-hidden rounded-2xl border bg-muted/20"
               >
+                {/* =================================================
+                    IMAGE
+                ================================================== */}
+
                 <button
                   type="button"
                   onClick={() =>
@@ -467,14 +495,57 @@ export default function ProductImageManager({
                   />
                 </button>
 
+                {/* =================================================
+                    PRIMARY BADGE
+                    TOP LEFT
+                ================================================== */}
+
                 {image.isPrimary && (
-                  <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-1 text-[10px] font-bold shadow-sm backdrop-blur">
-                    <Star className="size-3 fill-current text-amber-500" />
+                  <span className="absolute left-2 top-2 z-20 inline-flex items-center gap-1 rounded-full border border-amber-400/20 bg-black/75 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-md">
+                    <Star className="size-3 fill-amber-400 text-amber-400" />
+
                     Primary
                   </span>
                 )}
 
-                <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-2 pt-8 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+                {/* =================================================
+                    DELETE BUTTON
+                    TOP RIGHT
+                ================================================== */}
+
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+
+                    void handleDelete(
+                      image,
+                    );
+                  }}
+                  disabled={
+                    disabled ||
+                    Boolean(
+                      deletingId,
+                    ) ||
+                    Boolean(
+                      primaryId,
+                    )
+                  }
+                  className="absolute right-2 top-2 z-30 inline-flex size-9 items-center justify-center rounded-full border border-white/20 bg-red-600 text-white shadow-xl opacity-100 transition-all duration-200 hover:scale-105 hover:bg-red-700 hover:shadow-red-500/30 disabled:cursor-not-allowed disabled:opacity-60 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                  title="Delete image"
+                  aria-label="Delete image"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-4" />
+                  )}
+                </button>
+                {/* =================================================
+                    BOTTOM CONTROL AREA
+                ================================================== */}
+
+                <div className="absolute inset-x-0 bottom-0 z-20 flex items-center justify-center bg-gradient-to-t from-black/80 via-black/50 to-transparent p-2 pt-10 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                   {!image.isPrimary ? (
                     <button
                       type="button"
@@ -492,7 +563,7 @@ export default function ProductImageManager({
                           deletingId,
                         )
                       }
-                      className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-background/90 px-2.5 text-[11px] font-semibold text-foreground shadow-sm hover:bg-background disabled:opacity-60"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-background/90 px-3 text-[11px] font-semibold text-foreground shadow-lg backdrop-blur hover:bg-background disabled:opacity-60"
                     >
                       {isSettingPrimary ? (
                         <Loader2 className="size-3.5 animate-spin" />
@@ -500,44 +571,23 @@ export default function ProductImageManager({
                         <Star className="size-3.5" />
                       )}
 
-                      Primary
+                      Set primary
                     </button>
                   ) : (
-                    <span className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-background/90 px-2.5 text-[11px] font-semibold text-foreground shadow-sm">
-                      <Check className="size-3.5 text-emerald-500" />
-                      Primary
+                    <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-black/60 px-3 text-[11px] font-semibold text-white shadow-lg backdrop-blur">
+                      <Check className="size-3.5 text-emerald-400" />
+
+                      Primary image
                     </span>
                   )}
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void handleDelete(
-                        image,
-                      )
-                    }
-                    disabled={
-                      disabled ||
-                      Boolean(
-                        deletingId,
-                      ) ||
-                      Boolean(
-                        primaryId,
-                      )
-                    }
-                    className="inline-flex size-8 items-center justify-center rounded-lg bg-destructive/90 text-destructive-foreground shadow-sm hover:bg-destructive disabled:opacity-60"
-                    title="Delete image"
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="size-3.5" />
-                    )}
-                  </button>
                 </div>
               </div>
             );
           })}
+
+          {/* =====================================================
+              ADD IMAGE TILE
+          ====================================================== */}
 
           {images.length < 5 && (
             <button
@@ -565,17 +615,29 @@ export default function ProductImageManager({
         </div>
       )}
 
+      {/* =====================================================
+          ERROR
+      ====================================================== */}
+
       {error && (
         <div className="mt-3 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-xs font-medium text-destructive">
           {error}
         </div>
       )}
 
+      {/* =====================================================
+          SUCCESS NOTICE
+      ====================================================== */}
+
       {notice && !error && (
         <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
           {notice}
         </div>
       )}
+
+      {/* =====================================================
+          IMAGE PREVIEW MODAL
+      ====================================================== */}
 
       {preview && (
         <div
@@ -618,6 +680,7 @@ export default function ProductImageManager({
               {preview.isPrimary && (
                 <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
                   <Star className="size-3.5 fill-current" />
+
                   Primary
                 </span>
               )}
