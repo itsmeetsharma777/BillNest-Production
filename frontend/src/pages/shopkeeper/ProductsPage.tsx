@@ -57,6 +57,9 @@ interface Product {
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
+  profitAmount?: number;
+  profitMarginPercent?: number;
+  markupPercent?: number;
 }
 
 interface Category {
@@ -147,6 +150,87 @@ function formatCurrency(
  * Non-numeric barcode formats are allowed because businesses
  * can use Code 128, Code 39, internal labels, etc.
  */
+function calculateProfit(
+  purchasePrice: number,
+  sellingPrice: number,
+) {
+  return (
+    Math.round(
+      (
+        sellingPrice -
+        purchasePrice +
+        Number.EPSILON
+      ) * 100,
+    ) / 100
+  );
+}
+
+function calculateMargin(
+  purchasePrice: number,
+  sellingPrice: number,
+) {
+  if (sellingPrice <= 0) {
+    return 0;
+  }
+
+  return (
+    Math.round(
+      (
+        (calculateProfit(
+          purchasePrice,
+          sellingPrice,
+        ) /
+          sellingPrice) *
+          100 +
+        Number.EPSILON
+      ) * 100,
+    ) / 100
+  );
+}
+
+function calculateMarkup(
+  purchasePrice: number,
+  sellingPrice: number,
+) {
+  if (purchasePrice <= 0) {
+    return 0;
+  }
+
+  return (
+    Math.round(
+      (
+        (calculateProfit(
+          purchasePrice,
+          sellingPrice,
+        ) /
+          purchasePrice) *
+          100 +
+        Number.EPSILON
+      ) * 100,
+    ) / 100
+  );
+}
+
+function pricingStatus(
+  purchasePrice: number,
+  sellingPrice: number,
+) {
+  const profit = calculateProfit(
+    purchasePrice,
+    sellingPrice,
+  );
+
+  if (profit > 0) {
+    return "profit";
+  }
+
+  if (profit < 0) {
+    return "loss";
+  }
+
+  return "break-even";
+}
+
 function isValidGtin(
   value: string,
 ) {
@@ -2169,6 +2253,107 @@ export default function ProductsPage() {
                   prefix="₹"
                 />
 
+                <div className="sm:col-span-2 rounded-2xl border bg-muted/20 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">
+                        Pricing summary
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Automatically calculated from purchase and selling price.
+                      </p>
+                    </div>
+
+                    <span
+                      className={[
+                        "rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                        pricingStatus(
+                          Number(form.purchasePrice) || 0,
+                          Number(form.sellingPrice) || 0,
+                        ) === "profit"
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                          : pricingStatus(
+                              Number(form.purchasePrice) || 0,
+                              Number(form.sellingPrice) || 0,
+                            ) === "loss"
+                            ? "bg-destructive/10 text-destructive"
+                            : "bg-muted text-muted-foreground",
+                      ].join(" ")}
+                    >
+                      {pricingStatus(
+                        Number(form.purchasePrice) || 0,
+                        Number(form.sellingPrice) || 0,
+                      ) === "profit"
+                        ? "Profit"
+                        : pricingStatus(
+                            Number(form.purchasePrice) || 0,
+                            Number(form.sellingPrice) || 0,
+                          ) === "loss"
+                          ? "Loss"
+                          : "Break-even"}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl border bg-background p-3">
+                      <p className="text-[11px] font-medium text-muted-foreground">
+                        Profit / loss per unit
+                      </p>
+                      <p
+                        className={[
+                          "mt-1 text-base font-bold",
+                          calculateProfit(
+                            Number(form.purchasePrice) || 0,
+                            Number(form.sellingPrice) || 0,
+                          ) >= 0
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-destructive",
+                        ].join(" ")}
+                      >
+                        {formatCurrency(
+                          calculateProfit(
+                            Number(form.purchasePrice) || 0,
+                            Number(form.sellingPrice) || 0,
+                          ),
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border bg-background p-3">
+                      <p className="text-[11px] font-medium text-muted-foreground">
+                        Profit margin
+                      </p>
+                      <p className="mt-1 text-base font-bold">
+                        {calculateMargin(
+                          Number(form.purchasePrice) || 0,
+                          Number(form.sellingPrice) || 0,
+                        ).toFixed(2)}%
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border bg-background p-3">
+                      <p className="text-[11px] font-medium text-muted-foreground">
+                        Markup
+                      </p>
+                      <p className="mt-1 text-base font-bold">
+                        {calculateMarkup(
+                          Number(form.purchasePrice) || 0,
+                          Number(form.sellingPrice) || 0,
+                        ).toFixed(2)}%
+                      </p>
+                    </div>
+                  </div>
+
+                  {pricingStatus(
+                    Number(form.purchasePrice) || 0,
+                    Number(form.sellingPrice) || 0,
+                  ) === "loss" && (
+                    <div className="mt-3 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-xs font-medium text-destructive">
+                      Selling price is below purchase price. Saving is allowed, but this product currently has a loss per unit.
+                    </div>
+                  )}
+                </div>
+
                 <Field
                   label="Stock quantity"
                   type="number"
@@ -2695,3 +2880,4 @@ function Field({
     </label>
   );
 }
+
