@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { ApiError } from "../utils/api-error";
+import { createInventoryMovement } from "../repositories/inventory-movement.repository";
 import { getShopForOwner } from "./shop.service";
 import { updateProductByIdForShop } from "../repositories/product.repository";
 import { findProductByIdForShop } from "../repositories/product.repository";
@@ -82,6 +83,23 @@ export async function adjustProductVariantStockForOwner(ownerId: string, product
       if (input.type === "out" && current.stockQuantity < input.quantity) throw new ApiError(400, "Insufficient variant stock.", "VARIANT_INSUFFICIENT_STOCK");
       const updated = await adjustProductVariantStock(variantId, productId, shop._id.toString(), input.type, input.quantity, session);
       if (!updated) throw new ApiError(400, "Variant stock could not be updated.", "VARIANT_STOCK_UPDATE_FAILED");
+
+      await createInventoryMovement({
+        shopId: shop._id.toString(),
+        productId,
+        variantId,
+        productName: "Product variant",
+        ...(updated.sku ? { sku: updated.sku } : {}),
+        movementType: input.type === "in" ? "adjustment_in" : "adjustment_out",
+        quantity: input.quantity,
+        previousStock: current.stockQuantity,
+        newStock: updated.stockQuantity,
+        referenceType: "stock_adjustment",
+        referenceId: variantId,
+        reason: input.reason ?? "Variant stock adjustment.",
+        createdBy: ownerId,
+      }, session);
+
       return { variant: updated, previousStock: current.stockQuantity };
     });
     if (!result) throw new ApiError(500, "Variant stock transaction failed.", "VARIANT_STOCK_TRANSACTION_FAILED");
