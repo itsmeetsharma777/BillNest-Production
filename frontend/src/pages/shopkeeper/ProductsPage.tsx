@@ -11,7 +11,7 @@ import {
   AlertTriangle,
   Barcode,
   BarChart3,
-  Boxes,
+  PackageOpen,
   Check,
   Download,
   Edit3,
@@ -1316,7 +1316,7 @@ export default function ProductsPage() {
         <div>
           <div className="flex items-center gap-3">
             <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <Boxes className="size-5" />
+              <PackageOpen className="size-5" />
             </div>
 
             <div>
@@ -1417,7 +1417,7 @@ export default function ProductsPage() {
 
         <StatCard
           icon={
-            <Boxes className="size-5" />
+            <PackageOpen className="size-5" />
           }
           label="Inactive products"
           value={
@@ -1430,7 +1430,7 @@ export default function ProductsPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard icon={<BarChart3 className="size-5" />} label="Stock units" value={Number(catalogAnalytics.totalStockUnits ?? 0)} />
           <StatCard icon={<Package className="size-5" />} label="Out of stock" value={Number(catalogAnalytics.outOfStockProducts ?? 0)} />
-          <StatCard icon={<Boxes className="size-5" />} label="Variant products" value={Number(catalogAnalytics.variantProducts ?? 0)} />
+          <StatCard icon={<PackageOpen className="size-5" />} label="Variant products" value={Number(catalogAnalytics.variantProducts ?? 0)} />
           <StatCard icon={<Barcode className="size-5" />} label="Barcoded products" value={Number(catalogAnalytics.barcodedProducts ?? 0)} />
         </div>
       )}
@@ -1908,7 +1908,7 @@ export default function ProductsPage() {
                                 className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
                                 title="Manage variants"
                               >
-                                <Boxes className="size-4" />
+                                <PackageOpen className="size-4" />
                               </Link>
                               <button
                                 type="button"
