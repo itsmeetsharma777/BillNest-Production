@@ -1872,10 +1872,7 @@ export async function generateInvoicePdf(
       invoiceId,
     ),
 
-    findCustomerByIdForShop(
-      invoice.customerId.toString(),
-      shopId,
-    ),
+    findCustomerById(invoice.customerId.toString()),
 
     findShopById(
       shopId,
