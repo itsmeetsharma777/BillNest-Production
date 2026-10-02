@@ -5,6 +5,7 @@ import {
 } from "react";
 import ProductUnitSelect from "@/components/shopkeeper/ProductUnitSelect";
 import ProductImageManager from "@/components/shopkeeper/ProductImageManager";
+import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   Barcode,
@@ -13,6 +14,7 @@ import {
   Edit3,
   Loader2,
   Package,
+  Boxes,
   Plus,
   RefreshCw,
   Search,
@@ -1835,6 +1837,13 @@ export default function ProductsPage() {
 
                           <td className="px-5 py-4">
                             <div className="flex justify-end gap-1">
+                              <Link
+                                to={`/shopkeeper/products/${product._id}/variants`}
+                                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                                title="Manage variants"
+                              >
+                                <Boxes className="size-4" />
+                              </Link>
                               <button
                                 type="button"
                                 onClick={() =>
