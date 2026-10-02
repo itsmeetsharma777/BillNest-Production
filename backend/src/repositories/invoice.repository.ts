@@ -273,6 +273,24 @@ async function createInvoiceInventoryMovement(
  * DECREASE CATALOG PRODUCT STOCK
  * ============================================================
  */
+async function syncParentProductStockForVariant(
+  productId: Types.ObjectId,
+  shopId: Types.ObjectId,
+  session: ClientSession,
+) {
+  const variants = await ProductVariantModel.find(
+    { productId, shopId, isActive: true },
+    { stockQuantity: 1 },
+    { session },
+  );
+  const stockQuantity = variants.reduce((sum, variant) => sum + variant.stockQuantity, 0);
+  await ProductModel.findOneAndUpdate(
+    { _id: productId, shopId },
+    { $set: { stockQuantity, hasVariants: variants.length > 0 } },
+    { session, new: true, runValidators: true },
+  );
+}
+
 async function decrementVariantStock(
   shopId: Types.ObjectId,
   variantId: Types.ObjectId,
@@ -291,11 +309,7 @@ async function decrementVariantStock(
     { session, returnDocument: "after" },
   );
   if (!updated) throw new ApiError(400, `Insufficient stock for "${productName}".`, "INSUFFICIENT_VARIANT_STOCK");
-  await ProductModel.findOneAndUpdate(
-    { _id: updated.productId, shopId, hasVariants: true, stockQuantity: { $gte: quantity } },
-    { $inc: { stockQuantity: -quantity } },
-    { session },
-  );
+  await syncParentProductStockForVariant(updated.productId, shopId, session);
   const shop = await ShopModel.findById(shopId, { ownerId: 1 }, { session });
   if (!shop) throw new ApiError(404, "Shop not found.", "SHOP_NOT_FOUND");
   await new InventoryMovementModel({
@@ -591,11 +605,7 @@ export async function restoreVariantStock(
     { new: true, session },
   );
   if (!updated) throw new ApiError(404, "Variant could not be restored.", "VARIANT_NOT_FOUND");
-  await ProductModel.findOneAndUpdate(
-    { _id: updated.productId, shopId, hasVariants: true },
-    { $inc: { stockQuantity: quantity } },
-    { session },
-  );
+  await syncParentProductStockForVariant(updated.productId, shopId, session);
   const shop = await ShopModel.findById(shopId, { ownerId: 1 }, { session });
   if (!shop) throw new ApiError(404, "Shop not found.", "SHOP_NOT_FOUND");
   await new InventoryMovementModel({
