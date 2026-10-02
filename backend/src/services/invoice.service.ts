@@ -16,8 +16,8 @@ import {
 import { getNextSequence } from "../repositories/counter.repository";
 
 import {
-  findCustomerByIdForShop,
-  findCustomersByIdsForShop,
+  findCustomerById,
+  findCustomersByIds,
 } from "../repositories/customer.repository";
 
 import { getShopForOwner } from "./shop.service";
@@ -409,10 +409,7 @@ export async function createInvoiceForOwner(
     await getShopForOwner(ownerId);
 
   const customer =
-    await findCustomerByIdForShop(
-      input.customerId,
-      shop._id.toString(),
-    );
+    await findCustomerById(input.customerId);
 
   if (!customer) {
     throw new ApiError(
@@ -973,10 +970,7 @@ export async function updateInvoiceForOwner(
       updatedInvoice.status === "paid"
     ) {
       const customer =
-        await findCustomerByIdForShop(
-          invoice.customerId.toString(),
-          shop._id.toString(),
-        );
+        await findCustomerById(invoice.customerId.toString());
 
       await notifyInvoicePaid(
         ownerId,
@@ -1085,10 +1079,7 @@ export async function updateInvoiceForOwner(
       updatedInvoice.status === "paid"
     ) {
       const customer =
-        await findCustomerByIdForShop(
-          invoice.customerId.toString(),
-          shop._id.toString(),
-        );
+        await findCustomerById(invoice.customerId.toString());
 
       await notifyInvoicePaid(
         ownerId,
@@ -1199,10 +1190,7 @@ export async function markInvoiceAsPaidForOwner(
 
   if (!wasAlreadyPaid) {
     const customer =
-      await findCustomerByIdForShop(
-        invoice.customerId.toString(),
-        shop._id.toString(),
-      );
+      await findCustomerById(invoice.customerId.toString());
 
     await notifyInvoicePaid(
       ownerId,
