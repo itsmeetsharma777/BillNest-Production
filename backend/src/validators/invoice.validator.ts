@@ -9,6 +9,10 @@ const objectIdSchema = z
   );
 
 const invoiceItemSchema = z.object({
+  productId: objectIdSchema.optional(),
+
+  variantId: objectIdSchema.optional(),
+
   productName: z
     .string()
     .trim()
@@ -63,6 +67,12 @@ const invoiceItemSchema = z.object({
       "Discount must be a valid number.",
     )
     .default(0),
+
+  barcode: z.string().trim().max(100).optional(),
+
+  variantName: z.string().trim().max(500).optional(),
+
+  variantAttributes: z.record(z.string(), z.string()).optional(),
 
   taxRate: z
     .number()
