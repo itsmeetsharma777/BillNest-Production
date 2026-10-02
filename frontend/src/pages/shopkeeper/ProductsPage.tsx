@@ -9,13 +9,16 @@ import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   Barcode,
+  BarChart3,
   Boxes,
   Check,
+  Download,
   Edit3,
   Loader2,
   Package,
-  Boxes,
   Plus,
+  SlidersHorizontal,
+  Upload,
   RefreshCw,
   Search,
   ScanLine,
@@ -540,9 +543,24 @@ export default function ProductsPage() {
   const [
     lookupResult,
     setLookupResult,
-  ] = useState<Product | null>(
-    null,
-  );
+  ] = useState<Product | null>(null);
+
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [stockFilter, setStockFilter] = useState<"all" | "in_stock" | "low_stock" | "out_of_stock">("all");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [brandFilter, setBrandFilter] = useState("");
+  const [hasBarcodeFilter, setHasBarcodeFilter] = useState<"all" | "true" | "false">("all");
+  const [hasVariantsFilter, setHasVariantsFilter] = useState<"all" | "true" | "false">("all");
+  const [minPriceFilter, setMinPriceFilter] = useState("");
+  const [maxPriceFilter, setMaxPriceFilter] = useState("");
+  const [sortBy, setSortBy] = useState<"createdAt" | "name" | "sellingPrice" | "stockQuantity">("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [catalogAnalytics, setCatalogAnalytics] = useState<Record<string, number> | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   /*
    * ==========================================================
