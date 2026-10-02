@@ -6,7 +6,7 @@ import {
 } from "../repositories/document.repository";
 
 import {
-  findCustomerByIdForShop,
+  findCustomerById,
 } from "../repositories/customer.repository";
 
 import {
@@ -57,10 +57,7 @@ async function validateDocumentReferences(
 ) {
   if (input.customerId) {
     const customer =
-      await findCustomerByIdForShop(
-        input.customerId,
-        shopId,
-      );
+      await findCustomerById(input.customerId);
 
     if (!customer) {
       throw new ApiError(
