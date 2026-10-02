@@ -294,7 +294,7 @@ async function decrementVariantStock(
   const shop = await ShopModel.findById(shopId, { ownerId: 1 }, { session });
   if (!shop) throw new ApiError(404, "Shop not found.", "SHOP_NOT_FOUND");
   await new InventoryMovementModel({
-    shopId, productId: updated.productId, productName,
+    shopId, productId: updated.productId, variantId: updated._id, productName,
     sku: updated.sku, movementType: "sale", quantity,
     previousStock: before.stockQuantity, newStock: updated.stockQuantity,
     referenceType: "invoice", referenceId: invoiceId, reason: "Variant stock sold through invoice.", createdBy: shop.ownerId,
