@@ -33,6 +33,29 @@ const invoiceItemSchema = new Schema(
      * productId exists so old invoices remain
      * unchanged if the product is edited later.
      */
+    variantId: {
+      type: Schema.Types.ObjectId,
+      ref: "ProductVariant",
+      index: true,
+    },
+
+    variantName: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
+
+    variantAttributes: {
+      type: Map,
+      of: String,
+    },
+
+    barcode: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+    },
+
     productName: {
       type: String,
       required: true,
@@ -110,6 +133,10 @@ invoiceItemSchema.index({
 
 invoiceItemSchema.index({
   productId: 1,
+});
+
+invoiceItemSchema.index({
+  variantId: 1,
 });
 
 export type InvoiceItem =
