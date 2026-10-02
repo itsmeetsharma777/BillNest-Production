@@ -797,10 +797,7 @@ export async function getInvoicesForOwner(
     findInvoiceItemsByInvoiceIds(
       invoiceIds,
     ),
-    findCustomersByIds(
-      customerIds,
-      shop._id.toString(),
-    ),
+    findCustomersByIds(customerIds),
   ]);
 
   const productNamesByInvoice =
