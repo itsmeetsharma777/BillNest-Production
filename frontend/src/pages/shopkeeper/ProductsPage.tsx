@@ -2,6 +2,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useRef,
 } from "react";
 import ProductUnitSelect from "@/components/shopkeeper/ProductUnitSelect";
 import ProductImageManager from "@/components/shopkeeper/ProductImageManager";
@@ -65,6 +66,7 @@ interface Product {
   profitAmount?: number;
   profitMarginPercent?: number;
   markupPercent?: number;
+  hasVariants?: boolean;
 }
 
 interface Category {
