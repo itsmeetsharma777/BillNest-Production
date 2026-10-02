@@ -10,7 +10,7 @@ import {
 } from "../repositories/invoice-payment.repository";
 
 import {
-  findCustomerByIdForShop,
+  findCustomerById,
 } from "../repositories/customer.repository";
 
 import { getShopForOwner } from "./shop.service";
@@ -155,10 +155,7 @@ export async function recordPaymentForOwner(
     }
 
     const customer =
-      await findCustomerByIdForShop(
-        invoice.customerId.toString(),
-        shop._id.toString(),
-      );
+      await findCustomerById(invoice.customerId.toString());
 
     if (
       result.invoice.status ===
