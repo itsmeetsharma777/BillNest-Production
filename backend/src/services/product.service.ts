@@ -264,7 +264,15 @@ export async function getProductsForOwner(
     limit: number;
     search?: string;
     category?: string;
+    brand?: string;
     isActive?: boolean;
+    stockStatus?: "all" | "in_stock" | "low_stock" | "out_of_stock";
+    minPrice?: number;
+    maxPrice?: number;
+    hasBarcode?: "true" | "false" | "all";
+    hasVariants?: "true" | "false" | "all";
+    sortBy?: "createdAt" | "name" | "sellingPrice" | "purchasePrice" | "stockQuantity";
+    sortOrder?: "asc" | "desc";
   },
 ) {
   const shop =
@@ -288,10 +296,16 @@ export async function getProductsForOwner(
           options.limit,
         search:
           options.search,
-        category:
-          options.category,
-        isActive:
-          options.isActive,
+        category: options.category,
+        brand: options.brand,
+        isActive: options.isActive,
+        stockStatus: options.stockStatus,
+        minPrice: options.minPrice,
+        maxPrice: options.maxPrice,
+        hasBarcode: options.hasBarcode,
+        hasVariants: options.hasVariants,
+        sortBy: options.sortBy,
+        sortOrder: options.sortOrder,
       },
     ),
 
@@ -300,10 +314,14 @@ export async function getProductsForOwner(
       {
         search:
           options.search,
-        category:
-          options.category,
-        isActive:
-          options.isActive,
+        category: options.category,
+        brand: options.brand,
+        isActive: options.isActive,
+        stockStatus: options.stockStatus,
+        minPrice: options.minPrice,
+        maxPrice: options.maxPrice,
+        hasBarcode: options.hasBarcode,
+        hasVariants: options.hasVariants,
       },
     ),
   ]);
