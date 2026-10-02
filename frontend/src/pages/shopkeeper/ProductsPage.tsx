@@ -27,6 +27,7 @@ import {
   X,
 } from "lucide-react";
 
+// 22.19 build verification: keep lucide imports unique for Vercel/tsc.
 const API_URL =
   import.meta.env.VITE_API_URL ??
   "http://localhost:5001/api";
