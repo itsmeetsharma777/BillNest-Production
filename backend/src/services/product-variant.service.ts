@@ -55,7 +55,11 @@ export async function createProductVariantForOwner(ownerId: string, productId: s
 }
 export async function updateProductVariantForOwner(ownerId: string, productId: string, variantId: string, input: UpdateProductVariantInput) {
   const shop = await getShopForOwner(ownerId);
-  if (!(await findProductVariantByIdForShop(variantId, productId, shop._id.toString()))) throw new ApiError(404, "Product variant not found.", "VARIANT_NOT_FOUND");
+  const existing = await findProductVariantByIdForShop(variantId, productId, shop._id.toString());
+  if (!existing) throw new ApiError(404, "Product variant not found.", "VARIANT_NOT_FOUND");
+  if (input.isActive === false && existing.stockQuantity > 0) {
+    throw new ApiError(400, "A variant with stock cannot be deactivated until its stock is zero.", "VARIANT_HAS_STOCK");
+  }
   const data: Record<string, unknown> = {};
   if (input.attributes) data.attributes = cleanAttributes(input.attributes);
   if (input.sku !== undefined) data.sku = cleanOptional(input.sku) ?? "";
@@ -69,6 +73,7 @@ export async function updateProductVariantForOwner(ownerId: string, productId: s
   try {
     const updated = await updateProductVariantByIdForShop(variantId, productId, shop._id.toString(), data);
     if (!updated) throw new ApiError(404, "Product variant not found.", "VARIANT_NOT_FOUND");
+    await syncParentProductStock(productId, shop._id.toString());
     return updated;
   } catch (error) {
     if (duplicateError(error)) throw new ApiError(409, "This SKU or barcode is already used by another item in your shop.", "VARIANT_IDENTIFIER_ALREADY_EXISTS");
@@ -82,7 +87,6 @@ export async function deleteProductVariantForOwner(ownerId: string, productId: s
   if (existing.stockQuantity > 0) throw new ApiError(400, "A variant with stock cannot be deactivated until its stock is zero.", "VARIANT_HAS_STOCK");
   const deactivated = await deactivateProductVariantByIdForShop(variantId, productId, shop._id.toString());
   if (deactivated) {
-    const remaining = await findProductVariantsForShop(productId, shop._id.toString(), { isActive: true });
     await syncParentProductStock(productId, shop._id.toString());
   }
   return deactivated;
