@@ -5,6 +5,7 @@ import { InvoiceItemModel } from "../models/invoice-item.model";
 import { InvoiceModel } from "../models/invoice.model";
 import { InvoicePaymentModel } from "../models/invoice-payment.model";
 import { ProductModel } from "../models/product.model";
+import { ProductVariantModel } from "../models/product-variant.model";
 import { WarrantyModel } from "../models/warranty.model";
 
 export type ReportDateRange = {
@@ -852,113 +853,42 @@ export async function getWarrantySummary(
   );
 }
 
-export async function getInventorySummary(
-  shopId: string,
-) {
-  const shopObjectId =
-    new Types.ObjectId(shopId);
+export async function getInventorySummary(shopId: string) {
+  const shopObjectId = new Types.ObjectId(shopId);
 
-  const result =
-    await ProductModel.aggregate([
-      {
-        $match: {
-          shopId: shopObjectId,
-        },
-      },
+  const [products, variants] = await Promise.all([
+    ProductModel.aggregate([
+      { $match: { shopId: shopObjectId } },
+      { $group: {
+        _id: null,
+        totalProducts: { $sum: 1 },
+        activeProducts: { $sum: { $cond: ["$isActive", 1, 0] } },
+        inactiveProducts: { $sum: { $cond: ["$isActive", 0, 1] } },
+        totalStockUnits: { $sum: { $cond: [{ $ne: ["$hasVariants", true] }, "$stockQuantity", 0] } },
+        lowStockProducts: { $sum: { $cond: [{ $and: ["$isActive", { $ne: ["$hasVariants", true] }, { $lte: ["$stockQuantity", "$lowStockThreshold"] }] }, 1, 0] } },
+        outOfStockProducts: { $sum: { $cond: [{ $and: ["$isActive", { $ne: ["$hasVariants", true] }, { $lte: ["$stockQuantity", 0] }] }, 1, 0] } },
+      } },
+    ]),
+    ProductVariantModel.aggregate([
+      { $match: { shopId: shopObjectId, isActive: true } },
+      { $group: {
+        _id: null,
+        totalStockUnits: { $sum: "$stockQuantity" },
+        lowStockVariants: { $sum: { $cond: [{ $lte: ["$stockQuantity", "$lowStockThreshold"] }, 1, 0] } },
+        outOfStockVariants: { $sum: { $cond: [{ $lte: ["$stockQuantity", 0] }, 1, 0] } },
+      } },
+    ]),
+  ]);
 
-      {
-        $group: {
-          _id: null,
+  const product = products[0] ?? {};
+  const variant = variants[0] ?? {};
 
-          totalProducts: {
-            $sum: 1,
-          },
-
-          activeProducts: {
-            $sum: {
-              $cond: [
-                "$isActive",
-                1,
-                0,
-              ],
-            },
-          },
-
-          inactiveProducts: {
-            $sum: {
-              $cond: [
-                "$isActive",
-                0,
-                1,
-              ],
-            },
-          },
-
-          totalStockUnits: {
-            $sum: "$stockQuantity",
-          },
-
-          lowStockProducts: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    {
-                      $eq: [
-                        "$isActive",
-                        true,
-                      ],
-                    },
-                    {
-                      $lte: [
-                        "$stockQuantity",
-                        "$lowStockThreshold",
-                      ],
-                    },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-
-          outOfStockProducts: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    {
-                      $eq: [
-                        "$isActive",
-                        true,
-                      ],
-                    },
-                    {
-                      $lte: [
-                        "$stockQuantity",
-                        0,
-                      ],
-                    },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-        },
-      },
-    ]);
-
-  return (
-    result[0] ?? {
-      totalProducts: 0,
-      activeProducts: 0,
-      inactiveProducts: 0,
-      totalStockUnits: 0,
-      lowStockProducts: 0,
-      outOfStockProducts: 0,
-    }
-  );
+  return {
+    totalProducts: Number(product.totalProducts ?? 0),
+    activeProducts: Number(product.activeProducts ?? 0),
+    inactiveProducts: Number(product.inactiveProducts ?? 0),
+    totalStockUnits: Number(product.totalStockUnits ?? 0) + Number(variant.totalStockUnits ?? 0),
+    lowStockProducts: Number(product.lowStockProducts ?? 0) + Number(variant.lowStockVariants ?? 0),
+    outOfStockProducts: Number(product.outOfStockProducts ?? 0) + Number(variant.outOfStockVariants ?? 0),
+  };
 }
