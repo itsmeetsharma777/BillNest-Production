@@ -15,6 +15,12 @@ function cleanAttributes(attributes: Record<string, string>) {
 }
 function cleanOptional(value?: string) { return value?.trim() || undefined; }
 
+async function syncParentProductStock(productId: string, shopId: string) {
+  const variants = await findProductVariantsForShop(productId, shopId, { isActive: true });
+  const stockQuantity = variants.reduce((sum, variant) => sum + variant.stockQuantity, 0);
+  await updateProductByIdForShop(productId, shopId, { stockQuantity, hasVariants: variants.length > 0 });
+}
+
 export async function getProductVariantsForOwner(ownerId: string, productId: string, options?: { isActive?: boolean; search?: string }) {
   const shop = await getShopForOwner(ownerId);
   if (!(await findProductByIdForShop(productId, shop._id.toString()))) throw new ApiError(404, "Product not found.", "PRODUCT_NOT_FOUND");
@@ -27,7 +33,7 @@ export async function createProductVariantForOwner(ownerId: string, productId: s
   if (!Object.keys(attributes).length) throw new ApiError(400, "At least one variant attribute is required.", "VARIANT_ATTRIBUTES_REQUIRED");
   try {
     const variant = await createProductVariant({ shopId: shop._id.toString(), productId, attributes, sku: cleanOptional(input.sku), barcode: cleanOptional(input.barcode), purchasePrice: input.purchasePrice, sellingPrice: input.sellingPrice, stockQuantity: input.stockQuantity, lowStockThreshold: input.lowStockThreshold, warrantyPeriodMonths: input.warrantyPeriodMonths, imageUrl: cleanOptional(input.imageUrl) });
-    await updateProductByIdForShop(productId, shop._id.toString(), { hasVariants: true });
+    await syncParentProductStock(productId, shop._id.toString());
     return variant;
   } catch (error) {
     if (duplicateError(error)) throw new ApiError(409, "This SKU or barcode is already used by another item in your shop.", "VARIANT_IDENTIFIER_ALREADY_EXISTS");
@@ -64,9 +70,7 @@ export async function deleteProductVariantForOwner(ownerId: string, productId: s
   const deactivated = await deactivateProductVariantByIdForShop(variantId, productId, shop._id.toString());
   if (deactivated) {
     const remaining = await findProductVariantsForShop(productId, shop._id.toString(), { isActive: true });
-    if (remaining.length === 0) {
-      await updateProductByIdForShop(productId, shop._id.toString(), { hasVariants: false });
-    }
+    await syncParentProductStock(productId, shop._id.toString());
   }
   return deactivated;
 }
@@ -100,6 +104,7 @@ export async function adjustProductVariantStockForOwner(ownerId: string, product
         createdBy: ownerId,
       }, session);
 
+      await syncParentProductStock(productId, shop._id.toString());
       return { variant: updated, previousStock: current.stockQuantity };
     });
     if (!result) throw new ApiError(500, "Variant stock transaction failed.", "VARIANT_STOCK_TRANSACTION_FAILED");
