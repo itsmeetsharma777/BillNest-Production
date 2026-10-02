@@ -363,16 +363,26 @@ export const productListQuerySchema =
       )
       .optional(),
 
-    isActive: z
-      .enum([
-        "true",
-        "false",
-      ])
-      .transform(
-        (value) =>
-          value === "true",
-      )
-      .optional(),
+    isActive: z.enum(["true", "false"]).transform((value) => value === "true").optional(),
+
+    brand: z.string().trim().max(100).optional(),
+
+    stockStatus: z
+      .enum(["all", "in_stock", "low_stock", "out_of_stock"])
+      .default("all"),
+
+    minPrice: z.coerce.number().nonnegative().finite().optional(),
+    maxPrice: z.coerce.number().nonnegative().finite().optional(),
+
+    hasBarcode: z.enum(["true", "false", "all"]).default("all"),
+
+    hasVariants: z.enum(["true", "false", "all"]).default("all"),
+
+    sortBy: z
+      .enum(["createdAt", "name", "sellingPrice", "purchasePrice", "stockQuantity"])
+      .default("createdAt"),
+
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
   });
 
 /*
