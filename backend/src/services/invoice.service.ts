@@ -797,7 +797,7 @@ export async function getInvoicesForOwner(
     findInvoiceItemsByInvoiceIds(
       invoiceIds,
     ),
-    findCustomersByIdsForShop(
+    findCustomersByIds(
       customerIds,
       shop._id.toString(),
     ),
