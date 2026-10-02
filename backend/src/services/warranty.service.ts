@@ -7,7 +7,7 @@ import {
 } from "../repositories/warranty.repository";
 
 import {
-  findCustomerByIdForShop,
+  findCustomerById,
 } from "../repositories/customer.repository";
 
 import {
@@ -212,15 +212,12 @@ async function validateExistingWarrantyReferences(
   },
 ) {
   const customer =
-    await findCustomerByIdForShop(
-      warranty.customerId.toString(),
-      shopId,
-    );
+    await findCustomerById(warranty.customerId.toString());
 
   if (!customer) {
     throw new ApiError(
       404,
-      "Warranty customer was not found in this shop.",
+      "Warranty customer was not found.",
       "WARRANTY_CUSTOMER_NOT_FOUND",
     );
   }
@@ -285,10 +282,7 @@ export async function createWarrantyForOwner(
     await getShopForOwner(ownerId);
 
   const customer =
-    await findCustomerByIdForShop(
-      input.customerId,
-      shop._id.toString(),
-    );
+    await findCustomerById(input.customerId);
 
   if (!customer) {
     throw new ApiError(
