@@ -27,6 +27,7 @@ import InvoicesPage from "@/pages/shopkeeper/InvoicesPage";
 import InventoryHistoryPage from "@/pages/shopkeeper/InventoryHistoryPage";
 import NotificationsPage from "@/pages/shopkeeper/NotificationsPage";
 import ProductsPage from "@/pages/shopkeeper/ProductsPage";
+import ProductVariantsPage from "@/pages/shopkeeper/ProductVariantsPage";
 import ReportsPage from "@/pages/shopkeeper/ReportsPage";
 import SettingsPage from "@/pages/shopkeeper/SettingsPage";
 import { ShopkeeperDashboard } from "@/pages/shopkeeper/dashboard";
@@ -141,6 +142,11 @@ export function ProtectedRoutes() {
               element={
                 <ProductsPage />
               }
+            />
+
+            <Route
+              path="/shopkeeper/products/:productId/variants"
+              element={<ProductVariantsPage />}
             />
 
             {/* ================================================= */}
