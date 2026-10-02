@@ -5,7 +5,7 @@ import {
   findInvoiceItems,
 } from "../repositories/invoice.repository";
 
-import { findCustomerByIdForShop } from "../repositories/customer.repository";
+import { findCustomerById } from "../repositories/customer.repository";
 
 import { findShopById } from "../repositories/shop.repository";
 
@@ -1994,7 +1994,7 @@ export async function generateInvoicePdf(
 
   const pdfItems: PdfItem[] =
     items.map(
-      (item) => ({
+      (item: PdfItem) => ({
         productName:
           item.productName,
 
