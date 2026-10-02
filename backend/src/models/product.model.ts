@@ -172,6 +172,12 @@ const productSchema = new Schema(
       maxlength: 2000,
     },
 
+    hasVariants: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
     isActive: {
       type: Boolean,
       default: true,
