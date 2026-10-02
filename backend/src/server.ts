@@ -18,6 +18,7 @@ import customerNotificationRoutes from "./routes/customer-notification.routes";
 import customerAccountRoutes from "./routes/customer-account.routes";
 import productRoutes from "./routes/product.routes";
 import productVariantRoutes from "./routes/product-variant.routes";
+import productCatalogRoutes from "./routes/product-catalog.routes";
 import categoryRoutes from "./routes/category.routes";
 import brandRoutes from "./routes/brand.routes";
 import invoiceRoutes from "./routes/invoice.routes";
@@ -217,6 +218,11 @@ app.use(
 app.use(
   "/api/product-variants",
   productVariantRoutes,
+);
+
+app.use(
+  "/api/product-catalog",
+  productCatalogRoutes,
 );
 
 /**
