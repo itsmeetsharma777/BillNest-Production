@@ -58,16 +58,23 @@ function toObjectId(
 }
 
 /**
- * Get ALL active customer profiles belonging
- * to the authenticated BillNest user.
+ * Get the ONE global customer profile
+ * linked to the authenticated customer account.
  *
- * One customer account can have:
+ * BillNest now uses a global customer model.
  *
- * Shop A -> Profile A
- * Shop B -> Profile B
- * Shop C -> Profile C
+ * Customer:
+ *   Customer A
+ *
+ * can have invoices/warranties from:
+ *   Shop A
+ *   Shop B
+ *   Shop C
+ *
+ * There is no longer one customer profile
+ * per shop.
  */
-async function getCustomersForUser(
+async function getCustomerForUser(
   userId: string,
 ) {
   const userObjectId =
@@ -76,8 +83,8 @@ async function getCustomersForUser(
       "user ID",
     );
 
-  const customers =
-    await CustomerModel.find({
+  const customer =
+    await CustomerModel.findOne({
       userId: userObjectId,
       isActive: true,
     })
@@ -86,9 +93,7 @@ async function getCustomersForUser(
       })
       .lean();
 
-  if (
-    customers.length === 0
-  ) {
+  if (!customer) {
     throw new ApiError(
       404,
       "Customer profile not found.",
@@ -96,34 +101,100 @@ async function getCustomersForUser(
     );
   }
 
-  return customers;
+  return customer;
+}
+
+/**
+ * Get all shops where the customer has
+ * business records.
+ *
+ * Shops are derived from invoices and
+ * warranties instead of customer.shopId.
+ */
+async function getShopsForCustomer(
+  customerId: Types.ObjectId,
+) {
+  const [
+    invoiceShopIds,
+    warrantyShopIds,
+  ] = await Promise.all([
+    InvoiceModel.distinct(
+      "shopId",
+      {
+        customerId,
+      },
+    ),
+
+    WarrantyModel.distinct(
+      "shopId",
+      {
+        customerId,
+        isActive: true,
+      },
+    ),
+  ]);
+
+  const shopIdStrings = [
+    ...invoiceShopIds,
+    ...warrantyShopIds,
+  ]
+    .filter(
+      (
+        shopId,
+      ) => Boolean(shopId),
+    )
+    .map(
+      (shopId) =>
+        shopId.toString(),
+    );
+
+  const uniqueShopIds = [
+    ...new Set(
+      shopIdStrings,
+    ),
+  ].map(
+    (shopId) =>
+      new Types.ObjectId(
+        shopId,
+      ),
+  );
+
+  if (
+    uniqueShopIds.length === 0
+  ) {
+    return [];
+  }
+
+  return ShopModel.find({
+    _id: {
+      $in: uniqueShopIds,
+    },
+
+    isActive: true,
+  })
+    .sort({
+      name: 1,
+    })
+    .lean();
 }
 
 /**
  * Customer dashboard.
+ *
+ * All invoices and warranties belonging
+ * to the global customer are included,
+ * regardless of which shop created them.
  */
 export async function getCustomerDashboard(
   userId: string,
 ) {
-  const customers =
-    await getCustomersForUser(
+  const customer =
+    await getCustomerForUser(
       userId,
     );
 
-  const customerIds =
-    customers.map(
-      (customer) =>
-        customer._id,
-    );
-
-  const shopIds = [
-    ...new Set(
-      customers.map(
-        (customer) =>
-          customer.shopId.toString(),
-      ),
-    ),
-  ];
+  const customerId =
+    customer._id;
 
   const [
     shops,
@@ -132,19 +203,14 @@ export async function getCustomerDashboard(
     warrantyStats,
     warranties,
   ] = await Promise.all([
-    ShopModel.find({
-      _id: {
-        $in: shopIds,
-      },
-      isActive: true,
-    }).lean(),
+    getShopsForCustomer(
+      customerId,
+    ),
 
     InvoiceModel.aggregate([
       {
         $match: {
-          customerId: {
-            $in: customerIds,
-          },
+          customerId,
         },
       },
 
@@ -165,7 +231,14 @@ export async function getCustomerDashboard(
                     "cancelled",
                   ],
                 },
-                "$total",
+
+                {
+                  $ifNull: [
+                    "$total",
+                    0,
+                  ],
+                },
+
                 0,
               ],
             },
@@ -180,7 +253,14 @@ export async function getCustomerDashboard(
                     "cancelled",
                   ],
                 },
-                "$amountPaid",
+
+                {
+                  $ifNull: [
+                    "$amountPaid",
+                    0,
+                  ],
+                },
+
                 0,
               ],
             },
@@ -195,7 +275,14 @@ export async function getCustomerDashboard(
                     "cancelled",
                   ],
                 },
-                "$amountDue",
+
+                {
+                  $ifNull: [
+                    "$amountDue",
+                    0,
+                  ],
+                },
+
                 0,
               ],
             },
@@ -205,9 +292,7 @@ export async function getCustomerDashboard(
     ]),
 
     InvoiceModel.find({
-      customerId: {
-        $in: customerIds,
-      },
+      customerId,
 
       status: {
         $ne: "cancelled",
@@ -223,9 +308,7 @@ export async function getCustomerDashboard(
     WarrantyModel.aggregate([
       {
         $match: {
-          customerId: {
-            $in: customerIds,
-          },
+          customerId,
 
           isActive: true,
         },
@@ -251,7 +334,9 @@ export async function getCustomerDashboard(
                     ],
                   ],
                 },
+
                 1,
+
                 0,
               ],
             },
@@ -266,7 +351,9 @@ export async function getCustomerDashboard(
                     "expiring_soon",
                   ],
                 },
+
                 1,
+
                 0,
               ],
             },
@@ -281,7 +368,9 @@ export async function getCustomerDashboard(
                     "expired",
                   ],
                 },
+
                 1,
+
                 0,
               ],
             },
@@ -291,9 +380,7 @@ export async function getCustomerDashboard(
     ]),
 
     WarrantyModel.find({
-      customerId: {
-        $in: customerIds,
-      },
+      customerId,
 
       isActive: true,
     })
@@ -320,60 +407,54 @@ export async function getCustomerDashboard(
       expired: 0,
     };
 
-  /*
-   * Keep `shop` for compatibility with the
-   * existing customer dashboard frontend.
-   *
-   * It represents the first shop.
-   *
-   * `shops` contains ALL shops.
-   */
   const firstShop =
     shops[0] ?? null;
 
   return {
     customer: {
       id:
-        customers[0]._id,
+        customer._id,
 
       name:
-        customers[0].name,
+        customer.name,
 
       email:
-        customers[0].email,
+        customer.email,
 
       phone:
-        customers[0].phone,
+        customer.phone,
 
       address:
-        customers[0].address,
+        customer.address,
     },
 
     /*
-     * All customer profiles.
+     * Backward-compatible customerProfiles
+     * response.
+     *
+     * There is now exactly ONE global
+     * customer profile.
+     *
+     * shopId has intentionally been removed.
      */
-    customerProfiles:
-      customers.map(
-        (customer) => ({
-          id:
-            customer._id,
+    customerProfiles: [
+      {
+        id:
+          customer._id,
 
-          shopId:
-            customer.shopId,
+        name:
+          customer.name,
 
-          name:
-            customer.name,
+        email:
+          customer.email,
 
-          email:
-            customer.email,
+        phone:
+          customer.phone,
 
-          phone:
-            customer.phone,
-
-          address:
-            customer.address,
-        }),
-      ),
+        address:
+          customer.address,
+      },
+    ],
 
     shop: firstShop
       ? {
@@ -397,30 +478,28 @@ export async function getCustomerDashboard(
         }
       : null,
 
-    /*
-     * ALL shops connected to this customer.
-     */
-    shops: shops.map(
-      (shop) => ({
-        id:
-          shop._id,
+    shops:
+      shops.map(
+        (shop) => ({
+          id:
+            shop._id,
 
-        name:
-          shop.name,
+          name:
+            shop.name,
 
-        phone:
-          shop.phone,
+          phone:
+            shop.phone,
 
-        email:
-          shop.email,
+          email:
+            shop.email,
 
-        address:
-          shop.address,
+          address:
+            shop.address,
 
-        logoUrl:
-          shop.logoUrl,
-      }),
-    ),
+          logoUrl:
+            shop.logoUrl,
+        }),
+      ),
 
     summary: {
       invoices:
@@ -450,16 +529,13 @@ export async function getCustomerInvoices(
     status?: InvoiceStatus;
   },
 ) {
-  const customers =
-    await getCustomersForUser(
+  const customer =
+    await getCustomerForUser(
       userId,
     );
 
-  const customerIds =
-    customers.map(
-      (customer) =>
-        customer._id,
-    );
+  const customerId =
+    customer._id;
 
   const skip = Math.max(
     0,
@@ -475,15 +551,10 @@ export async function getCustomerInvoices(
   );
 
   const filter: {
-    customerId: {
-      $in: Types.ObjectId[];
-    };
-
+    customerId: Types.ObjectId;
     status?: InvoiceStatus;
   } = {
-    customerId: {
-      $in: customerIds,
-    },
+    customerId,
   };
 
   if (
@@ -573,31 +644,8 @@ export async function getCustomerInvoices(
   }
 
   /*
-   * Add customer information.
-   *
-   * This also allows the frontend to know
-   * which customer profile the invoice belongs to.
-   */
-  const customerById =
-    new Map<
-      string,
-      (typeof customers)[number]
-    >();
-
-  for (
-    const customer of customers
-  ) {
-    customerById.set(
-      customer._id.toString(),
-      customer,
-    );
-  }
-
-  /*
-   * Load shops for invoices.
-   *
-   * This is useful when the same customer
-   * purchased from multiple shops.
+   * Load shops belonging to the
+   * invoices.
    */
   const invoiceShopIds = [
     ...new Set(
@@ -612,8 +660,15 @@ export async function getCustomerInvoices(
     invoiceShopIds.length > 0
       ? await ShopModel.find({
           _id: {
-            $in: invoiceShopIds,
+            $in:
+              invoiceShopIds.map(
+                (shopId) =>
+                  new Types.ObjectId(
+                    shopId,
+                  ),
+              ),
           },
+
           isActive: true,
         }).lean()
       : [];
@@ -636,11 +691,6 @@ export async function getCustomerInvoices(
   const invoicesWithProducts =
     invoices.map(
       (invoice) => {
-        const customer =
-          customerById.get(
-            invoice.customerId.toString(),
-          );
-
         const shop =
           shopById.get(
             invoice.shopId.toString(),
@@ -655,8 +705,7 @@ export async function getCustomerInvoices(
             ) ?? [],
 
           customerName:
-            customer?.name ??
-            "Customer",
+            customer.name,
 
           customerId:
             invoice.customerId,
@@ -710,22 +759,16 @@ export async function getCustomerInvoices(
 
 /**
  * Get one invoice belonging to ANY shop
- * where the authenticated customer has
- * a customer profile.
+ * where the authenticated customer owns
+ * the global customer record.
  */
 export async function getCustomerInvoice(
   userId: string,
   invoiceId: string,
 ) {
-  const customers =
-    await getCustomersForUser(
+  const customer =
+    await getCustomerForUser(
       userId,
-    );
-
-  const customerIds =
-    customers.map(
-      (customer) =>
-        customer._id,
     );
 
   const invoiceObjectId =
@@ -739,9 +782,8 @@ export async function getCustomerInvoice(
       _id:
         invoiceObjectId,
 
-      customerId: {
-        $in: customerIds,
-      },
+      customerId:
+        customer._id,
     }).lean();
 
   if (!invoice) {
@@ -817,15 +859,9 @@ export async function getCustomerWarranties(
     status?: WarrantyStatus;
   },
 ) {
-  const customers =
-    await getCustomersForUser(
+  const customer =
+    await getCustomerForUser(
       userId,
-    );
-
-  const customerIds =
-    customers.map(
-      (customer) =>
-        customer._id,
     );
 
   const skip = Math.max(
@@ -842,17 +878,12 @@ export async function getCustomerWarranties(
   );
 
   const filter: {
-    customerId: {
-      $in: Types.ObjectId[];
-    };
-
+    customerId: Types.ObjectId;
     isActive: boolean;
-
     status?: WarrantyStatus;
   } = {
-    customerId: {
-      $in: customerIds,
-    },
+    customerId:
+      customer._id,
 
     isActive: true,
   };
@@ -906,22 +937,16 @@ export async function getCustomerWarranties(
 
 /**
  * Get one warranty belonging to ANY shop
- * where the authenticated customer has
- * a customer profile.
+ * where the authenticated customer owns
+ * the global customer record.
  */
 export async function getCustomerWarranty(
   userId: string,
   warrantyId: string,
 ) {
-  const customers =
-    await getCustomersForUser(
+  const customer =
+    await getCustomerForUser(
       userId,
-    );
-
-  const customerIds =
-    customers.map(
-      (customer) =>
-        customer._id,
     );
 
   const warrantyObjectId =
@@ -935,9 +960,8 @@ export async function getCustomerWarranty(
       _id:
         warrantyObjectId,
 
-      customerId: {
-        $in: customerIds,
-      },
+      customerId:
+        customer._id,
 
       isActive: true,
     }).lean();
@@ -959,9 +983,8 @@ export async function getCustomerWarranty(
           _id:
             warranty.invoiceId,
 
-          customerId: {
-            $in: customerIds,
-          },
+          customerId:
+            customer._id,
         }).lean()
       : null,
 

@@ -7,7 +7,8 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "migrate:customers": "tsx src/migrations/migrate-global-customers.ts"
   },
   "keywords": [],
   "author": "",
@@ -17,7 +18,7 @@
     "argon2": "^0.45.1",
     "cloudinary": "^2.11.0",
     "cookie-parser": "^1.4.7",
-    "cors": "^2.8.6",
+    "cors": "^2.2.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",

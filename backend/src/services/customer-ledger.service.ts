@@ -87,14 +87,18 @@ function paymentMethodLabel(
 }
 
 /**
- * Build the ledger across ALL customer
- * profiles belonging to the same user.
+ * Build the ledger for the ONE global
+ * customer linked to the authenticated
+ * customer account.
+ *
+ * The customer can have invoices and
+ * payments from multiple shops.
  */
 async function buildCustomerLedgerForUser(
   userId: mongoose.Types.ObjectId,
 ) {
-  const customers =
-    await CustomerModel.find({
+  const customer =
+    await CustomerModel.findOne({
       userId,
       isActive: true,
     })
@@ -103,9 +107,7 @@ async function buildCustomerLedgerForUser(
       })
       .lean();
 
-  if (
-    customers.length === 0
-  ) {
+  if (!customer) {
     throw new ApiError(
       404,
       "Customer profile not found.",
@@ -113,20 +115,19 @@ async function buildCustomerLedgerForUser(
     );
   }
 
-  const customerIds =
-    customers.map(
-      (customer) =>
-        customer._id,
-    );
+  const customerId =
+    customer._id;
 
+  /*
+   * A global customer can have invoices
+   * and payments across ALL shops.
+   */
   const [
     invoices,
     payments,
   ] = await Promise.all([
     InvoiceModel.find({
-      customerId: {
-        $in: customerIds,
-      },
+      customerId,
     })
       .sort({
         issueDate: -1,
@@ -135,9 +136,7 @@ async function buildCustomerLedgerForUser(
       .lean(),
 
     InvoicePaymentModel.find({
-      customerId: {
-        $in: customerIds,
-      },
+      customerId,
     })
       .sort({
         paidAt: -1,
@@ -218,8 +217,8 @@ async function buildCustomerLedgerForUser(
     );
 
   /*
-   * Backward compatibility for invoices that
-   * existed before separate payment documents
+   * Backward compatibility for invoices
+   * created before separate payment documents
    * were introduced.
    */
   for (
@@ -351,52 +350,51 @@ async function buildCustomerLedgerForUser(
   return {
     customer: {
       id:
-        customers[0]._id.toString(),
+        customer._id.toString(),
 
       name:
-        customers[0].name,
+        customer.name,
 
       email:
-        customers[0].email,
+        customer.email,
 
       phone:
-        customers[0].phone,
+        customer.phone,
 
       address:
-        customers[0].address,
+        customer.address,
 
       isActive:
-        customers[0].isActive,
+        customer.isActive,
     },
 
     /*
-     * All customer profiles across shops.
+     * There is now exactly ONE global
+     * customer profile.
+     *
+     * shopId has intentionally been removed.
      */
-    customerProfiles:
-      customers.map(
-        (customer) => ({
-          id:
-            customer._id.toString(),
+    customerProfiles: [
+      {
+        id:
+          customer._id.toString(),
 
-          shopId:
-            customer.shopId.toString(),
+        name:
+          customer.name,
 
-          name:
-            customer.name,
+        email:
+          customer.email,
 
-          email:
-            customer.email,
+        phone:
+          customer.phone,
 
-          phone:
-            customer.phone,
+        address:
+          customer.address,
 
-          address:
-            customer.address,
-
-          isActive:
-            customer.isActive,
-        }),
-      ),
+        isActive:
+          customer.isActive,
+      },
+    ],
 
     summary: {
       totalPurchases,
@@ -415,6 +413,11 @@ async function buildCustomerLedgerForUser(
       unpaidInvoices,
     },
 
+    /*
+     * Every invoice contains its own shopId.
+     * This preserves the shop identity of the
+     * financial transaction.
+     */
     invoices:
       invoices.map(
         (invoice) => ({
@@ -465,12 +468,20 @@ async function buildCustomerLedgerForUser(
 
 /**
  * Shopkeeper:
- * Get the financial ledger for one customer
- * belonging to the shopkeeper's shop.
  *
- * This remains shop-specific because a
- * shopkeeper must only see their own shop's
- * customer ledger.
+ * Get the financial ledger for one
+ * GLOBAL customer, but only for the
+ * authenticated shopkeeper's shop.
+ *
+ * This is important:
+ *
+ * Global customer identity
+ *        +
+ * Shop-specific financial data
+ *
+ * A shopkeeper must NEVER see another
+ * shop's invoices/payments merely because
+ * the customer is global.
  */
 export async function getCustomerLedgerForOwner(
   ownerId: string,
@@ -489,9 +500,6 @@ export async function getCustomerLedgerForOwner(
           "customer ID",
         ),
 
-      shopId:
-        shop._id,
-
       isActive: true,
     }).lean();
 
@@ -504,7 +512,8 @@ export async function getCustomerLedgerForOwner(
   }
 
   /*
-   * Build only this shop's ledger.
+   * Only this shop's financial records
+   * are included.
    */
   const [
     invoices,
@@ -608,6 +617,11 @@ export async function getCustomerLedgerForOwner(
       },
     );
 
+  /*
+   * Backward compatibility for invoices
+   * that have amountPaid but no separate
+   * payment records.
+   */
   for (
     const invoice of invoices
   ) {
@@ -817,8 +831,13 @@ export async function getCustomerLedgerForOwner(
 
 /**
  * Customer:
- * Get complete financial ledger across
- * ALL shops.
+ *
+ * Get the complete financial ledger
+ * across ALL shops.
+ *
+ * The customer sees their own global
+ * financial history, regardless of which
+ * shop generated the invoice.
  */
 export async function getCustomerOwnLedger(
   userId: string,

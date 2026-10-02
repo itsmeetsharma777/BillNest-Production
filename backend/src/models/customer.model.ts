@@ -83,13 +83,13 @@ const customerSchema = new Schema(
      *
      * +919876543210
      *
-     * DO NOT add unique:true yet.
+     * IMPORTANT:
+     *
+     * Do NOT make this unique until the
+     * migration has completed.
      *
      * Existing database records may contain
      * duplicate phone numbers.
-     *
-     * We will merge those records first and
-     * then enable the unique index.
      */
     phone: {
       type: String,
@@ -185,16 +185,22 @@ customerSchema.index({
 /*
  * Phone lookup.
  *
- * This is intentionally NOT unique yet.
+ * IMPORTANT:
  *
- * Step 2 will:
+ * This remains non-unique until the migration
+ * has successfully completed.
+ *
+ * The migration will:
  *
  * 1. Normalize old phones.
  * 2. Detect duplicate customers.
  * 3. Merge duplicate customer records.
  * 4. Update invoice references.
- * 5. Remove duplicate phones.
- * 6. Create the final unique index.
+ * 5. Update warranty references.
+ * 6. Update payment references.
+ * 7. Remove duplicate customers.
+ * 8. Remove the old phone_1 index.
+ * 9. Create customer_phone_unique.
  */
 customerSchema.index({
   phone: 1,
