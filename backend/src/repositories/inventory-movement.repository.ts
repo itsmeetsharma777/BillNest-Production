@@ -24,6 +24,7 @@ export type InventoryMovementReferenceType =
 
 interface InventoryMovementFilters {
   productId?: string;
+  variantId?: string;
   movementType?: InventoryMovementType;
   referenceType?: InventoryMovementReferenceType;
   startDate?: Date;
@@ -45,10 +46,11 @@ function buildInventoryMovementFilter(
   };
 
   if (options?.productId) {
-    filter.productId =
-      new Types.ObjectId(
-        options.productId,
-      );
+    filter.productId = new Types.ObjectId(options.productId);
+  }
+
+  if (options?.variantId) {
+    filter.variantId = new Types.ObjectId(options.variantId);
   }
 
   if (
@@ -109,6 +111,7 @@ export async function createInventoryMovement(
   data: {
     shopId: string;
     productId: string;
+    variantId?: string;
     productName: string;
     sku?: string;
     movementType:
@@ -131,6 +134,10 @@ export async function createInventoryMovement(
 
       productId:
         data.productId,
+
+      ...(data.variantId && {
+        variantId: data.variantId,
+      }),
 
       productName:
         data.productName,
