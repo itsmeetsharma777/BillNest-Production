@@ -731,6 +731,7 @@ export default function ProductsPage() {
   useEffect(() => {
     void loadProducts();
     void loadCatalogData();
+    void loadCatalogAnalytics();
   }, []);
 
   /*
@@ -779,65 +780,30 @@ export default function ProductsPage() {
    * ==========================================================
    */
 
-  const filteredProducts =
-    useMemo(() => {
-      const normalizedSearch =
-        search
-          .trim()
-          .toLowerCase();
-
-      return products.filter(
-        (product) => {
-          const matchesSearch =
-            !normalizedSearch ||
-            product.name
-              .toLowerCase()
-              .includes(
-                normalizedSearch,
-              ) ||
-            product.sku
-              ?.toLowerCase()
-              .includes(
-                normalizedSearch,
-              ) ||
-            product.category
-              ?.toLowerCase()
-              .includes(
-                normalizedSearch,
-              ) ||
-            product.brand
-              ?.toLowerCase()
-              .includes(
-                normalizedSearch,
-              ) ||
-            product.barcode
-              ?.toLowerCase()
-              .includes(
-                normalizedSearch,
-              );
-
-          const matchesStatus =
-            statusFilter ===
-            "all" ||
-            (statusFilter ===
-              "active" &&
-              product.isActive) ||
-            (statusFilter ===
-              "inactive" &&
-              !product.isActive);
-
-          return (
-            matchesSearch &&
-            matchesStatus
-          );
-        },
-      );
-    }, [
-      products,
-      search,
-      statusFilter,
-    ]);
-
+  const filteredProducts = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    const minPrice = minPriceFilter === "" ? undefined : Number(minPriceFilter);
+    const maxPrice = maxPriceFilter === "" ? undefined : Number(maxPriceFilter);
+    return [...products].filter((product) => {
+      const haystack = [product.name, product.sku, product.category, product.brand, product.barcode].filter(Boolean).join(" ").toLowerCase();
+      const matchesSearch = !normalizedSearch || haystack.includes(normalizedSearch);
+      const matchesStatus = statusFilter === "all" || (statusFilter === "active" && product.isActive) || (statusFilter === "inactive" && !product.isActive);
+      const matchesCategory = !categoryFilter || product.category === categoryFilter;
+      const matchesBrand = !brandFilter || product.brand === brandFilter;
+      const matchesBarcode = hasBarcodeFilter === "all" || (hasBarcodeFilter === "true" && Boolean(product.barcode)) || (hasBarcodeFilter === "false" && !product.barcode);
+      const hasVariants = Boolean((product as Product & { hasVariants?: boolean }).hasVariants);
+      const matchesVariants = hasVariantsFilter === "all" || (hasVariantsFilter === "true" && hasVariants) || (hasVariantsFilter === "false" && !hasVariants);
+      const matchesStock = stockFilter === "all" || (stockFilter === "in_stock" && product.stockQuantity > 0) || (stockFilter === "out_of_stock" && product.stockQuantity === 0) || (stockFilter === "low_stock" && isLowStock(product));
+      const matchesMin = minPrice === undefined || (Number.isFinite(minPrice) && product.sellingPrice >= minPrice);
+      const matchesMax = maxPrice === undefined || (Number.isFinite(maxPrice) && product.sellingPrice <= maxPrice);
+      return matchesSearch && matchesStatus && matchesCategory && matchesBrand && matchesBarcode && matchesVariants && matchesStock && matchesMin && matchesMax;
+    }).sort((a, b) => {
+      const av = sortBy === "name" ? a.name.toLowerCase() : sortBy === "sellingPrice" ? a.sellingPrice : sortBy === "stockQuantity" ? a.stockQuantity : (a.createdAt ?? "");
+      const bv = sortBy === "name" ? b.name.toLowerCase() : sortBy === "sellingPrice" ? b.sellingPrice : sortBy === "stockQuantity" ? b.stockQuantity : (b.createdAt ?? "");
+      const result = av < bv ? -1 : av > bv ? 1 : 0;
+      return sortOrder === "asc" ? result : -result;
+    });
+  }, [products, search, statusFilter, categoryFilter, brandFilter, hasBarcodeFilter, hasVariantsFilter, stockFilter, minPriceFilter, maxPriceFilter, sortBy, sortOrder]);
   const activeCount =
     products.filter(
       (product) =>
@@ -1339,10 +1305,7 @@ export default function ProductsPage() {
   }
 
   async function refreshAll() {
-    await Promise.all([
-      loadProducts(true),
-      loadCatalogData(),
-    ]);
+    await Promise.all([loadProducts(true), loadCatalogData(), loadCatalogAnalytics()]);
   }
 
   /*
