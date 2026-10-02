@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { ApiError } from "../utils/api-error";
 import { getShopForOwner } from "./shop.service";
+import { updateProductByIdForShop } from "../repositories/product.repository";
 import { findProductByIdForShop } from "../repositories/product.repository";
 import { adjustProductVariantStock, createProductVariant, deactivateProductVariantByIdForShop, findProductVariantByBarcodeForShop, findProductVariantByIdForShop, findProductVariantsForShop, updateProductVariantByIdForShop } from "../repositories/product-variant.repository";
 import type { AdjustProductVariantStockInput, CreateProductVariantInput, UpdateProductVariantInput } from "../validators/product-variant.validator";
@@ -24,7 +25,9 @@ export async function createProductVariantForOwner(ownerId: string, productId: s
   const attributes = cleanAttributes(input.attributes);
   if (!Object.keys(attributes).length) throw new ApiError(400, "At least one variant attribute is required.", "VARIANT_ATTRIBUTES_REQUIRED");
   try {
-    return await createProductVariant({ shopId: shop._id.toString(), productId, attributes, sku: cleanOptional(input.sku), barcode: cleanOptional(input.barcode), purchasePrice: input.purchasePrice, sellingPrice: input.sellingPrice, stockQuantity: input.stockQuantity, lowStockThreshold: input.lowStockThreshold, warrantyPeriodMonths: input.warrantyPeriodMonths, imageUrl: cleanOptional(input.imageUrl) });
+    const variant = await createProductVariant({ shopId: shop._id.toString(), productId, attributes, sku: cleanOptional(input.sku), barcode: cleanOptional(input.barcode), purchasePrice: input.purchasePrice, sellingPrice: input.sellingPrice, stockQuantity: input.stockQuantity, lowStockThreshold: input.lowStockThreshold, warrantyPeriodMonths: input.warrantyPeriodMonths, imageUrl: cleanOptional(input.imageUrl) });
+    await updateProductByIdForShop(productId, shop._id.toString(), { hasVariants: true });
+    return variant;
   } catch (error) {
     if (duplicateError(error)) throw new ApiError(409, "This SKU or barcode is already used by another item in your shop.", "VARIANT_IDENTIFIER_ALREADY_EXISTS");
     throw error;
@@ -57,7 +60,14 @@ export async function deleteProductVariantForOwner(ownerId: string, productId: s
   const existing = await findProductVariantByIdForShop(variantId, productId, shop._id.toString());
   if (!existing) throw new ApiError(404, "Product variant not found.", "VARIANT_NOT_FOUND");
   if (existing.stockQuantity > 0) throw new ApiError(400, "A variant with stock cannot be deactivated until its stock is zero.", "VARIANT_HAS_STOCK");
-  return deactivateProductVariantByIdForShop(variantId, productId, shop._id.toString());
+  const deactivated = await deactivateProductVariantByIdForShop(variantId, productId, shop._id.toString());
+  if (deactivated) {
+    const remaining = await findProductVariantsForShop(productId, shop._id.toString(), { isActive: true });
+    if (remaining.length === 0) {
+      await updateProductByIdForShop(productId, shop._id.toString(), { hasVariants: false });
+    }
+  }
+  return deactivated;
 }
 export async function adjustProductVariantStockForOwner(ownerId: string, productId: string, variantId: string, input: AdjustProductVariantStockInput) {
   const shop = await getShopForOwner(ownerId);
