@@ -1734,6 +1734,7 @@ export default function ProductsPage() {
               <table className="w-full min-w-[1150px] text-sm">
                 <thead className="border-b bg-muted/30">
                   <tr className="text-left text-xs text-muted-foreground">
+                    <th className="w-10 px-3 py-3"></th>
                     <th className="px-5 py-3 font-semibold">
                       Product
                     </th>
@@ -1787,6 +1788,14 @@ export default function ProductsPage() {
                           }
                           className="transition-colors hover:bg-muted/20"
                         >
+                          <td className="w-10 px-3 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(product._id)}
+                              onChange={() => toggleProductSelection(product._id)}
+                              aria-label={"Select " + product.name}
+                            />
+                          </td>
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
                               <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -1950,6 +1959,10 @@ export default function ProductsPage() {
                       }
                       className="p-4"
                     >
+                      <div className="mb-3 flex items-center gap-2 text-xs">
+                        <input type="checkbox" checked={selectedIds.includes(product._id)} onChange={() => toggleProductSelection(product._id)} aria-label={"Select " + product.name} />
+                        <span className="text-muted-foreground">Select product</span>
+                      </div>
                       <div className="flex items-start gap-3">
                         <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                           <Package className="size-5" />
