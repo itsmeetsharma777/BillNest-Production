@@ -28,6 +28,7 @@ import {
 } from "../utils/hash";
 
 import { ApiError } from "../utils/api-error";
+import { normalizePhone } from "../utils/phone";
 
 interface RegisterInput {
   name: string;
@@ -151,6 +152,22 @@ export async function registerUser(
       .trim()
       .toLowerCase();
 
+  const normalizedPhone =
+    input.phone
+      ? normalizePhone(input.phone)
+      : undefined;
+
+  if (
+    input.role === "customer" &&
+    !normalizedPhone
+  ) {
+    throw new ApiError(
+      400,
+      "Phone number is required for customer accounts.",
+      "PHONE_REQUIRED",
+    );
+  }
+
   const existingUser =
     await findUserByEmail(
       normalizedEmail,
@@ -194,7 +211,7 @@ export async function registerUser(
     await linkPreExistingCustomerProfiles(
       user._id.toString(),
       normalizedEmail,
-      input.phone,
+      normalizedPhone,
       input.name,
     );
   }
