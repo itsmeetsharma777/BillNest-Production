@@ -1,4 +1,4 @@
-import { type ClientSession } from "mongoose";
+import { Types, type ClientSession } from "mongoose";
 import { ProductModel } from "../models/product.model";
 
 export interface ProductFilters {
@@ -179,7 +179,7 @@ export async function deleteProductByIdForShop(productId: string, shopId: string
 
 export async function getCatalogAnalyticsByShopId(shopId: string) {
   const [summary] = await ProductModel.aggregate([
-    { $match: { shopId: new (require("mongoose").Types.ObjectId)(shopId) } },
+    { $match: { shopId: new Types.ObjectId(shopId) } },
     {
       $group: {
         _id: null,
