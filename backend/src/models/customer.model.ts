@@ -71,8 +71,10 @@ const customerSchema = new Schema(
     /*
      * GLOBAL CUSTOMER PHONE
      *
-     * The application normalizes this before
-     * saving.
+     * Phone is globally unique across BillNest.
+     *
+     * The application normalizes the phone
+     * before saving.
      *
      * Example:
      *
@@ -83,19 +85,17 @@ const customerSchema = new Schema(
      *
      * +919876543210
      *
-     * IMPORTANT:
+     * Customers without a phone are allowed
+     * for legacy compatibility.
      *
-     * Do NOT make this unique until the
-     * migration has completed.
-     *
-     * Existing database records may contain
-     * duplicate phone numbers.
+     * The sparse unique index means multiple
+     * customers can have no phone value, while
+     * actual phone numbers must be unique.
      */
     phone: {
       type: String,
       trim: true,
       maxlength: 20,
-      index: true,
     },
 
     /*
@@ -183,28 +183,31 @@ customerSchema.index({
 });
 
 /*
- * Phone lookup.
+ * GLOBAL UNIQUE PHONE INDEX
  *
- * IMPORTANT:
+ * The migration has already:
  *
- * This remains non-unique until the migration
- * has successfully completed.
+ * 1. Normalized old phones.
+ * 2. Detected duplicate customers.
+ * 3. Merged duplicate customer records.
+ * 4. Updated invoice references.
+ * 5. Updated warranty references.
+ * 6. Updated payment references.
+ * 7. Removed duplicate customers.
+ * 8. Removed the old phone_1 index.
+ * 9. Created customer_phone_unique.
  *
- * The migration will:
- *
- * 1. Normalize old phones.
- * 2. Detect duplicate customers.
- * 3. Merge duplicate customer records.
- * 4. Update invoice references.
- * 5. Update warranty references.
- * 6. Update payment references.
- * 7. Remove duplicate customers.
- * 8. Remove the old phone_1 index.
- * 9. Create customer_phone_unique.
+ * Keep the schema definition synchronized
+ * with the database index.
  */
-customerSchema.index({
-  phone: 1,
-});
+customerSchema.index(
+  { phone: 1 },
+  {
+    unique: true,
+    sparse: true,
+    name: "customer_phone_unique",
+  },
+);
 
 export type Customer =
   InferSchemaType<
