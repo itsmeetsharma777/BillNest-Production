@@ -235,6 +235,23 @@ export async function findCustomers(
  * =========================================================
  */
 
+/**
+ * Find multiple GLOBAL customers by MongoDB IDs.
+ * No shopId filter is used because customers are global.
+ */
+export async function findCustomersByIds(
+  customerIds: string[],
+) {
+  if (!customerIds.length) {
+    return [];
+  }
+
+  return CustomerModel.find({
+    _id: { $in: customerIds },
+    isActive: true,
+  });
+}
+
 export async function createCustomer(
   data: {
     userId?: string;
