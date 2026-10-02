@@ -148,7 +148,12 @@ export default function ProductSelector({ value, onSelect, onClear }: Props) {
       const variantResult = await variantResponse.json().catch(() => null);
       if (variantResponse.ok && variantResult?.data?.variant) {
         const v = variantResult.data.variant as Variant;
-        const product = products.find(p => p._id === v.productId);
+        let product = products.find((p) => p._id === v.productId);
+        if (!product) {
+          const parentResponse = await fetch(API_URL + "/products/" + v.productId, { credentials: "include" });
+          const parentResult = await parentResponse.json().catch(() => null);
+          if (parentResponse.ok) product = parentResult?.data?.product ?? parentResult?.product;
+        }
         if (!product) throw new Error("The variant's parent product is not available.");
         if (v.stockQuantity <= 0) throw new Error("This variant is out of stock.");
         selectVariant({ ...v, productId: product._id });
