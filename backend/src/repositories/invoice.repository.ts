@@ -6,6 +6,7 @@ import {
 import { InvoiceModel } from "../models/invoice.model";
 import { InvoiceItemModel } from "../models/invoice-item.model";
 import { ProductModel } from "../models/product.model";
+import { ProductVariantModel } from "../models/product-variant.model";
 import { ShopModel } from "../models/shop.model";
 import {
   InventoryMovementModel,
@@ -117,46 +118,49 @@ export async function createInvoice(
 async function findCatalogProductForInvoiceItem(
   shopId: Types.ObjectId,
   item: {
+    productId?: string;
+    variantId?: string;
     productName: string;
     unitPrice: number;
   },
   session: ClientSession,
 ) {
-  const products =
-    await ProductModel.find(
-      {
-        shopId,
-        name:
-          item.productName.trim(),
-        sellingPrice:
-          item.unitPrice,
-        isActive: true,
-      },
-      {
-        _id: 1,
-        name: 1,
-        sku: 1,
-        stockQuantity: 1,
-        isActive: 1,
-      },
-      {
-        session,
-      },
-    ).limit(2);
-
-  if (products.length === 0) {
-    return null;
-  }
-
-  if (products.length > 1) {
-    throw new ApiError(
-      409,
-      `Multiple active products named "${item.productName}" have the same selling price. Please edit the product catalog so the product can be identified uniquely.`,
-      "PRODUCT_MATCH_AMBIGUOUS",
+  if (item.variantId) {
+    const variant = await ProductVariantModel.findOne(
+      { _id: item.variantId, shopId, isActive: true },
+      { _id: 1, productId: 1, attributes: 1, sku: 1, barcode: 1, stockQuantity: 1, purchasePrice: 1, sellingPrice: 1, warrantyPeriodMonths: 1 },
+      { session },
     );
+    if (!variant) throw new ApiError(404, "Selected product variant was not found or is inactive.", "VARIANT_NOT_FOUND");
+
+    const product = await ProductModel.findOne(
+      { _id: variant.productId, shopId, isActive: true },
+      { _id: 1, name: 1, sku: 1 },
+      { session },
+    );
+    if (!product) throw new ApiError(404, "Parent product was not found or is inactive.", "PRODUCT_NOT_FOUND");
+    return { product, variant };
   }
 
-  return products[0];
+  if (item.productId) {
+    const product = await ProductModel.findOne(
+      { _id: item.productId, shopId, isActive: true },
+      { _id: 1, name: 1, sku: 1, stockQuantity: 1, isActive: 1 },
+      { session },
+    );
+    if (!product) throw new ApiError(404, "Selected product was not found or is inactive.", "PRODUCT_NOT_FOUND");
+    return { product, variant: null };
+  }
+
+  const products = await ProductModel.find(
+    { shopId, name: item.productName.trim(), sellingPrice: item.unitPrice, isActive: true },
+    { _id: 1, name: 1, sku: 1, stockQuantity: 1, isActive: 1 },
+    { session },
+  ).limit(2);
+
+  if (products.length === 0) return null;
+  if (products.length > 1) throw new ApiError(409, `Multiple active products named "${item.productName}" have the same selling price. Select a specific catalog product.`, "PRODUCT_MATCH_AMBIGUOUS");
+  return { product: products[0], variant: null };
 }
 
 /**
@@ -269,6 +273,35 @@ async function createInvoiceInventoryMovement(
  * DECREASE CATALOG PRODUCT STOCK
  * ============================================================
  */
+async function decrementVariantStock(
+  shopId: Types.ObjectId,
+  variantId: Types.ObjectId,
+  productName: string,
+  quantity: number,
+  invoiceId: string,
+  session: ClientSession,
+) {
+  if (!Number.isFinite(quantity) || quantity <= 0) throw new ApiError(400, "Invalid variant quantity.", "INVALID_PRODUCT_QUANTITY");
+  const before = await ProductVariantModel.findOne({ _id: variantId, shopId, isActive: true }, { stockQuantity: 1 }, { session });
+  if (!before) throw new ApiError(404, `Variant for "${productName}" was not found.`, "VARIANT_NOT_FOUND");
+  if (before.stockQuantity < quantity) throw new ApiError(400, `Insufficient stock for "${productName}". Available: ${before.stockQuantity}, requested: ${quantity}.`, "INSUFFICIENT_VARIANT_STOCK");
+  const updated = await ProductVariantModel.findOneAndUpdate(
+    { _id: variantId, shopId, isActive: true, stockQuantity: { $gte: quantity } },
+    { $inc: { stockQuantity: -quantity } },
+    { session, returnDocument: "after" },
+  );
+  if (!updated) throw new ApiError(400, `Insufficient stock for "${productName}".`, "INSUFFICIENT_VARIANT_STOCK");
+  const shop = await ShopModel.findById(shopId, { ownerId: 1 }, { session });
+  if (!shop) throw new ApiError(404, "Shop not found.", "SHOP_NOT_FOUND");
+  await new InventoryMovementModel({
+    shopId, productId: updated.productId, productName,
+    sku: updated.sku, movementType: "sale", quantity,
+    previousStock: before.stockQuantity, newStock: updated.stockQuantity,
+    referenceType: "invoice", referenceId: invoiceId, reason: "Variant stock sold through invoice.", createdBy: shop.ownerId,
+  }).save({ session });
+  return updated;
+}
+
 async function decrementCatalogProductStock(
   shopId: Types.ObjectId,
   productId: Types.ObjectId,
@@ -540,6 +573,11 @@ export async function restoreCatalogProductStock(
 export async function createInvoiceItems(
   items: Array<{
     invoiceId: string;
+    productId?: string;
+    variantId?: string;
+    variantName?: string;
+    variantAttributes?: Record<string, string>;
+    barcode?: string;
     productName: string;
     sku?: string;
     serialNumber?: string;
@@ -553,137 +591,60 @@ export async function createInvoiceItems(
   }>,
   session?: ClientSession,
 ) {
-  if (!session) {
-    return InvoiceItemModel.insertMany(
-      items,
-      {
-        session,
-      },
-    );
-  }
+  if (!session) return InvoiceItemModel.insertMany(items, { session });
+  if (items.length === 0) return [];
 
-  if (items.length === 0) {
-    return [];
-  }
-
-  const invoice =
-    await InvoiceModel.findById(
-      items[0].invoiceId,
-      {
-        shopId: 1,
-      },
-      {
-        session,
-      },
-    );
-
-  if (!invoice) {
-    throw new ApiError(
-      404,
-      "Invoice not found while creating invoice items.",
-      "INVOICE_NOT_FOUND",
-    );
-  }
-
-  const shopId =
-    invoice.shopId;
+  const invoice = await InvoiceModel.findById(items[0].invoiceId, { shopId: 1 }, { session });
+  if (!invoice) throw new ApiError(404, "Invoice not found while creating invoice items.", "INVOICE_NOT_FOUND");
 
   const invoiceItems = [];
 
-  for (
-    const item of items
-  ) {
-    const catalogProduct =
-      await findCatalogProductForInvoiceItem(
-        shopId,
-        {
-          productName:
-            item.productName,
+  for (const item of items) {
+    const resolved = await findCatalogProductForInvoiceItem(invoice.shopId, item, session);
 
-          unitPrice:
-            item.unitPrice,
-        },
-        session,
-      );
+    let productId: Types.ObjectId | undefined;
+    let variantId: Types.ObjectId | undefined;
+    let sku = item.sku?.trim();
+    let barcode = item.barcode?.trim();
+    let variantName = item.variantName?.trim();
+    let variantAttributes = item.variantAttributes;
 
-    let productId:
-      | Types.ObjectId
-      | undefined;
-
-    let sku =
-      item.sku?.trim();
-
-    if (catalogProduct) {
-      productId =
-        catalogProduct._id;
-
-      if (
-        catalogProduct.sku
-      ) {
-        sku =
-          catalogProduct.sku;
+    if (resolved) {
+      productId = resolved.product._id;
+      if (resolved.variant) {
+        variantId = resolved.variant._id;
+        sku = resolved.variant.sku ?? sku;
+        barcode = resolved.variant.barcode ?? barcode;
+        variantAttributes = Object.fromEntries(resolved.variant.attributes.entries());
+        variantName = Object.entries(variantAttributes).map(([key, value]) => `${key}: ${value}`).join(" • ");
+        await decrementVariantStock(invoice.shopId, resolved.variant._id, item.productName, item.quantity, item.invoiceId, session);
+      } else {
+        sku = resolved.product.sku ?? sku;
+        await decrementCatalogProductStock(invoice.shopId, resolved.product._id, resolved.product.name, item.quantity, item.invoiceId, session);
       }
-
-      await decrementCatalogProductStock(
-        shopId,
-        catalogProduct._id,
-        catalogProduct.name,
-        item.quantity,
-        item.invoiceId,
-        session,
-      );
     }
 
     invoiceItems.push({
-      invoiceId:
-        item.invoiceId,
-
-      ...(productId && {
-        productId,
-      }),
-
-      productName:
-        item.productName,
-
-      ...(sku && {
-        sku,
-      }),
-
-      ...(item.serialNumber && {
-        serialNumber:
-          item.serialNumber,
-      }),
-
-      quantity:
-        item.quantity,
-
-      unitPrice:
-        item.unitPrice,
-
-      discount:
-        item.discount,
-
-      taxRate:
-        item.taxRate,
-
-      lineSubtotal:
-        item.lineSubtotal,
-
-      lineTax:
-        item.lineTax,
-
-      lineTotal:
-        item.lineTotal,
+      invoiceId: item.invoiceId,
+      ...(productId && { productId }),
+      ...(variantId && { variantId }),
+      ...(variantName && { variantName }),
+      ...(variantAttributes && { variantAttributes }),
+      ...(barcode && { barcode }),
+      productName: item.productName,
+      ...(sku && { sku }),
+      ...(item.serialNumber && { serialNumber: item.serialNumber }),
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      discount: item.discount,
+      taxRate: item.taxRate,
+      lineSubtotal: item.lineSubtotal,
+      lineTax: item.lineTax,
+      lineTotal: item.lineTotal,
     });
   }
 
-  return InvoiceItemModel.insertMany(
-    invoiceItems,
-    {
-      session,
-      ordered: true,
-    },
-  );
+  return InvoiceItemModel.insertMany(invoiceItems, { session, ordered: true });
 }
 
 export async function findInvoiceItems(
@@ -706,6 +667,7 @@ export async function findInvoiceItemsForCancellation(
     },
     {
       productId: 1,
+      variantId: 1,
       productName: 1,
       quantity: 1,
     },
