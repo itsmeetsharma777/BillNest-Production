@@ -291,6 +291,11 @@ async function decrementVariantStock(
     { session, returnDocument: "after" },
   );
   if (!updated) throw new ApiError(400, `Insufficient stock for "${productName}".`, "INSUFFICIENT_VARIANT_STOCK");
+  await ProductModel.findOneAndUpdate(
+    { _id: updated.productId, shopId, hasVariants: true, stockQuantity: { $gte: quantity } },
+    { $inc: { stockQuantity: -quantity } },
+    { session },
+  );
   const shop = await ShopModel.findById(shopId, { ownerId: 1 }, { session });
   if (!shop) throw new ApiError(404, "Shop not found.", "SHOP_NOT_FOUND");
   await new InventoryMovementModel({
@@ -586,6 +591,11 @@ export async function restoreVariantStock(
     { new: true, session },
   );
   if (!updated) throw new ApiError(404, "Variant could not be restored.", "VARIANT_NOT_FOUND");
+  await ProductModel.findOneAndUpdate(
+    { _id: updated.productId, shopId, hasVariants: true },
+    { $inc: { stockQuantity: quantity } },
+    { session },
+  );
   const shop = await ShopModel.findById(shopId, { ownerId: 1 }, { session });
   if (!shop) throw new ApiError(404, "Shop not found.", "SHOP_NOT_FOUND");
   await new InventoryMovementModel({
