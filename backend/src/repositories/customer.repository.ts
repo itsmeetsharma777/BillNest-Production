@@ -1,5 +1,17 @@
 import { CustomerModel } from "../models/customer.model";
 
+/*
+ * =========================================================
+ * BASIC CUSTOMER LOOKUPS
+ * =========================================================
+ */
+
+/**
+ * Find a customer by MongoDB ID.
+ *
+ * Customer is now global, so there is NO shopId
+ * condition here.
+ */
 export async function findCustomerById(
   customerId: string,
 ) {
@@ -8,46 +20,59 @@ export async function findCustomerById(
   );
 }
 
-export async function findCustomerByIdForShop(
+/**
+ * Find an active customer by MongoDB ID.
+ */
+export async function findActiveCustomerById(
   customerId: string,
-  shopId: string,
 ) {
   return CustomerModel.findOne({
     _id: customerId,
-    shopId,
-  });
-}
-
-export async function findCustomersByIdsForShop(
-  customerIds: string[],
-  shopId: string,
-) {
-  if (customerIds.length === 0) {
-    return [];
-  }
-
-  return CustomerModel.find({
-    _id: {
-      $in: customerIds,
-    },
-    shopId,
-  }).select({
-    _id: 1,
-    name: 1,
+    isActive: true,
   });
 }
 
 /**
- * Find one customer profile linked to a
- * BillNest user account.
+ * Find customer by normalized phone.
  *
- * NOTE:
- * A user can now have MULTIPLE customer
- * profiles because the same customer can
- * belong to multiple shops.
+ * Phone is the global customer identifier.
+ */
+export async function findCustomerByPhone(
+  phone: string,
+) {
+  return CustomerModel.findOne({
+    phone,
+    isActive: true,
+  });
+}
+
+/**
+ * Find customer by email.
  *
- * This function is retained for places where
- * only one profile is expected.
+ * Email is useful as an additional lookup,
+ * but it is NOT the primary identity.
+ */
+export async function findCustomerByEmail(
+  email: string,
+) {
+  return CustomerModel.findOne({
+    email,
+    isActive: true,
+  });
+}
+
+/*
+ * =========================================================
+ * USER ACCOUNT LOOKUPS
+ * =========================================================
+ */
+
+/**
+ * Find one active customer linked to a
+ * BillNest customer account.
+ *
+ * This remains for compatibility with
+ * existing customer-account functionality.
  */
 export async function findCustomerByUserId(
   userId: string,
@@ -59,33 +84,11 @@ export async function findCustomerByUserId(
 }
 
 /**
- * Find the customer profile for a specific
- * user + shop combination.
+ * Find all active customer records linked
+ * to a BillNest customer account.
  *
- * This is important because the same user can
- * have one profile in Shop A and another profile
- * in Shop B.
- */
-export async function findCustomerByUserIdAndShop(
-  userId: string,
-  shopId: string,
-) {
-  return CustomerModel.findOne({
-    userId,
-    shopId,
-    isActive: true,
-  });
-}
-
-/**
- * Find ALL active customer profiles belonging
- * to the authenticated customer account.
- *
- * One customer account can therefore have:
- *
- * Shop A -> Customer Profile A
- * Shop B -> Customer Profile B
- * Shop C -> Customer Profile C
+ * After the migration there should normally
+ * be one global customer record.
  */
 export async function findCustomersByUserId(
   userId: string,
@@ -98,11 +101,74 @@ export async function findCustomersByUserId(
   });
 }
 
-export async function findCustomersByShopId(
-  shopId: string,
+/**
+ * Find all customers that are not yet linked
+ * to a BillNest customer account.
+ */
+export async function findUnlinkedCustomersByEmail(
+  email: string,
+) {
+  return CustomerModel.find({
+    email,
+    userId: {
+      $exists: false,
+    },
+    isActive: true,
+  }).sort({
+    createdAt: 1,
+  });
+}
+
+/**
+ * Link a global customer to a BillNest account.
+ */
+export async function linkCustomerToUser(
+  customerId: string,
+  userId: string,
+) {
+  return CustomerModel.findOneAndUpdate(
+    {
+      _id: customerId,
+
+      userId: {
+        $exists: false,
+      },
+
+      isActive: true,
+    },
+    {
+      $set: {
+        userId,
+      },
+    },
+    {
+      new: true,
+      runValidators: true,
+    },
+  );
+}
+
+/*
+ * =========================================================
+ * CUSTOMER LIST
+ * =========================================================
+ */
+
+/**
+ * Find GLOBAL customers.
+ *
+ * IMPORTANT:
+ *
+ * There is deliberately NO shopId filter.
+ *
+ * Therefore every shopkeeper can see the
+ * same global customer directory.
+ */
+export async function findCustomers(
   options?: {
     skip?: number;
     limit?: number;
+    search?: string;
   },
 ) {
   const skip =
@@ -111,9 +177,51 @@ export async function findCustomersByShopId(
   const limit =
     options?.limit ?? 20;
 
-  return CustomerModel.find({
-    shopId,
-  })
+  const search =
+    options?.search?.trim();
+
+  const filter: Record<
+    string,
+    unknown
+  > = {
+    isActive: true,
+  };
+
+  /*
+   * Optional global customer search.
+   *
+   * Search can match:
+   *
+   * name
+   * email
+   * phone
+   */
+  if (search) {
+    filter.$or = [
+      {
+        name: {
+          $regex: search,
+          $options: "i",
+        },
+      },
+      {
+        email: {
+          $regex: search,
+          $options: "i",
+        },
+      },
+      {
+        phone: {
+          $regex: search,
+          $options: "i",
+        },
+      },
+    ];
+  }
+
+  return CustomerModel.find(
+    filter,
+  )
     .sort({
       createdAt: -1,
     })
@@ -121,13 +229,22 @@ export async function findCustomersByShopId(
     .limit(limit);
 }
 
+/*
+ * =========================================================
+ * CUSTOMER CREATION
+ * =========================================================
+ */
+
 export async function createCustomer(
   data: {
-    shopId: string;
     userId?: string;
+
     name: string;
+
     email?: string;
+
     phone?: string;
+
     address?: {
       line1?: string;
       line2?: string;
@@ -136,6 +253,7 @@ export async function createCustomer(
       postalCode?: string;
       country?: string;
     };
+
     notes?: string;
   },
 ) {
@@ -144,9 +262,19 @@ export async function createCustomer(
   );
 }
 
-export async function updateCustomerByIdForShop(
+/*
+ * =========================================================
+ * CUSTOMER UPDATE
+ * =========================================================
+ */
+
+/**
+ * Update a GLOBAL customer.
+ *
+ * There is intentionally no shopId.
+ */
+export async function updateCustomerById(
   customerId: string,
-  shopId: string,
   data: Partial<{
     name: string;
     email: string;
@@ -166,7 +294,6 @@ export async function updateCustomerByIdForShop(
   return CustomerModel.findOneAndUpdate(
     {
       _id: customerId,
-      shopId,
     },
     {
       $set: data,
@@ -178,14 +305,24 @@ export async function updateCustomerByIdForShop(
   );
 }
 
-export async function deleteCustomerByIdForShop(
+/*
+ * =========================================================
+ * SOFT DELETE
+ * =========================================================
+ */
+
+/**
+ * Deactivate a GLOBAL customer.
+ *
+ * Historical invoices remain untouched.
+ */
+export async function deactivateCustomerById(
   customerId: string,
-  shopId: string,
 ) {
   return CustomerModel.findOneAndUpdate(
     {
       _id: customerId,
-      shopId,
+      isActive: true,
     },
     {
       $set: {
@@ -198,59 +335,55 @@ export async function deleteCustomerByIdForShop(
   );
 }
 
-/**
- * Find ALL active customer profiles that were
- * created before the customer created a
- * BillNest account.
+/*
+ * =========================================================
+ * MIGRATION SUPPORT
+ * =========================================================
  *
- * IMPORTANT:
- * There is deliberately NO limit here.
- *
- * If the customer already exists in:
- *
- * Shop A
- * Shop B
- * Shop C
- *
- * and then creates their customer account,
- * all three profiles can be linked to the
- * same user account.
+ * These functions will be used in Step 2.
  */
-export async function findUnlinkedCustomersByEmail(
-  email: string,
+
+/**
+ * Find customers by phone regardless
+ * of active state.
+ */
+export async function findCustomersByPhoneForMigration(
+  phone: string,
 ) {
   return CustomerModel.find({
-    email,
-    userId: {
-      $exists: false,
-    },
-    isActive: true,
+    phone,
   }).sort({
     createdAt: 1,
   });
 }
 
 /**
- * Link one existing customer profile to
- * a BillNest customer account.
+ * Find all customers that currently have
+ * a phone number.
  */
-export async function linkCustomerToUser(
-  customerId: string,
-  userId: string,
-) {
-  return CustomerModel.findOneAndUpdate(
-    {
-      _id: customerId,
-
-      userId: {
-        $exists: false,
-      },
-
-      isActive: true,
+export async function findCustomersWithPhone() {
+  return CustomerModel.find({
+    phone: {
+      $exists: true,
+      $ne: "",
     },
+  }).sort({
+    createdAt: 1,
+  });
+}
+
+/**
+ * Update phone during migration.
+ */
+export async function updateCustomerPhone(
+  customerId: string,
+  phone: string,
+) {
+  return CustomerModel.findByIdAndUpdate(
+    customerId,
     {
       $set: {
-        userId,
+        phone,
       },
     },
     {

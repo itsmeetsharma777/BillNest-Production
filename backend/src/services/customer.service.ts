@@ -1,19 +1,21 @@
 import {
   createCustomer,
-  findCustomerByIdForShop,
-  findCustomerByUserIdAndShop,
-  findCustomersByShopId,
-  updateCustomerByIdForShop,
-  deleteCustomerByIdForShop,
+  deactivateCustomerById,
+  findActiveCustomerById,
+  findCustomerByPhone,
+  findCustomers,
+  updateCustomerById,
 } from "../repositories/customer.repository";
 
 import {
   findUserByEmail,
 } from "../repositories/user.repository";
 
-import { getShopForOwner } from "./shop.service";
-
 import { ApiError } from "../utils/api-error";
+
+import {
+  normalizePhone,
+} from "../utils/phone";
 
 interface CustomerAddress {
   line1?: string;
@@ -27,7 +29,7 @@ interface CustomerAddress {
 interface CreateCustomerInput {
   name: string;
   email?: string;
-  phone?: string;
+  phone: string;
   address?: CustomerAddress;
   notes?: string;
 }
@@ -40,12 +42,83 @@ interface UpdateCustomerInput {
   notes?: string;
 }
 
+/*
+ * =========================================================
+ * ADDRESS NORMALIZATION
+ * =========================================================
+ */
+
+function normalizeAddress(
+  address?: CustomerAddress,
+) {
+  if (!address) {
+    return undefined;
+  }
+
+  return {
+    ...(address.line1?.trim() && {
+      line1:
+        address.line1.trim(),
+    }),
+
+    ...(address.line2?.trim() && {
+      line2:
+        address.line2.trim(),
+    }),
+
+    ...(address.city?.trim() && {
+      city:
+        address.city.trim(),
+    }),
+
+    ...(address.state?.trim() && {
+      state:
+        address.state.trim(),
+    }),
+
+    ...(address.postalCode?.trim() && {
+      postalCode:
+        address.postalCode.trim(),
+    }),
+
+    ...(address.country?.trim() && {
+      country:
+        address.country.trim(),
+    }),
+  };
+}
+
+/*
+ * =========================================================
+ * CREATE GLOBAL CUSTOMER
+ * =========================================================
+ */
+
 export async function createCustomerForOwner(
   ownerId: string,
   input: CreateCustomerInput,
 ) {
-  const shop =
-    await getShopForOwner(ownerId);
+  /*
+   * ownerId is intentionally retained in the
+   * service signature because the route is still
+   * authenticated as a shopkeeper.
+   *
+   * At this stage it is used to ensure the
+   * authenticated shopkeeper is the caller.
+   *
+   * The customer itself is NOT attached to
+   * the shop.
+   *
+   * We intentionally do not store shopId.
+   */
+
+  if (!ownerId) {
+    throw new ApiError(
+      401,
+      "Authenticated shopkeeper is required.",
+      "UNAUTHORIZED",
+    );
+  }
 
   const name =
     input.name.trim();
@@ -58,6 +131,49 @@ export async function createCustomerForOwner(
     );
   }
 
+  /*
+   * Normalize phone.
+   */
+  const phone =
+    normalizePhone(
+      input.phone,
+    );
+
+  if (!phone) {
+    throw new ApiError(
+      400,
+      "A valid customer phone number is required.",
+      "INVALID_CUSTOMER_PHONE",
+    );
+  }
+
+  /*
+   * IMPORTANT:
+   *
+   * Before creating a new customer we search
+   * the GLOBAL customer directory.
+   *
+   * This is the core change.
+   */
+  const existingCustomer =
+    await findCustomerByPhone(
+      phone,
+    );
+
+  if (existingCustomer) {
+    /*
+     * Customer already exists globally.
+     *
+     * We DO NOT create another customer.
+     *
+     * Instead, return the existing customer.
+     */
+    return existingCustomer;
+  }
+
+  /*
+   * Normalize email.
+   */
   const email =
     input.email
       ?.trim()
@@ -67,14 +183,21 @@ export async function createCustomerForOwner(
     | string
     | undefined;
 
+  /*
+   * If a BillNest customer account already
+   * exists with this email, link the new global
+   * customer to that account.
+   */
   if (email) {
     const existingUser =
-      await findUserByEmail(email);
+      await findUserByEmail(
+        email,
+      );
 
     if (existingUser) {
       /*
-       * Only customer accounts can be linked
-       * to customer profiles.
+       * Only customer accounts may be linked
+       * to a customer profile.
        */
       if (
         existingUser.role !==
@@ -87,7 +210,9 @@ export async function createCustomerForOwner(
         );
       }
 
-      if (!existingUser.isActive) {
+      if (
+        !existingUser.isActive
+      ) {
         throw new ApiError(
           400,
           "This customer account is inactive.",
@@ -95,50 +220,20 @@ export async function createCustomerForOwner(
         );
       }
 
-      /*
-       * IMPORTANT:
-       *
-       * We check the customer profile ONLY
-       * inside the CURRENT shop.
-       *
-       * Therefore:
-       *
-       * Shop A -> profile exists
-       * Shop B -> profile does not exist
-       *
-       * Shop B is allowed to create another
-       * customer profile linked to the same user.
-       */
-      const existingCustomerInThisShop =
-        await findCustomerByUserIdAndShop(
-          existingUser._id.toString(),
-          shop._id.toString(),
-        );
-
-      if (
-        existingCustomerInThisShop
-      ) {
-        throw new ApiError(
-          409,
-          "A customer with this account already exists in your shop.",
-          "CUSTOMER_ALREADY_EXISTS",
-        );
-      }
-
-      /*
-       * Same customer account can now be linked
-       * to multiple shops.
-       */
       linkedUserId =
         existingUser._id.toString();
     }
   }
 
+  /*
+   * Create ONE GLOBAL customer.
+   *
+   * Notice:
+   *
+   * NO shopId.
+   */
   const customer =
     await createCustomer({
-      shopId:
-        shop._id.toString(),
-
       ...(linkedUserId && {
         userId:
           linkedUserId,
@@ -150,43 +245,13 @@ export async function createCustomerForOwner(
         email,
       }),
 
-      ...(input.phone?.trim() && {
-        phone:
-          input.phone.trim(),
-      }),
+      phone,
 
       ...(input.address && {
-        address: {
-          ...(input.address.line1?.trim() && {
-            line1:
-              input.address.line1.trim(),
-          }),
-
-          ...(input.address.line2?.trim() && {
-            line2:
-              input.address.line2.trim(),
-          }),
-
-          ...(input.address.city?.trim() && {
-            city:
-              input.address.city.trim(),
-          }),
-
-          ...(input.address.state?.trim() && {
-            state:
-              input.address.state.trim(),
-          }),
-
-          ...(input.address.postalCode?.trim() && {
-            postalCode:
-              input.address.postalCode.trim(),
-          }),
-
-          ...(input.address.country?.trim() && {
-            country:
-              input.address.country.trim(),
-          }),
-        },
+        address:
+          normalizeAddress(
+            input.address,
+          ),
       }),
 
       ...(input.notes?.trim() && {
@@ -198,43 +263,61 @@ export async function createCustomerForOwner(
   return customer;
 }
 
+/*
+ * =========================================================
+ * GLOBAL CUSTOMER LIST
+ * =========================================================
+ */
+
 export async function getCustomersForOwner(
   ownerId: string,
   options?: {
     page?: number;
     limit?: number;
+    search?: string;
   },
 ) {
-  const shop =
-    await getShopForOwner(ownerId);
+  if (!ownerId) {
+    throw new ApiError(
+      401,
+      "Authenticated shopkeeper is required.",
+      "UNAUTHORIZED",
+    );
+  }
 
-  const page = Math.max(
-    options?.page ?? 1,
-    1,
-  );
-
-  const limit = Math.min(
+  const page =
     Math.max(
-      options?.limit ?? 20,
+      options?.page ?? 1,
       1,
-    ),
-    100,
-  );
+    );
+
+  const limit =
+    Math.min(
+      Math.max(
+        options?.limit ?? 20,
+        1,
+      ),
+      100,
+    );
 
   const skip =
     (page - 1) * limit;
 
+  /*
+   * Ask repository for one extra record
+   * so we can determine hasMore.
+   */
   const customers =
-    await findCustomersByShopId(
-      shop._id.toString(),
-      {
-        skip,
-        limit: limit + 1,
-      },
-    );
+    await findCustomers({
+      skip,
+      limit: limit + 1,
+      search:
+        options?.search,
+    });
 
   const hasMore =
-    customers.length > limit;
+    customers.length >
+    limit;
 
   if (hasMore) {
     customers.pop();
@@ -251,23 +334,30 @@ export async function getCustomersForOwner(
   };
 }
 
+/*
+ * =========================================================
+ * GET ONE GLOBAL CUSTOMER
+ * =========================================================
+ */
+
 export async function getCustomerForOwner(
   ownerId: string,
   customerId: string,
 ) {
-  const shop =
-    await getShopForOwner(ownerId);
+  if (!ownerId) {
+    throw new ApiError(
+      401,
+      "Authenticated shopkeeper is required.",
+      "UNAUTHORIZED",
+    );
+  }
 
   const customer =
-    await findCustomerByIdForShop(
+    await findActiveCustomerById(
       customerId,
-      shop._id.toString(),
     );
 
-  if (
-    !customer ||
-    !customer.isActive
-  ) {
+  if (!customer) {
     throw new ApiError(
       404,
       "Customer not found.",
@@ -278,24 +368,81 @@ export async function getCustomerForOwner(
   return customer;
 }
 
+/*
+ * =========================================================
+ * FIND CUSTOMER BY PHONE
+ * =========================================================
+ *
+ * This function will later be used directly
+ * by invoice creation.
+ */
+
+export async function getCustomerByPhoneForOwner(
+  ownerId: string,
+  rawPhone: string,
+) {
+  if (!ownerId) {
+    throw new ApiError(
+      401,
+      "Authenticated shopkeeper is required.",
+      "UNAUTHORIZED",
+    );
+  }
+
+  const phone =
+    normalizePhone(
+      rawPhone,
+    );
+
+  if (!phone) {
+    throw new ApiError(
+      400,
+      "Please provide a valid customer phone number.",
+      "INVALID_CUSTOMER_PHONE",
+    );
+  }
+
+  const customer =
+    await findCustomerByPhone(
+      phone,
+    );
+
+  if (!customer) {
+    throw new ApiError(
+      404,
+      "No customer was found with this phone number.",
+      "CUSTOMER_NOT_FOUND",
+    );
+  }
+
+  return customer;
+}
+
+/*
+ * =========================================================
+ * UPDATE GLOBAL CUSTOMER
+ * =========================================================
+ */
+
 export async function updateCustomerForOwner(
   ownerId: string,
   customerId: string,
   input: UpdateCustomerInput,
 ) {
-  const shop =
-    await getShopForOwner(ownerId);
+  if (!ownerId) {
+    throw new ApiError(
+      401,
+      "Authenticated shopkeeper is required.",
+      "UNAUTHORIZED",
+    );
+  }
 
   const existingCustomer =
-    await findCustomerByIdForShop(
+    await findActiveCustomerById(
       customerId,
-      shop._id.toString(),
     );
 
-  if (
-    !existingCustomer ||
-    !existingCustomer.isActive
-  ) {
+  if (!existingCustomer) {
     throw new ApiError(
       404,
       "Customer not found.",
@@ -303,8 +450,12 @@ export async function updateCustomerForOwner(
     );
   }
 
+  /*
+   * Name validation.
+   */
   if (
-    input.name !== undefined &&
+    input.name !==
+      undefined &&
     !input.name.trim()
   ) {
     throw new ApiError(
@@ -317,6 +468,9 @@ export async function updateCustomerForOwner(
   const updateData:
     UpdateCustomerInput = {};
 
+  /*
+   * Name.
+   */
   if (
     input.name !==
     undefined
@@ -325,6 +479,9 @@ export async function updateCustomerForOwner(
       input.name.trim();
   }
 
+  /*
+   * Email.
+   */
   if (
     input.email !==
     undefined
@@ -335,57 +492,73 @@ export async function updateCustomerForOwner(
         .toLowerCase();
   }
 
+  /*
+   * Phone.
+   *
+   * Always normalize before storing.
+   */
   if (
     input.phone !==
     undefined
   ) {
+    const phone =
+      normalizePhone(
+        input.phone,
+      );
+
+    if (!phone) {
+      throw new ApiError(
+        400,
+        "Please provide a valid customer phone number.",
+        "INVALID_CUSTOMER_PHONE",
+      );
+    }
+
+    /*
+     * If the normalized phone belongs
+     * to another customer, do not merge
+     * automatically.
+     *
+     * Migration is responsible for
+     * historical duplicate merging.
+     */
+    const customerWithPhone =
+      await findCustomerByPhone(
+        phone,
+      );
+
+    if (
+      customerWithPhone &&
+      customerWithPhone._id.toString() !==
+        customerId
+    ) {
+      throw new ApiError(
+        409,
+        "This phone number already belongs to another customer.",
+        "CUSTOMER_PHONE_ALREADY_EXISTS",
+      );
+    }
+
     updateData.phone =
-      input.phone.trim();
+      phone;
   }
 
+  /*
+   * Address.
+   */
   if (
     input.address !==
     undefined
   ) {
-    updateData.address = {
-      ...(input.address.line1 !==
-        undefined && {
-        line1:
-          input.address.line1.trim(),
-      }),
-
-      ...(input.address.line2 !==
-        undefined && {
-        line2:
-          input.address.line2.trim(),
-      }),
-
-      ...(input.address.city !==
-        undefined && {
-        city:
-          input.address.city.trim(),
-      }),
-
-      ...(input.address.state !==
-        undefined && {
-        state:
-          input.address.state.trim(),
-      }),
-
-      ...(input.address.postalCode !==
-        undefined && {
-        postalCode:
-          input.address.postalCode.trim(),
-      }),
-
-      ...(input.address.country !==
-        undefined && {
-        country:
-          input.address.country.trim(),
-      }),
-    };
+    updateData.address =
+      normalizeAddress(
+        input.address,
+      );
   }
 
+  /*
+   * Notes.
+   */
   if (
     input.notes !==
     undefined
@@ -395,9 +568,8 @@ export async function updateCustomerForOwner(
   }
 
   const updatedCustomer =
-    await updateCustomerByIdForShop(
+    await updateCustomerById(
       customerId,
-      shop._id.toString(),
       updateData,
     );
 
@@ -412,23 +584,30 @@ export async function updateCustomerForOwner(
   return updatedCustomer;
 }
 
+/*
+ * =========================================================
+ * DEACTIVATE GLOBAL CUSTOMER
+ * =========================================================
+ */
+
 export async function deactivateCustomerForOwner(
   ownerId: string,
   customerId: string,
 ) {
-  const shop =
-    await getShopForOwner(ownerId);
+  if (!ownerId) {
+    throw new ApiError(
+      401,
+      "Authenticated shopkeeper is required.",
+      "UNAUTHORIZED",
+    );
+  }
 
   const customer =
-    await findCustomerByIdForShop(
+    await findActiveCustomerById(
       customerId,
-      shop._id.toString(),
     );
 
-  if (
-    !customer ||
-    !customer.isActive
-  ) {
+  if (!customer) {
     throw new ApiError(
       404,
       "Customer not found.",
@@ -437,9 +616,8 @@ export async function deactivateCustomerForOwner(
   }
 
   const deletedCustomer =
-    await deleteCustomerByIdForShop(
+    await deactivateCustomerById(
       customerId,
-      shop._id.toString(),
     );
 
   if (!deletedCustomer) {
