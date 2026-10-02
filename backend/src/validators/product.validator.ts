@@ -383,6 +383,15 @@ export const productListQuerySchema =
       .default("createdAt"),
 
     sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  }).superRefine((value, context) => {
+    if (value.minPrice !== undefined && value.maxPrice !== undefined && value.minPrice > value.maxPrice) {
+      context.addIssue({
+        code: "custom",
+        path: ["maxPrice"],
+        message: "Maximum price cannot be lower than minimum price.",
+      });
+    }
+  });
   });
 
 /*
