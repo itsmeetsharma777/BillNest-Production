@@ -136,6 +136,12 @@ interface InvoiceItem {
   description: string;
   quantity: string;
   unitPrice: string;
+  productId?: string;
+  variantId?: string;
+  variantName?: string;
+  variantAttributes?: Record<string, string>;
+  sku?: string;
+  barcode?: string;
 }
 
 interface CreateInvoiceResponse {
@@ -1565,6 +1571,18 @@ export default function CreateInvoicePage() {
 
                 items: items.map(
                   (item) => ({
+                    productId:
+                      item.productId,
+                    variantId:
+                      item.variantId,
+                    variantName:
+                      item.variantName,
+                    variantAttributes:
+                      item.variantAttributes,
+                    sku:
+                      item.sku,
+                    barcode:
+                      item.barcode,
                     productName:
                       item.description.trim(),
 
@@ -2167,17 +2185,23 @@ export default function CreateInvoicePage() {
                         onSelect={(
                           product,
                         ) => {
-                          updateItem(
-                            item.id,
-                            "description",
-                            product.name,
-                          );
-
-                          updateItem(
-                            item.id,
-                            "unitPrice",
-                            String(
-                              product.sellingPrice,
+                          setItems((currentItems) =>
+                            currentItems.map((currentItem) =>
+                              currentItem.id === item.id
+                                ? {
+                                    ...currentItem,
+                                    description: product.variantName
+                                      ? `${product.name} — ${product.variantName}`
+                                      : product.name,
+                                    unitPrice: String(product.sellingPrice),
+                                    productId: product.productId ?? product._id,
+                                    variantId: product.variantId,
+                                    variantName: product.variantName,
+                                    variantAttributes: product.variantAttributes,
+                                    sku: product.sku ?? undefined,
+                                    barcode: product.barcode ?? undefined,
+                                  }
+                                : currentItem,
                             ),
                           );
 
@@ -2186,16 +2210,12 @@ export default function CreateInvoicePage() {
                           );
                         }}
                         onClear={() => {
-                          updateItem(
-                            item.id,
-                            "description",
-                            "",
-                          );
-
-                          updateItem(
-                            item.id,
-                            "unitPrice",
-                            "0",
+                          setItems((currentItems) =>
+                            currentItems.map((currentItem) =>
+                              currentItem.id === item.id
+                                ? { ...currentItem, description: "", unitPrice: "0", productId: undefined, variantId: undefined, variantName: undefined, variantAttributes: undefined, sku: undefined, barcode: undefined }
+                                : currentItem,
+                            ),
                           );
                         }}
                       />
