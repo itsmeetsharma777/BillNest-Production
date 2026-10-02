@@ -10,6 +10,8 @@ import {
 } from "../repositories/session.repository";
 
 import {
+  createCustomer,
+  findCustomerByPhone,
   findUnlinkedCustomersByEmail,
   linkCustomerToUser,
 } from "../repositories/customer.repository";
@@ -31,6 +33,7 @@ interface RegisterInput {
   name: string;
   email: string;
   password: string;
+  phone?: string;
   role: "shopkeeper" | "customer";
 }
 
@@ -65,7 +68,57 @@ interface LoginInput {
 async function linkPreExistingCustomerProfiles(
   userId: string,
   email: string,
+  phone?: string,
+  name?: string,
 ) {
+  /*
+   * Phone is the primary global customer identity.
+   *
+   * If a global customer already exists for this
+   * phone number, attach the newly-created account
+   * to that customer instead of creating a duplicate.
+   */
+  if (phone) {
+    const existingCustomer =
+      await findCustomerByPhone(phone);
+
+    if (existingCustomer) {
+      if (
+        existingCustomer.userId &&
+        existingCustomer.userId.toString() !== userId
+      ) {
+        throw new ApiError(
+          409,
+          "This phone number is already linked to a BillNest customer account.",
+          "PHONE_ALREADY_LINKED",
+        );
+      }
+
+      if (!existingCustomer.userId) {
+        await linkCustomerToUser(
+          existingCustomer._id.toString(),
+          userId,
+        );
+      }
+
+      return;
+    }
+
+    /*
+     * No global customer exists yet.
+     *
+     * Create the global customer immediately so
+     * the account is visible to every shopkeeper.
+     */
+    await createCustomer({
+      userId,
+      name: name?.trim() || "BillNest Customer",
+      email,
+      phone,
+    });
+
+    return;
+  }
   const matchingCustomers =
     await findUnlinkedCustomersByEmail(
       email,
@@ -141,6 +194,8 @@ export async function registerUser(
     await linkPreExistingCustomerProfiles(
       user._id.toString(),
       normalizedEmail,
+      input.phone,
+      input.name,
     );
   }
 
