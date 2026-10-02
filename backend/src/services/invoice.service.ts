@@ -44,6 +44,11 @@ type PaymentMethod =
 
 interface InvoiceItemInput {
   productName: string;
+  productId?: string;
+  variantId?: string;
+  variantName?: string;
+  variantAttributes?: Record<string, string>;
+  barcode?: string;
   sku?: string;
   serialNumber?: string;
   quantity: number;
@@ -459,6 +464,14 @@ export async function createInvoiceForOwner(
           "Product name cannot be empty.",
           "INVALID_PRODUCT_NAME",
         );
+      }
+
+      if (item.productId && !mongoose.isValidObjectId(item.productId)) {
+        throw new ApiError(400, "Invalid product ID in invoice item.", "INVALID_PRODUCT_ID");
+      }
+
+      if (item.variantId && !mongoose.isValidObjectId(item.variantId)) {
+        throw new ApiError(400, "Invalid product variant ID in invoice item.", "INVALID_VARIANT_ID");
       }
 
       const serialNumber =
