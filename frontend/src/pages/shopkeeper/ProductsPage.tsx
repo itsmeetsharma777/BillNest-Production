@@ -861,6 +861,56 @@ export default function ProductsPage() {
         ),
     ).length;
 
+  async function loadCatalogAnalytics() {
+    try {
+      const response = await fetch(API_URL + "/product-catalog/analytics", { credentials: "include" });
+      const data = await response.json().catch(() => null);
+      if (response.ok) setCatalogAnalytics(data?.data?.analytics ?? null);
+    } catch {}
+  }
+
+  async function handleBulkStatus(action: "activate" | "deactivate") {
+    if (!selectedIds.length) return;
+    try {
+      setBulkUpdating(true);
+      const response = await fetch(API_URL + "/product-catalog/bulk-status", { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productIds: selectedIds, action }) });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.message ?? "Unable to update selected products.");
+      setSelectedIds([]);
+      await Promise.all([loadProducts(true), loadCatalogAnalytics()]);
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to update selected products."); }
+    finally { setBulkUpdating(false); }
+  }
+
+  function toggleProductSelection(id: string) {
+    setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  }
+
+  async function exportCatalog() {
+    try {
+      setExporting(true);
+      const response = await fetch(API_URL + "/product-catalog/export", { credentials: "include" });
+      if (!response.ok) { const data = await response.json().catch(() => null); throw new Error(data?.message ?? "Unable to export products."); }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a"); anchor.href = url; anchor.download = "billnest-products.csv"; document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to export products."); }
+    finally { setExporting(false); }
+  }
+
+  async function importCatalog(file: File) {
+    try {
+      setImporting(true);
+      const csv = await file.text();
+      const response = await fetch(API_URL + "/product-catalog/import", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ csv }) });
+      const data = await response.json().catch(() => null);
+      if (!response.ok && response.status !== 207) throw new Error(data?.message ?? "Unable to import products.");
+      const failed = data?.data?.failedCount ?? 0;
+      setError(failed ? "Import finished with " + (data?.data?.importedCount ?? 0) + " imported and " + failed + " failed." : "");
+      await Promise.all([loadProducts(true), loadCatalogAnalytics()]);
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to import products."); }
+    finally { setImporting(false); if (importInputRef.current) importInputRef.current.value = ""; }
+  }
   /*
    * ==========================================================
    * MODAL
