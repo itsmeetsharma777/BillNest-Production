@@ -22,6 +22,7 @@ type PdfAddress = {
 
 type PdfItem = {
   productName: string;
+  variantName?: string | null;
   sku?: string | null;
   quantity: number;
   unitPrice: number;
@@ -1244,8 +1245,10 @@ function drawItemsTable(
         String(index + 1),
 
         item.sku
-          ? `${item.productName}\nSKU: ${item.sku}`
-          : item.productName,
+          ? `${item.productName}${item.variantName ? `\n${item.variantName}` : ""}\nSKU: ${item.sku}`
+          : item.variantName
+            ? `${item.productName}\n${item.variantName}`
+            : item.productName,
 
         item.sku ??
           "-",
