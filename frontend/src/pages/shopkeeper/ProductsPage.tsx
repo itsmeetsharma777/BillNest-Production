@@ -580,44 +580,36 @@ export default function ProductsPage() {
         setLoading(true);
       }
 
-      const response =
-        await fetch(
-          `${API_URL}/products?limit=100`,
-          {
-            credentials: "include",
-          },
+      const nextProducts: Product[] = [];
+      let page = 1;
+      let hasMore = true;
+
+      while (hasMore && page <= 50) {
+        const response = await fetch(
+          API_URL + "/products?page=" + page + "&limit=100",
+          { credentials: "include" },
         );
 
-      const data =
-        await response
-          .json()
-          .catch(
-            () => null,
-          );
+        const data = await response.json().catch(() => null);
 
-      if (!response.ok) {
-        throw new Error(
-          data?.message ??
-          "Unable to load products.",
-        );
-      }
+        if (!response.ok) {
+          throw new Error(data?.message ?? "Unable to load products.");
+        }
 
-      const nextProducts =
-        Array.isArray(data)
-          ? data
-          : Array.isArray(
-            data?.products,
-          )
+        const batch = Array.isArray(data?.data?.products)
+          ? data.data.products
+          : Array.isArray(data?.products)
             ? data.products
-            : Array.isArray(
-              data?.data?.products,
-            )
-              ? data.data.products
-              : Array.isArray(
-                data?.data,
-              )
-                ? data.data
+            : Array.isArray(data?.data)
+              ? data.data
+              : Array.isArray(data)
+                ? data
                 : [];
+
+        nextProducts.push(...batch);
+        hasMore = Boolean(data?.data?.pagination?.hasMore);
+        page += 1;
+      }
 
       setProducts(
         nextProducts,
