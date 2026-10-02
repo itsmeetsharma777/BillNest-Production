@@ -10,7 +10,15 @@ import {
 interface ProductFilters {
   search?: string;
   category?: string;
+  brand?: string;
   isActive?: boolean;
+  stockStatus?: "all" | "in_stock" | "low_stock" | "out_of_stock";
+  minPrice?: number;
+  maxPrice?: number;
+  hasBarcode?: "true" | "false" | "all";
+  hasVariants?: "true" | "false" | "all";
+  sortBy?: "createdAt" | "name" | "sellingPrice" | "purchasePrice" | "stockQuantity";
+  sortOrder?: "asc" | "desc";
 }
 
 /*
@@ -30,48 +38,69 @@ function buildProductFilter(
     shopId,
   };
 
-  const search =
+  const search = options?.search?.trim();
+
+  if (search) {
+    const escapedSearch = search.replace(/[.*+?^$()|[\]\\]/g, "\\  const search =
     options?.search?.trim();
 
   if (search) {
+    filter.$or = [");
     filter.$or = [
       {
         name: {
-          $regex: search,
+          $regex: escapedSearch,
           $options: "i",
         },
       },
       {
         sku: {
-          $regex: search,
+          $regex: escapedSearch,
           $options: "i",
         },
       },
       {
         category: {
-          $regex: search,
+          $regex: escapedSearch,
           $options: "i",
         },
       },
       {
         brand: {
-          $regex: search,
+          $regex: escapedSearch,
           $options: "i",
         },
       },
       {
         barcode: {
-          $regex: search,
+          $regex: escapedSearch,
           $options: "i",
         },
       },
     ];
   }
 
-  if (options?.category) {
-    filter.category =
-      options.category;
+  if (options?.category) filter.category = options.category;
+  if (options?.brand) filter.brand = options.brand;
+
+  if (options?.minPrice !== undefined || options?.maxPrice !== undefined) {
+    filter.sellingPrice = {
+      ...(options.minPrice !== undefined ? { $gte: options.minPrice } : {}),
+      ...(options.maxPrice !== undefined ? { $lte: options.maxPrice } : {}),
+    };
   }
+
+  if (options?.stockStatus === "in_stock") filter.stockQuantity = { $gt: 0 };
+  if (options?.stockStatus === "out_of_stock") filter.stockQuantity = 0;
+  if (options?.stockStatus === "low_stock") {
+    filter.$expr = { $lte: ["$stockQuantity", "$lowStockThreshold"] };
+  }
+
+  if (options?.hasBarcode === "true") filter.barcode = { $exists: true, $nin: ["", null] };
+  if (options?.hasBarcode === "false") filter.$or = [{ barcode: { $exists: false } }, { barcode: "" }, { barcode: null }];
+
+  if (options?.hasVariants === "true") filter.hasVariants = true;
+  if (options?.hasVariants === "false") filter.hasVariants = { $ne: true };
 
   if (
     options?.isActive !== undefined
@@ -143,10 +172,13 @@ export async function findProductsByShopId(
       options,
     );
 
+  const sortField = options?.sortBy ?? "createdAt";
+  const sortDirection = options?.sortOrder === "asc" ? 1 : -1;
   return ProductModel.find(filter)
     .sort({
       isActive: -1,
-      createdAt: -1,
+      [sortField]: sortDirection,
+      _id: -1,
     })
     .skip(options?.skip ?? 0)
     .limit(options?.limit ?? 20);
