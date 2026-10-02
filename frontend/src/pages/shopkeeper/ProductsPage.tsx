@@ -1425,6 +1425,15 @@ export default function ProductsPage() {
         />
       </div>
 
+      {catalogAnalytics && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard icon={<BarChart3 className="size-5" />} label="Stock units" value={Number(catalogAnalytics.totalStockUnits ?? 0)} />
+          <StatCard icon={<Package className="size-5" />} label="Out of stock" value={Number(catalogAnalytics.outOfStockProducts ?? 0)} />
+          <StatCard icon={<Boxes className="size-5" />} label="Variant products" value={Number(catalogAnalytics.variantProducts ?? 0)} />
+          <StatCard icon={<Barcode className="size-5" />} label="Barcoded products" value={Number(catalogAnalytics.barcodedProducts ?? 0)} />
+        </div>
+      )}
+
       {/* ERROR */}
       {error && (
         <div className="flex items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
