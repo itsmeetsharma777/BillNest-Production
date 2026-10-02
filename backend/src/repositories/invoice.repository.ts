@@ -570,6 +570,34 @@ export async function restoreCatalogProductStock(
  * CREATE INVOICE ITEMS
  * ============================================================
  */
+export async function restoreVariantStock(
+  shopId: Types.ObjectId,
+  variantId: Types.ObjectId,
+  productName: string,
+  quantity: number,
+  invoiceId: string,
+  session: ClientSession,
+) {
+  const before = await ProductVariantModel.findOne({ _id: variantId, shopId }, { stockQuantity: 1, productId: 1, sku: 1 }, { session });
+  if (!before) throw new ApiError(404, `Variant for "${productName}" could not be found while restoring stock.`, "VARIANT_NOT_FOUND");
+  const updated = await ProductVariantModel.findOneAndUpdate(
+    { _id: variantId, shopId },
+    { $inc: { stockQuantity: quantity } },
+    { new: true, session },
+  );
+  if (!updated) throw new ApiError(404, "Variant could not be restored.", "VARIANT_NOT_FOUND");
+  const shop = await ShopModel.findById(shopId, { ownerId: 1 }, { session });
+  if (!shop) throw new ApiError(404, "Shop not found.", "SHOP_NOT_FOUND");
+  await new InventoryMovementModel({
+    shopId, productId: updated.productId, productName, sku: updated.sku,
+    movementType: "sale_reversal", quantity,
+    previousStock: before.stockQuantity, newStock: updated.stockQuantity,
+    referenceType: "invoice_cancellation", referenceId: invoiceId,
+    reason: "Variant stock restored because invoice was cancelled.", createdBy: shop.ownerId,
+  }).save({ session });
+  return updated;
+}
+
 export async function createInvoiceItems(
   items: Array<{
     invoiceId: string;
