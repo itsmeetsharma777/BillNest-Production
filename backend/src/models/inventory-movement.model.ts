@@ -37,6 +37,12 @@ const inventoryMovementSchema =
         index: true,
       },
 
+      variantId: {
+        type: Schema.Types.ObjectId,
+        ref: "ProductVariant",
+        index: true,
+      },
+
       /*
        * ============================================================
        * PRODUCT SNAPSHOT
@@ -206,6 +212,7 @@ const inventoryMovementSchema =
 inventoryMovementSchema.index({
   shopId: 1,
   productId: 1,
+  variantId: 1,
   createdAt: -1,
 });
 
