@@ -18,6 +18,18 @@ export const registerSchema = z.object({
     .min(8, "Password must be at least 8 characters")
     .max(128, "Password is too long"),
 
+  /*
+   * Customer accounts use phone as the global
+   * customer identity. The service layer applies
+   * the role-specific requirement and normalization.
+   */
+  phone: z
+    .string()
+    .trim()
+    .min(10, "Enter a valid phone number")
+    .max(20, "Phone number is too long")
+    .optional(),
+
   role: z.enum(["shopkeeper", "customer"]),
 });
 
