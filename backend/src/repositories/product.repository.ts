@@ -1,13 +1,7 @@
+import { type ClientSession } from "mongoose";
+import { ProductModel } from "../models/product.model";
 
-import {
-  type ClientSession,
-} from "mongoose";
-
-import {
-  ProductModel,
-} from "../models/product.model";
-
-interface ProductFilters {
+export interface ProductFilters {
   search?: string;
   category?: string;
   brand?: string;
@@ -21,63 +15,22 @@ interface ProductFilters {
   sortOrder?: "asc" | "desc";
 }
 
-/*
- * ============================================================
- * BUILD PRODUCT FILTER
- * ============================================================
- */
-
-function buildProductFilter(
-  shopId: string,
-  options?: ProductFilters,
-) {
-  const filter: Record<
-    string,
-    unknown
-  > = {
-    shopId,
-  };
-
+function buildProductFilter(shopId: string, options?: ProductFilters) {
+  const filter: Record<string, unknown> = { shopId };
+  const andConditions: Record<string, unknown>[] = [];
   const search = options?.search?.trim();
 
   if (search) {
-    const escapedSearch = search.replace(/[.*+?^$()|[\]\\]/g, "\\  const search =
-    options?.search?.trim();
-
-  if (search) {
-    filter.$or = [");
-    filter.$or = [
-      {
-        name: {
-          $regex: escapedSearch,
-          $options: "i",
-        },
-      },
-      {
-        sku: {
-          $regex: escapedSearch,
-          $options: "i",
-        },
-      },
-      {
-        category: {
-          $regex: escapedSearch,
-          $options: "i",
-        },
-      },
-      {
-        brand: {
-          $regex: escapedSearch,
-          $options: "i",
-        },
-      },
-      {
-        barcode: {
-          $regex: escapedSearch,
-          $options: "i",
-        },
-      },
-    ];
+    const escapedSearch = search.replace(/[.*+?^$()|[\]\\]/g, "\\$&");
+    andConditions.push({
+      $or: [
+        { name: { $regex: escapedSearch, $options: "i" } },
+        { sku: { $regex: escapedSearch, $options: "i" } },
+        { category: { $regex: escapedSearch, $options: "i" } },
+        { brand: { $regex: escapedSearch, $options: "i" } },
+        { barcode: { $regex: escapedSearch, $options: "i" } },
+      ],
+    });
   }
 
   if (options?.category) filter.category = options.category;
@@ -96,27 +49,22 @@ function buildProductFilter(
     filter.$expr = { $lte: ["$stockQuantity", "$lowStockThreshold"] };
   }
 
-  if (options?.hasBarcode === "true") filter.barcode = { $exists: true, $nin: ["", null] };
-  if (options?.hasBarcode === "false") filter.$or = [{ barcode: { $exists: false } }, { barcode: "" }, { barcode: null }];
+  if (options?.hasBarcode === "true") {
+    filter.barcode = { $exists: true, $nin: ["", null] };
+  } else if (options?.hasBarcode === "false") {
+    andConditions.push({
+      $or: [{ barcode: { $exists: false } }, { barcode: "" }, { barcode: null }],
+    });
+  }
 
   if (options?.hasVariants === "true") filter.hasVariants = true;
   if (options?.hasVariants === "false") filter.hasVariants = { $ne: true };
 
-  if (
-    options?.isActive !== undefined
-  ) {
-    filter.isActive =
-      options.isActive;
-  }
+  if (options?.isActive !== undefined) filter.isActive = options.isActive;
+  if (andConditions.length) filter.$and = andConditions;
 
   return filter;
 }
-
-/*
- * ============================================================
- * CREATE PRODUCT
- * ============================================================
- */
 
 export async function createProduct(
   data: {
@@ -133,120 +81,66 @@ export async function createProduct(
     lowStockThreshold: number;
     warrantyPeriodMonths: number;
     description?: string;
+    hasVariants?: boolean;
   },
   session?: ClientSession,
 ) {
-  if (!session) {
-    return ProductModel.create(
-      data,
-    );
-  }
-
-  const [product] =
-    await ProductModel.create(
-      [data],
-      {
-        session,
-      },
-    );
-
+  if (!session) return ProductModel.create(data);
+  const [product] = await ProductModel.create([data], { session });
   return product;
 }
 
-/*
- * ============================================================
- * FIND PRODUCTS
- * ============================================================
- */
-
 export async function findProductsByShopId(
   shopId: string,
-  options?: ProductFilters & {
-    skip?: number;
-    limit?: number;
-  },
+  options?: ProductFilters & { skip?: number; limit?: number },
 ) {
-  const filter =
-    buildProductFilter(
-      shopId,
-      options,
-    );
-
+  const filter = buildProductFilter(shopId, options);
   const sortField = options?.sortBy ?? "createdAt";
   const sortDirection = options?.sortOrder === "asc" ? 1 : -1;
+
   return ProductModel.find(filter)
-    .sort({
-      isActive: -1,
-      [sortField]: sortDirection,
-      _id: -1,
-    })
+    .sort({ isActive: -1, [sortField]: sortDirection, _id: -1 })
     .skip(options?.skip ?? 0)
     .limit(options?.limit ?? 20);
 }
-
-/*
- * ============================================================
- * COUNT PRODUCTS
- * ============================================================
- */
 
 export async function countProductsByShopId(
   shopId: string,
   options?: ProductFilters,
 ) {
-  const filter =
-    buildProductFilter(
-      shopId,
-      options,
-    );
+  return ProductModel.countDocuments(buildProductFilter(shopId, options));
+}
 
-  return ProductModel.countDocuments(
-    filter,
+export async function findAllProductsByShopId(
+  shopId: string,
+  options?: ProductFilters,
+) {
+  const filter = buildProductFilter(shopId, options);
+  return ProductModel.find(filter).sort({ name: 1, _id: 1 });
+}
+
+export async function findProductByIdForShop(productId: string, shopId: string) {
+  return ProductModel.findOne({ _id: productId, shopId });
+}
+
+export async function findProductsByIdsForShop(productIds: string[], shopId: string) {
+  return ProductModel.find({ _id: { $in: productIds }, shopId });
+}
+
+export async function findProductByBarcodeForShop(barcode: string, shopId: string) {
+  return ProductModel.findOne({ shopId, barcode });
+}
+
+export async function bulkUpdateProductStatusForShop(
+  productIds: string[],
+  shopId: string,
+  isActive: boolean,
+) {
+  return ProductModel.updateMany(
+    { _id: { $in: productIds }, shopId },
+    { $set: { isActive } },
   );
 }
-
-/*
- * ============================================================
- * FIND ONE PRODUCT
- * ============================================================
- */
-
-export async function findProductByIdForShop(
-  productId: string,
-  shopId: string,
-) {
-  return ProductModel.findOne({
-    _id: productId,
-    shopId,
-  });
-}
-
-/*
- * ============================================================
- * FIND PRODUCT BY BARCODE
- * ============================================================
- *
- * Barcode lookup is ALWAYS scoped by shopId.
- *
- * This prevents one shopkeeper from ever resolving a
- * barcode belonging to another shop.
- */
-
-export async function findProductByBarcodeForShop(
-  barcode: string,
-  shopId: string,
-) {
-  return ProductModel.findOne({
-    shopId,
-    barcode,
-  });
-}
-
-/*
- * ============================================================
- * UPDATE PRODUCT
- * ============================================================
- */
 
 export async function updateProductByIdForShop(
   productId: string,
@@ -264,47 +158,78 @@ export async function updateProductByIdForShop(
     lowStockThreshold: number;
     warrantyPeriodMonths: number;
     description: string;
+    hasVariants: boolean;
     isActive: boolean;
   }>,
 ) {
   return ProductModel.findOneAndUpdate(
-    {
-      _id: productId,
-      shopId,
-    },
-    {
-      $set: data,
-    },
-    {
-      new: true,
-      runValidators: true,
-    },
+    { _id: productId, shopId },
+    { $set: data },
+    { new: true, runValidators: true },
   );
 }
 
-/*
- * ============================================================
- * DEACTIVATE PRODUCT
- * ============================================================
- */
-
-export async function deleteProductByIdForShop(
-  productId: string,
-  shopId: string,
-) {
+export async function deleteProductByIdForShop(productId: string, shopId: string) {
   return ProductModel.findOneAndUpdate(
+    { _id: productId, shopId },
+    { $set: { isActive: false } },
+    { new: true, runValidators: true },
+  );
+}
+
+export async function getCatalogAnalyticsByShopId(shopId: string) {
+  const [summary] = await ProductModel.aggregate([
+    { $match: { shopId: new (require("mongoose").Types.ObjectId)(shopId) } },
     {
-      _id: productId,
-      shopId,
-    },
-    {
-      $set: {
-        isActive: false,
+      $group: {
+        _id: null,
+        totalProducts: { $sum: 1 },
+        activeProducts: { $sum: { $cond: ["$isActive", 1, 0] } },
+        inactiveProducts: { $sum: { $cond: ["$isActive", 0, 1] } },
+        totalStockUnits: { $sum: "$stockQuantity" },
+        inventoryCostValue: { $sum: { $multiply: ["$purchasePrice", "$stockQuantity"] } },
+        inventoryRetailValue: { $sum: { $multiply: ["$sellingPrice", "$stockQuantity"] } },
+        potentialGrossProfit: {
+          $sum: {
+            $multiply: [
+              { $subtract: ["$sellingPrice", "$purchasePrice"] },
+              "$stockQuantity",
+            ],
+          },
+        },
+        barcodedProducts: {
+          $sum: { $cond: [{ $and: [{ $ne: ["$barcode", null] }, { $ne: ["$barcode", ""] }] }, 1, 0] },
+        },
+        variantProducts: { $sum: { $cond: ["$hasVariants", 1, 0] } },
+        lowStockProducts: {
+          $sum: {
+            $cond: [
+              { $and: ["$isActive", { $lte: ["$stockQuantity", "$lowStockThreshold"] }] },
+              1,
+              0,
+            ],
+          },
+        },
+        outOfStockProducts: {
+          $sum: {
+            $cond: [{ $and: ["$isActive", { $eq: ["$stockQuantity", 0] }] }, 1, 0],
+          },
+        },
       },
     },
-    {
-      new: true,
-      runValidators: true,
-    },
-  );
+  ]);
+
+  return summary ?? {
+    totalProducts: 0,
+    activeProducts: 0,
+    inactiveProducts: 0,
+    totalStockUnits: 0,
+    inventoryCostValue: 0,
+    inventoryRetailValue: 0,
+    potentialGrossProfit: 0,
+    barcodedProducts: 0,
+    variantProducts: 0,
+    lowStockProducts: 0,
+    outOfStockProducts: 0,
+  };
 }
