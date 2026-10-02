@@ -1,3 +1,4 @@
+import { restoreVariantStock } from "../repositories/invoice.repository";
 import mongoose from "mongoose";
 
 import {
@@ -588,45 +589,25 @@ export async function createInvoiceForOwner(
 
           const items =
             await createInvoiceItems(
-              calculatedItems.map(
-                (item) => ({
-                  invoiceId:
-                    invoice._id.toString(),
+              input.items.map((inputItem, index) => ({
+                  invoiceId: invoice._id.toString(),
+                  ...(inputItem.productId && { productId: inputItem.productId }),
+                  ...(inputItem.variantId && { variantId: inputItem.variantId }),
+                  ...(inputItem.variantName && { variantName: inputItem.variantName }),
+                  ...(inputItem.variantAttributes && { variantAttributes: inputItem.variantAttributes }),
+                  ...(inputItem.barcode && { barcode: inputItem.barcode }),
+                  productName: calculatedItems[index].productName,
 
-                  productName:
-                    item.productName,
-
-                  ...(item.sku && {
-                    sku: item.sku,
-                  }),
-
-                  ...(item.serialNumber && {
-                    serialNumber:
-                      item.serialNumber,
-                  }),
-
-                  quantity:
-                    item.quantity,
-
-                  unitPrice:
-                    item.unitPrice,
-
-                  discount:
-                    item.discount,
-
-                  taxRate:
-                    item.taxRate,
-
-                  lineSubtotal:
-                    item.lineSubtotal,
-
-                  lineTax:
-                    item.lineTax,
-
-                  lineTotal:
-                    item.lineTotal,
-                }),
-              ),
+                  ...(inputItem.sku?.trim() && { sku: inputItem.sku.trim() }),
+                  ...(inputItem.serialNumber?.trim() && { serialNumber: inputItem.serialNumber.trim() }),
+                  quantity: calculatedItems[index].quantity,
+                  unitPrice: calculatedItems[index].unitPrice,
+                  discount: calculatedItems[index].discount,
+                  taxRate: calculatedItems[index].taxRate,
+                  lineSubtotal: calculatedItems[index].lineSubtotal,
+                  lineTax: calculatedItems[index].lineTax,
+                  lineTotal: calculatedItems[index].lineTotal,
+                })),
               session,
             );
 
@@ -1305,14 +1286,25 @@ export async function cancelInvoiceForOwner(
               continue;
             }
 
-            await restoreCatalogProductStock(
-              shop._id,
-              item.productId,
-              item.productName,
-              item.quantity,
-              invoiceId,
-              session,
-            );
+            if (item.variantId) {
+              await restoreVariantStock(
+                shop._id,
+                item.variantId,
+                item.productName,
+                item.quantity,
+                invoiceId,
+                session,
+              );
+            } else {
+              await restoreCatalogProductStock(
+                shop._id,
+                item.productId,
+                item.productName,
+                item.quantity,
+                invoiceId,
+                session,
+              );
+            }
           }
 
           /*
