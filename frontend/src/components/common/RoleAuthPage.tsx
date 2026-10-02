@@ -10,6 +10,7 @@ import {
   Loader2,
   LockKeyhole,
   Mail,
+  Phone,
   Store,
   UserRound,
 } from "lucide-react";
@@ -127,6 +128,9 @@ export default function RoleAuthPage({
   const [email, setEmail] =
     useState("");
 
+  const [phone, setPhone] =
+    useState("");
+
   const [password, setPassword] =
     useState("");
 
@@ -163,6 +167,9 @@ export default function RoleAuthPage({
     const normalizedEmail =
       email.trim().toLowerCase();
 
+    const normalizedPhone =
+      phone.trim();
+
     if (!normalizedEmail) {
       setError(
         "Please enter your email address.",
@@ -186,6 +193,37 @@ export default function RoleAuthPage({
       if (!normalizedName) {
         setError(
           "Please enter your name.",
+        );
+
+        return;
+      }
+
+      /*
+       * Customer accounts require a phone
+       * number because the phone number is
+       * the global customer identity in
+       * BillNest.
+       */
+      if (
+        role === "customer" &&
+        !normalizedPhone
+      ) {
+        setError(
+          "Please enter your phone number.",
+        );
+
+        return;
+      }
+
+      if (
+        role === "customer" &&
+        normalizedPhone.replace(
+          /\D/g,
+          "",
+        ).length < 10
+      ) {
+        setError(
+          "Please enter a valid phone number.",
         );
 
         return;
@@ -227,11 +265,19 @@ export default function RoleAuthPage({
               password,
             }
           : {
-              name: name.trim(),
+              name:
+                name.trim(),
               email:
                 normalizedEmail,
               password,
               role,
+              ...(role ===
+              "customer"
+                ? {
+                    phone:
+                      normalizedPhone,
+                  }
+                : {}),
             };
 
       const response =
@@ -415,7 +461,7 @@ export default function RoleAuthPage({
 
           </div>
 
-          {/* Login card */}
+          {/* Auth card */}
 
           <section
             className={[
@@ -519,6 +565,8 @@ export default function RoleAuthPage({
               className="mt-4 space-y-3"
             >
 
+              {/* Name */}
+
               {!isLogin && (
                 <div>
 
@@ -546,6 +594,59 @@ export default function RoleAuthPage({
 
                 </div>
               )}
+
+              {/* Phone */}
+
+              {!isLogin &&
+                role ===
+                  "customer" && (
+                  <div>
+
+                    <label
+                      htmlFor="phone"
+                      className="mb-1 block text-[11px] font-medium"
+                    >
+                      Phone number
+                    </label>
+
+                    <div className="relative">
+
+                      <Phone className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+
+                      <input
+                        id="phone"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        value={phone}
+                        onChange={(
+                          event,
+                        ) =>
+                          setPhone(
+                            event
+                              .target
+                              .value,
+                          )
+                        }
+                        placeholder="+91 9876543210"
+                        disabled={
+                          isLoading
+                        }
+                        className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-xs outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:opacity-60"
+                      />
+
+                    </div>
+
+                    <p className="mt-1 text-[9px] text-muted-foreground">
+                      Your phone number connects
+                      your BillNest customer
+                      profile across shops.
+                    </p>
+
+                  </div>
+                )}
+
+              {/* Email */}
 
               <div>
 
@@ -578,6 +679,8 @@ export default function RoleAuthPage({
                 </div>
 
               </div>
+
+              {/* Password */}
 
               <div>
 
@@ -662,6 +765,8 @@ export default function RoleAuthPage({
 
               </div>
 
+              {/* Confirm password */}
+
               {!isLogin && (
                 <div>
 
@@ -723,6 +828,8 @@ export default function RoleAuthPage({
 
                 </div>
               )}
+
+              {/* Submit */}
 
               <button
                 type="submit"
