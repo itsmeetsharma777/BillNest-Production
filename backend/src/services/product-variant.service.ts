@@ -1,8 +1,10 @@
-import mongoose from "mongoose";
+import mongoose, { type ClientSession } from "mongoose";
 import { ApiError } from "../utils/api-error";
 import { createInventoryMovement } from "../repositories/inventory-movement.repository";
 import { getShopForOwner } from "./shop.service";
 import { updateProductByIdForShop } from "../repositories/product.repository";
+import { ProductVariantModel } from "../models/product-variant.model";
+import { ProductModel } from "../models/product.model";
 import { findProductByIdForShop } from "../repositories/product.repository";
 import { adjustProductVariantStock, createProductVariant, deactivateProductVariantByIdForShop, findProductVariantByBarcodeForShop, findProductVariantByIdForShop, findProductVariantsForShop, updateProductVariantByIdForShop } from "../repositories/product-variant.repository";
 import type { AdjustProductVariantStockInput, CreateProductVariantInput, UpdateProductVariantInput } from "../validators/product-variant.validator";
@@ -15,10 +17,21 @@ function cleanAttributes(attributes: Record<string, string>) {
 }
 function cleanOptional(value?: string) { return value?.trim() || undefined; }
 
-async function syncParentProductStock(productId: string, shopId: string) {
-  const variants = await findProductVariantsForShop(productId, shopId, { isActive: true });
+async function syncParentProductStock(productId: string, shopId: string, session?: ClientSession) {
+  const query = ProductVariantModel.find({ productId, shopId, isActive: true });
+  if (session) query.session(session);
+  const variants = await query;
   const stockQuantity = variants.reduce((sum, variant) => sum + variant.stockQuantity, 0);
-  await updateProductByIdForShop(productId, shopId, { stockQuantity, hasVariants: variants.length > 0 });
+
+  if (session) {
+    await ProductModel.findOneAndUpdate(
+      { _id: productId, shopId },
+      { $set: { stockQuantity, hasVariants: variants.length > 0 } },
+      { session, new: true, runValidators: true },
+    );
+  } else {
+    await updateProductByIdForShop(productId, shopId, { stockQuantity, hasVariants: variants.length > 0 });
+  }
 }
 
 export async function getProductVariantsForOwner(ownerId: string, productId: string, options?: { isActive?: boolean; search?: string }) {
@@ -104,7 +117,7 @@ export async function adjustProductVariantStockForOwner(ownerId: string, product
         createdBy: ownerId,
       }, session);
 
-      await syncParentProductStock(productId, shop._id.toString());
+      await syncParentProductStock(productId, shop._id.toString(), session);
       return { variant: updated, previousStock: current.stockQuantity };
     });
     if (!result) throw new ApiError(500, "Variant stock transaction failed.", "VARIANT_STOCK_TRANSACTION_FAILED");
