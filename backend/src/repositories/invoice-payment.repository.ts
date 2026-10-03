@@ -37,6 +37,8 @@ export async function recordPaymentAtomically(
     paymentMethod,
     notes,
     referenceNumber,
+    razorpayOrderId,
+    razorpayPaymentId,
   }: {
     invoiceId: string;
     shopId: string;
@@ -44,6 +46,8 @@ export async function recordPaymentAtomically(
     paymentMethod: PaymentMethod;
     notes?: string;
     referenceNumber?: string;
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
   },
   session: ClientSession,
 ) {
@@ -140,6 +144,14 @@ export async function recordPaymentAtomically(
 
           ...(referenceNumber?.trim() && {
             referenceNumber: referenceNumber.trim(),
+          }),
+
+          ...(razorpayOrderId?.trim() && {
+            razorpayOrderId: razorpayOrderId.trim(),
+          }),
+
+          ...(razorpayPaymentId?.trim() && {
+            razorpayPaymentId: razorpayPaymentId.trim(),
           }),
 
           ...(notes?.trim() && {
