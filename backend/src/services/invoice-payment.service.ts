@@ -30,6 +30,8 @@ interface RecordPaymentInput {
   amount: number;
   paymentMethod: PaymentMethod;
   referenceNumber?: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
   notes?: string;
 }
 
@@ -130,6 +132,10 @@ export async function recordPaymentForOwner(
                   input.paymentMethod,
                 referenceNumber:
                   input.referenceNumber,
+                razorpayOrderId:
+                  input.razorpayOrderId,
+                razorpayPaymentId:
+                  input.razorpayPaymentId,
                 notes: input.notes,
               },
               session,
@@ -293,6 +299,12 @@ export async function getInvoicePaymentsForOwner(
 
       referenceNumber:
         payment.referenceNumber,
+
+      razorpayOrderId:
+        payment.razorpayOrderId,
+
+      razorpayPaymentId:
+        payment.razorpayPaymentId,
 
       notes:
         payment.notes,
