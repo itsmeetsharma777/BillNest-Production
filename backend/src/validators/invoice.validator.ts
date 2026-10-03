@@ -128,6 +128,16 @@ export const createInvoiceSchema = z.object({
   amountPaid:
     amountPaidSchema.optional(),
 
+  referenceNumber:
+    z
+      .string()
+      .trim()
+      .max(
+        200,
+        "Reference number cannot exceed 200 characters.",
+      )
+      .optional(),
+
   notes: z
     .string()
     .trim()
@@ -172,6 +182,30 @@ export const createInvoiceSchema = z.object({
       path: ["amountPaid"],
       message:
         "A draft invoice cannot have a payment amount.",
+    });
+  }
+
+  if (
+    data.paymentMethod === "cheque" &&
+    data.amountPaid !== undefined &&
+    data.amountPaid > 0 &&
+    !data.referenceNumber
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["referenceNumber"],
+      message: "Cheque number is required when a cheque payment is recorded.",
+    });
+  }
+
+  if (
+    data.paymentMethod === "cash" &&
+    data.referenceNumber
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["referenceNumber"],
+      message: "Reference number is only allowed for cheque payments.",
     });
   }
 
