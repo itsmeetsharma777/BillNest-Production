@@ -3,10 +3,8 @@ import { z } from "zod";
 const paymentMethodSchema =
   z.enum([
     "cash",
-    "upi",
-    "card",
-    "bank_transfer",
-    "credit",
+    "online",
+    "cheque",
   ]);
 
 export const recordInvoicePaymentSchema =
@@ -24,6 +22,16 @@ export const recordInvoicePaymentSchema =
       paymentMethodSchema.default(
         "cash",
       ),
+
+    referenceNumber:
+      z
+        .string()
+        .trim()
+        .max(
+          200,
+          "Reference number cannot exceed 200 characters.",
+        )
+        .optional(),
 
     notes: z
       .string()

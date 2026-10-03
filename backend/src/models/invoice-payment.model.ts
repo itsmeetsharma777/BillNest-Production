@@ -37,12 +37,31 @@ const invoicePaymentSchema = new Schema(
       type: String,
       enum: [
         "cash",
-        "upi",
-        "card",
-        "bank_transfer",
-        "credit",
+        "online",
+        "cheque",
       ],
       required: true,
+    },
+
+    referenceNumber: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+
+    razorpayOrderId: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+      index: true,
+    },
+
+    razorpayPaymentId: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+      unique: true,
+      sparse: true,
     },
 
     paidAt: {

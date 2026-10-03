@@ -21,6 +21,11 @@ import {
   useParams,
 } from "react-router-dom";
 
+import {
+  loadRazorpayCheckout,
+  type RazorpayOrderResponse,
+} from "@/lib/razorpay";
+
 const API_URL =
   import.meta.env.VITE_API_URL ??
   "http://localhost:5001/api";
@@ -33,10 +38,8 @@ type InvoiceStatus =
 
 type PaymentMethod =
   | "cash"
-  | "upi"
-  | "card"
-  | "bank_transfer"
-  | "credit";
+  | "online"
+  | "cheque";
 
 interface InvoiceItem {
   id?: string;
@@ -95,6 +98,9 @@ interface Payment {
   amount: number;
   paymentMethod: PaymentMethod;
   paidAt: string;
+  referenceNumber?: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
   notes?: string;
 }
 
@@ -267,17 +273,11 @@ function getPaymentMethodLabel(
     case "cash":
       return "Cash";
 
-    case "upi":
-      return "UPI";
+    case "online":
+      return "Online";
 
-    case "card":
-      return "Card";
-
-    case "bank_transfer":
-      return "Bank Transfer";
-
-    case "credit":
-      return "Credit";
+    case "cheque":
+      return "Cheque";
 
     default:
       return method || "—";
@@ -348,6 +348,11 @@ export default function InvoiceDetailsPage() {
     useState<PaymentMethod>(
       "cash",
     );
+
+  const [
+    chequeNumber,
+    setChequeNumber,
+  ] = useState("");
 
   const [
     paymentNotes,
@@ -605,107 +610,178 @@ export default function InvoiceDetailsPage() {
     }
 
     try {
-      setIsActionLoading(
-        true,
-      );
+      setIsActionLoading(true);
 
       setError("");
       setSuccessMessage("");
 
-      const response =
-        await fetch(
-          `${API_URL}/invoices/${invoiceId}/${endpoint}`,
-          {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-          },
-        );
-
-      const result =
-        (await response.json()) as InvoiceResponse;
-
-      if (!response.ok) {
+      if (
+        paymentMethod === "cheque" &&
+        !chequeNumber.trim()
+      ) {
         throw new Error(
-          result.message ??
-            `Unable to ${endpoint} invoice.`,
+          "Please enter the cheque number.",
         );
       }
 
-      setSuccessMessage(
-        endpoint === "pay"
-          ? "Invoice marked as paid successfully."
-          : "Invoice cancelled successfully.",
-      );
+      if (paymentMethod === "online") {
+        const orderResponse =
+          await fetch(
+            API_URL +
+              "/invoices/" +
+              invoiceId +
+              "/razorpay/order",
+            {
+              method: "POST",
+              credentials: "include",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                amount,
+              }),
+            },
+          );
 
-      await loadInvoice();
-      await loadPayments();
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : `Unable to ${endpoint} invoice.`,
-      );
-    } finally {
-      setIsActionLoading(
-        false,
-      );
-    }
-  }
+        const orderResult =
+          (await orderResponse.json()) as RazorpayOrderResponse;
 
-  async function recordPayment() {
-    if (
-      !invoiceId ||
-      !invoice
-    ) {
-      return;
-    }
+        if (
+          !orderResponse.ok ||
+          !orderResult.data
+        ) {
+          throw new Error(
+            orderResult.message ??
+              "Unable to start Razorpay payment.",
+          );
+        }
 
-    const amount =
-      Number(paymentAmount);
+        await loadRazorpayCheckout();
 
-    if (
-      !Number.isFinite(amount) ||
-      amount <= 0
-    ) {
-      setError(
-        "Enter a valid payment amount.",
-      );
+        if (!window.Razorpay) {
+          throw new Error(
+            "Razorpay Checkout is unavailable.",
+          );
+        }
 
-      return;
-    }
+        const razorpay =
+          new window.Razorpay({
+            key:
+              orderResult.data.keyId,
+            amount:
+              orderResult.data.amount,
+            currency:
+              orderResult.data.currency,
+            name: "BillNest",
+            description:
+              "Invoice " +
+              orderResult.data.invoiceNumber,
+            order_id:
+              orderResult.data.orderId,
+            prefill: {
+              name:
+                invoice.customer?.name,
+              email:
+                invoice.customer?.email,
+              contact:
+                invoice.customer?.phone,
+            },
+            handler:
+              async (
+                razorpayResponse,
+              ) => {
+                try {
+                  const verifyResponse =
+                    await fetch(
+                      API_URL +
+                        "/invoices/" +
+                        invoiceId +
+                        "/razorpay/verify",
+                      {
+                        method: "POST",
+                        credentials:
+                          "include",
+                        headers: {
+                          "Content-Type":
+                            "application/json",
+                        },
+                        body: JSON.stringify({
+                          razorpayPaymentId:
+                            razorpayResponse.razorpay_payment_id,
+                          razorpayOrderId:
+                            razorpayResponse.razorpay_order_id,
+                          razorpaySignature:
+                            razorpayResponse.razorpay_signature,
+                        }),
+                      },
+                    );
 
-    const balance =
-      invoice.amountDue ??
-      Math.max(
-        0,
-        (invoice.total ?? 0) -
-          (invoice.amountPaid ??
-            0),
-      );
+                  const verifyResult =
+                    (await verifyResponse.json()) as {
+                      success: boolean;
+                      message?: string;
+                    };
 
-    if (amount > balance) {
-      setError(
-        `Payment cannot exceed the remaining balance of ${formatCurrency(balance)}.`,
-      );
+                  if (
+                    !verifyResponse.ok
+                  ) {
+                    throw new Error(
+                      verifyResult.message ??
+                        "Payment verification failed.",
+                    );
+                  }
 
-      return;
-    }
+                  setPaymentAmount("");
+                  setPaymentMethod("cash");
+                  setChequeNumber("");
+                  setPaymentNotes("");
+                  setIsPaymentModalOpen(false);
+                  setIsActionLoading(false);
+                  setSuccessMessage(
+                    verifyResult.message ??
+                      "Online payment received successfully.",
+                  );
 
-    try {
-      setIsActionLoading(
-        true,
-      );
+                  await loadInvoice();
+                  await loadPayments();
+                } catch (verificationError) {
+                  setIsActionLoading(false);
+                  setError(
+                    verificationError instanceof Error
+                      ? verificationError.message
+                      : "Payment verification failed.",
+                  );
+                }
+              },
+            modal: {
+              ondismiss: () => {
+                setIsActionLoading(false);
+                setError(
+                  "Razorpay checkout was closed. No payment was recorded.",
+                );
+              },
+            },
+          });
 
-      setError("");
-      setSuccessMessage("");
+        razorpay.on(
+          "payment.failed",
+          (failure) => {
+            setIsActionLoading(false);
+            setError(
+              failure.error?.description ??
+                "Razorpay payment failed.",
+            );
+          },
+        );
+
+        razorpay.open();
+
+        return;
+      }
 
       const response =
-        await fetch(
-          `${API_URL}/invoices/${invoiceId}/payments`,
+        await fetch(          `${API_URL}/invoices/${invoiceId}/payments`,
           {
             method: "POST",
             credentials: "include",
@@ -719,6 +795,11 @@ export default function InvoiceDetailsPage() {
               amount,
 
               paymentMethod,
+
+              ...(paymentMethod === "cheque" && {
+                referenceNumber:
+                  chequeNumber.trim(),
+              }),
 
               notes:
                 paymentNotes.trim() ||
@@ -743,6 +824,7 @@ export default function InvoiceDetailsPage() {
       setPaymentAmount("");
       setPaymentNotes("");
       setPaymentMethod("cash");
+      setChequeNumber("");
 
       setIsPaymentModalOpen(
         false,
@@ -1211,6 +1293,13 @@ export default function InvoiceDetailsPage() {
                             )}
                           </p>
 
+                          {payment.referenceNumber && (
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              Reference:{" "}
+                              {payment.referenceNumber}
+                            </p>
+                          )}
+
                           {payment.notes && (
                             <p className="mt-2 text-sm text-muted-foreground">
                               {
@@ -1394,11 +1483,16 @@ export default function InvoiceDetailsPage() {
                   value={
                     paymentMethod
                   }
-                  onChange={(event) =>
-                    setPaymentMethod(
+                  onChange={(event) => {
+                    const value =
                       event.target
-                        .value as PaymentMethod,
-                    )
+                        .value as PaymentMethod;
+
+                    setPaymentMethod(value);
+
+                    if (value !== "cheque") {
+                      setChequeNumber("");
+                    }
                   }
                   className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary"
                 >
@@ -1406,23 +1500,36 @@ export default function InvoiceDetailsPage() {
                     Cash
                   </option>
 
-                  <option value="upi">
-                    UPI
+                  <option value="online">
+                    Online
                   </option>
 
-                  <option value="card">
-                    Card
-                  </option>
-
-                  <option value="bank_transfer">
-                    Bank Transfer
-                  </option>
-
-                  <option value="credit">
-                    Credit
+                  <option value="cheque">
+                    Cheque
                   </option>
                 </select>
               </div>
+
+              {paymentMethod === "cheque" && (
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    Cheque number
+                  </label>
+
+                  <input
+                    type="text"
+                    value={chequeNumber}
+                    onChange={(event) =>
+                      setChequeNumber(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Enter cheque number"
+                    maxLength={50}
+                    className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none ring-offset-background focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="mb-2 block text-sm font-medium">

@@ -1,5 +1,6 @@
 import { restoreVariantStock } from "../repositories/invoice.repository";
 import mongoose from "mongoose";
+import { InvoicePaymentModel } from "../models/invoice-payment.model";
 
 import {
   createInvoice,
@@ -37,10 +38,8 @@ type InvoiceStatus =
 
 type PaymentMethod =
   | "cash"
-  | "upi"
-  | "card"
-  | "bank_transfer"
-  | "credit";
+  | "online"
+  | "cheque";
 
 interface InvoiceItemInput {
   productName: string;
@@ -64,6 +63,7 @@ interface CreateInvoiceInput {
   paymentMethod?: PaymentMethod;
   status?: InvoiceStatus;
   amountPaid?: number;
+  referenceNumber?: string;
   notes?: string;
   items: InvoiceItemInput[];
 }
@@ -537,6 +537,40 @@ export async function createInvoiceForOwner(
       input.amountPaid,
     );
 
+  if (
+    input.paymentMethod === "online" &&
+    paymentState.amountPaid > 0
+  ) {
+    throw new ApiError(
+      400,
+      "Online payments must be completed through Razorpay after the invoice is created.",
+      "ONLINE_PAYMENT_REQUIRES_RAZORPAY",
+    );
+  }
+
+  if (
+    input.paymentMethod === "cheque" &&
+    paymentState.amountPaid > 0 &&
+    !input.referenceNumber?.trim()
+  ) {
+    throw new ApiError(
+      400,
+      "Cheque number is required when a cheque payment is recorded.",
+      "CHEQUE_NUMBER_REQUIRED",
+    );
+  }
+
+  if (
+    input.paymentMethod !== "cheque" &&
+    input.referenceNumber?.trim()
+  ) {
+    throw new ApiError(
+      400,
+      "Reference number is only supported for cheque payments during invoice creation.",
+      "INVALID_PAYMENT_REFERENCE",
+    );
+  }
+
   const session =
     await mongoose.startSession();
 
@@ -599,6 +633,27 @@ export async function createInvoiceForOwner(
               },
               session,
             );
+
+          if (paymentState.amountPaid > 0) {
+            await InvoicePaymentModel.create(
+              [
+                {
+                  shopId: invoice.shopId,
+                  invoiceId: invoice._id,
+                  customerId: invoice.customerId,
+                  amount: paymentState.amountPaid,
+                  paymentMethod:
+                    input.paymentMethod ?? "cash",
+                  paidAt: new Date(),
+                  ...(input.referenceNumber?.trim() && {
+                    referenceNumber:
+                      input.referenceNumber.trim(),
+                  }),
+                },
+              ],
+              { session },
+            );
+          }
 
           const items =
             await createInvoiceItems(

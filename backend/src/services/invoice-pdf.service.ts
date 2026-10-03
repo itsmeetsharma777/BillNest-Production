@@ -149,11 +149,8 @@ function paymentLabel(
     string
   > = {
     cash: "Cash",
-    upi: "UPI",
-    card: "Card",
-    bank_transfer:
-      "Bank Transfer",
-    credit: "Credit",
+    online: "Online",
+    cheque: "Cheque",
   };
 
   if (!method) {

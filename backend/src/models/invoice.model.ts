@@ -42,7 +42,13 @@ const invoiceSchema = new Schema(
 
     paymentMethod: {
       type: String,
-      enum: ["cash", "upi", "card", "bank_transfer", "credit"],
+      enum: ["cash", "online", "cheque"],
+    },
+
+    razorpayOrderId: {
+      type: String,
+      trim: true,
+      maxlength: 100,
     },
 
     subtotal: {

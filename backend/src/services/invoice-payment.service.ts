@@ -23,14 +23,15 @@ import { ApiError } from "../utils/api-error";
 
 type PaymentMethod =
   | "cash"
-  | "upi"
-  | "card"
-  | "bank_transfer"
-  | "credit";
+  | "online"
+  | "cheque";
 
 interface RecordPaymentInput {
   amount: number;
   paymentMethod: PaymentMethod;
+  referenceNumber?: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
   notes?: string;
 }
 
@@ -113,6 +114,28 @@ export async function recordPaymentForOwner(
     );
   }
 
+  if (
+    input.paymentMethod === "cheque" &&
+    !input.referenceNumber?.trim()
+  ) {
+    throw new ApiError(
+      400,
+      "Cheque number is required for cheque payments.",
+      "CHEQUE_NUMBER_REQUIRED",
+    );
+  }
+
+  if (
+    input.paymentMethod === "online" &&
+    !input.razorpayPaymentId?.trim()
+  ) {
+    throw new ApiError(
+      400,
+      "Online payments must be verified through Razorpay.",
+      "ONLINE_PAYMENT_REQUIRES_RAZORPAY",
+    );
+  }
+
   const session =
     await mongoose.startSession();
 
@@ -129,6 +152,12 @@ export async function recordPaymentForOwner(
                 amount,
                 paymentMethod:
                   input.paymentMethod,
+                referenceNumber:
+                  input.referenceNumber,
+                razorpayOrderId:
+                  input.razorpayOrderId,
+                razorpayPaymentId:
+                  input.razorpayPaymentId,
                 notes: input.notes,
               },
               session,
@@ -289,6 +318,15 @@ export async function getInvoicePaymentsForOwner(
 
       paidAt:
         payment.paidAt,
+
+      referenceNumber:
+        payment.referenceNumber,
+
+      razorpayOrderId:
+        payment.razorpayOrderId,
+
+      razorpayPaymentId:
+        payment.razorpayPaymentId,
 
       notes:
         payment.notes,

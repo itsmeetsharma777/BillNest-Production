@@ -19,6 +19,11 @@ import {
 } from "../controllers/invoice-pdf.controller";
 
 import {
+  createRazorpayOrder,
+  verifyRazorpayPayment,
+} from "../controllers/razorpay-payment.controller";
+
+import {
   requireAuth,
 } from "../middleware/auth.middleware";
 
@@ -78,6 +83,22 @@ router.get(
 router.post(
   "/:invoiceId/payments",
   asyncHandler(recordInvoicePayment),
+);
+
+/*
+ * ============================================================
+ * RAZORPAY ONLINE PAYMENT
+ * ============================================================
+ */
+
+router.post(
+  "/:invoiceId/razorpay/order",
+  asyncHandler(createRazorpayOrder),
+);
+
+router.post(
+  "/:invoiceId/razorpay/verify",
+  asyncHandler(verifyRazorpayPayment),
 );
 
 /*

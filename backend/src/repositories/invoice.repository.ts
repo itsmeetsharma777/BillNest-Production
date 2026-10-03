@@ -87,10 +87,8 @@ export async function createInvoice(
       | "cancelled";
     paymentMethod?:
       | "cash"
-      | "upi"
-      | "card"
-      | "bank_transfer"
-      | "credit";
+      | "online"
+      | "cheque";
     subtotal: number;
     discount: number;
     tax: number;
@@ -739,10 +737,8 @@ export async function updateInvoiceByIdForShop(
 
     paymentMethod:
       | "cash"
-      | "upi"
-      | "card"
-      | "bank_transfer"
-      | "credit";
+      | "online"
+      | "cheque";
 
     dueDate: Date;
 
@@ -780,10 +776,8 @@ export async function updateInvoiceByIdForShopInTransaction(
 
     paymentMethod:
       | "cash"
-      | "upi"
-      | "card"
-      | "bank_transfer"
-      | "credit";
+      | "online"
+      | "cheque";
 
     dueDate: Date;
 

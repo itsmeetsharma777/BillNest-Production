@@ -28,10 +28,8 @@ const markInvoicePaidSchema =
     paymentMethod: z
       .enum([
         "cash",
-        "upi",
-        "card",
-        "bank_transfer",
-        "credit",
+        "online",
+        "cheque",
       ])
       .optional(),
   });
