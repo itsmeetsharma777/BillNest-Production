@@ -49,6 +49,21 @@ const invoicePaymentSchema = new Schema(
       maxlength: 200,
     },
 
+    razorpayOrderId: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+      index: true,
+    },
+
+    razorpayPaymentId: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+      unique: true,
+      sparse: true,
+    },
+
     paidAt: {
       type: Date,
       required: true,
