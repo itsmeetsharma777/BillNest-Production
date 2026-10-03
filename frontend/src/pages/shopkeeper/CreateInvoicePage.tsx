@@ -72,10 +72,8 @@ const INDIAN_STATES_AND_UTS = [
 
 type PaymentMethod =
   | "CASH"
-  | "UPI"
-  | "CARD"
-  | "BANK_TRANSFER"
-  | "CREDIT";
+  | "ONLINE"
+  | "CHEQUE";
 
 type InvoiceStatus =
   | "DRAFT"
@@ -317,16 +315,19 @@ function toBackendPaymentMethod(
   value: PaymentMethod,
 ):
   | "cash"
-  | "upi"
-  | "card"
-  | "bank_transfer"
-  | "credit" {
-  return value.toLowerCase() as
-    | "cash"
-    | "upi"
-    | "card"
-    | "bank_transfer"
-    | "credit";
+  | "online"
+  | "cheque" {
+  switch (value) {
+    case "ONLINE":
+      return "online";
+
+    case "CHEQUE":
+      return "cheque";
+
+    case "CASH":
+    default:
+      return "cash";
+  }
 }
 
 function toBackendStatus(
@@ -437,6 +438,11 @@ export default function CreateInvoicePage() {
   ] = useState<PaymentMethod>(
     "CASH",
   );
+
+  const [
+    chequeNumber,
+    setChequeNumber,
+  ] = useState("");
 
   const [
     amountPaid,
@@ -1462,6 +1468,18 @@ export default function CreateInvoicePage() {
       return;
     }
 
+    if (
+      paymentMethod === "CHEQUE" &&
+      parsedAmountPaid > 0 &&
+      !chequeNumber.trim()
+    ) {
+      setError(
+        "Please enter the cheque number.",
+      );
+
+      return;
+    }
+
     let finalStatus =
       status;
 
@@ -1630,6 +1648,12 @@ export default function CreateInvoicePage() {
                   roundMoney(
                     parsedAmountPaid,
                   ),
+
+                ...(paymentMethod === "CHEQUE" &&
+                  parsedAmountPaid > 0 && {
+                    referenceNumber:
+                      chequeNumber.trim(),
+                  }),
 
                 notes:
                   notes.trim() ||
@@ -2455,39 +2479,52 @@ export default function CreateInvoicePage() {
                 </label>
 
                 <select
-                  value={
-                    paymentMethod
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setPaymentMethod(
-                      event.target
-                        .value as PaymentMethod,
-                    )
-                  }
+                  value={paymentMethod}
+                  onChange={(event) => {
+                    const value =
+                      event.target.value as PaymentMethod;
+
+                    setPaymentMethod(value);
+
+                    if (value !== "CHEQUE") {
+                      setChequeNumber("");
+                    }
+                  }}
                   className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 >
                   <option value="CASH">
                     Cash
                   </option>
 
-                  <option value="UPI">
-                    UPI
+                  <option value="ONLINE">
+                    Online
                   </option>
 
-                  <option value="CARD">
-                    Card
-                  </option>
-
-                  <option value="BANK_TRANSFER">
-                    Bank Transfer
-                  </option>
-
-                  <option value="CREDIT">
-                    Credit
+                  <option value="CHEQUE">
+                    Cheque
                   </option>
                 </select>
+
+                {paymentMethod === "CHEQUE" && (
+                  <label className="mt-3 block">
+                    <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                      Cheque Number
+                    </span>
+
+                    <input
+                      type="text"
+                      value={chequeNumber}
+                      onChange={(event) =>
+                        setChequeNumber(
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Enter cheque number"
+                      maxLength={50}
+                      className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                  </label>
+                )}
               </div>
 
               {/* Amount paid */}
