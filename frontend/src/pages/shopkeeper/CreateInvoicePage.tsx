@@ -24,6 +24,7 @@ import ProductSelector from "@/components/shopkeeper/ProductSelector";
 import {
   loadRazorpayCheckout,
   type RazorpayOrderResponse,
+  type RazorpayVerifyResponse,
 } from "@/lib/razorpay";
 
 const API_URL =
@@ -1739,6 +1740,8 @@ export default function CreateInvoicePage() {
           );
         }
 
+        const orderData = orderResult.data;
+
         await loadRazorpayCheckout();
 
         if (!window.Razorpay) {
@@ -1750,16 +1753,16 @@ export default function CreateInvoicePage() {
         const razorpay =
           new window.Razorpay({
             key:
-              orderResult.data.keyId,
+              orderData.keyId,
             amount:
-              orderResult.data.amount,
+              orderData.amount,
             currency:
-              orderResult.data.currency,
+              orderData.currency,
             name: "BillNest",
             description:
-              `Invoice ${orderResult.data.invoiceNumber}`,
+              `Invoice ${orderData.invoiceNumber}`,
             order_id:
-              orderResult.data.orderId,
+              orderData.orderId,
             prefill: {
               name:
                 selectedCustomer.name,
@@ -1808,7 +1811,7 @@ export default function CreateInvoicePage() {
                   }
 
                   setSuccessMessage(
-                    `Payment received for invoice ${createdInvoice?.invoiceNo ?? orderResult.data.invoiceNumber}.`,
+                    `Payment received for invoice ${createdInvoice?.invoiceNo ?? orderData.invoiceNumber}.`,
                   );
 
                   setIsSubmitting(false);

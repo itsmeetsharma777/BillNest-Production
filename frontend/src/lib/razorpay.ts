@@ -118,3 +118,8 @@ export function loadRazorpayCheckout(): Promise<void> {
     );
   });
 }
+
+export interface RazorpayVerifyResponse {
+  success: boolean;
+  message?: string;
+}
