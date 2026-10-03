@@ -3,10 +3,8 @@ import { z } from "zod";
 const paymentMethodSchema =
   z.enum([
     "cash",
-    "upi",
-    "card",
-    "bank_transfer",
-    "credit",
+    "online",
+    "cheque",
   ]);
 
 export const recordInvoicePaymentSchema =
