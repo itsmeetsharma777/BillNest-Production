@@ -1377,6 +1377,13 @@ export default function InvoiceDetailsPage() {
                             )}
                           </p>
 
+                          {payment.referenceNumber && (
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              Reference:{" "}
+                              {payment.referenceNumber}
+                            </p>
+                          )}
+
                           {payment.notes && (
                             <p className="mt-2 text-sm text-muted-foreground">
                               {
