@@ -1520,7 +1520,7 @@ export default function InvoiceDetailsPage() {
                     if (value !== "cheque") {
                       setChequeNumber("");
                     }
-                  }
+                  }}
                   className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="cash">
