@@ -585,64 +585,50 @@ export default function InvoiceDetailsPage() {
     }
   }
 
-  async function performAction(
-    endpoint: "pay" | "cancel",
-  ) {
+  async function recordPayment() {
+    if (!invoiceId || !invoice) {
+      return;
+    }
+
+    const amount = Number(paymentAmount);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("Please enter a valid payment amount.");
+      return;
+    }
+
+    if (amount > amountDue) {
+      setError("Payment amount cannot exceed the remaining balance.");
+      return;
+    }
+
     if (
-      !invoiceId ||
-      !invoice
+      paymentMethod === "cheque" &&
+      !chequeNumber.trim()
     ) {
+      setError("Please enter the cheque number.");
       return;
     }
 
-    const actionMessage =
-      endpoint === "pay"
-        ? "Mark this invoice as fully paid?"
-        : "Cancel this invoice?";
-
-    const confirmed =
-      window.confirm(
-        actionMessage,
-      );
-
-    if (!confirmed) {
-      return;
-    }
+    setIsActionLoading(true);
+    setError("");
+    setSuccessMessage("");
 
     try {
-      setIsActionLoading(true);
-
-      setError("");
-      setSuccessMessage("");
-
-      if (
-        paymentMethod === "cheque" &&
-        !chequeNumber.trim()
-      ) {
-        throw new Error(
-          "Please enter the cheque number.",
-        );
-      }
-
       if (paymentMethod === "online") {
-        const orderResponse =
-          await fetch(
-            API_URL +
-              "/invoices/" +
-              invoiceId +
-              "/razorpay/order",
-            {
-              method: "POST",
-              credentials: "include",
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-              body: JSON.stringify({
-                amount,
-              }),
+        const orderResponse = await fetch(
+          `${API_URL}/invoices/${invoiceId}/razorpay/order`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
             },
-          );
+            body: JSON.stringify({
+              amount,
+            }),
+          },
+        );
 
         const orderResult =
           (await orderResponse.json()) as RazorpayOrderResponse;
@@ -657,6 +643,8 @@ export default function InvoiceDetailsPage() {
           );
         }
 
+        const orderData = orderResult.data;
+
         await loadRazorpayCheckout();
 
         if (!window.Razorpay) {
@@ -667,93 +655,74 @@ export default function InvoiceDetailsPage() {
 
         const razorpay =
           new window.Razorpay({
-            key:
-              orderResult.data.keyId,
-            amount:
-              orderResult.data.amount,
-            currency:
-              orderResult.data.currency,
+            key: orderData.keyId,
+            amount: orderData.amount,
+            currency: orderData.currency,
             name: "BillNest",
             description:
-              "Invoice " +
-              orderResult.data.invoiceNumber,
-            order_id:
-              orderResult.data.orderId,
+              `Invoice ${orderData.invoiceNumber}`,
+            order_id: orderData.orderId,
             prefill: {
-              name:
-                invoice.customer?.name,
-              email:
-                invoice.customer?.email,
-              contact:
-                invoice.customer?.phone,
+              name: invoice.customer?.name,
+              email: invoice.customer?.email,
+              contact: invoice.customer?.phone,
             },
-            handler:
-              async (
-                razorpayResponse,
-              ) => {
-                try {
-                  const verifyResponse =
-                    await fetch(
-                      API_URL +
-                        "/invoices/" +
-                        invoiceId +
-                        "/razorpay/verify",
-                      {
-                        method: "POST",
-                        credentials:
-                          "include",
-                        headers: {
-                          "Content-Type":
-                            "application/json",
-                        },
-                        body: JSON.stringify({
-                          razorpayPaymentId:
-                            razorpayResponse.razorpay_payment_id,
-                          razorpayOrderId:
-                            razorpayResponse.razorpay_order_id,
-                          razorpaySignature:
-                            razorpayResponse.razorpay_signature,
-                        }),
-                      },
-                    );
+            handler: async (razorpayResponse) => {
+              try {
+                const verifyResponse = await fetch(
+                  `${API_URL}/invoices/${invoiceId}/razorpay/verify`,
+                  {
+                    method: "POST",
+                    credentials: "include",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      razorpayPaymentId:
+                        razorpayResponse.razorpay_payment_id,
+                      razorpayOrderId:
+                        razorpayResponse.razorpay_order_id,
+                      razorpaySignature:
+                        razorpayResponse.razorpay_signature,
+                    }),
+                  },
+                );
 
-                  const verifyResult =
-                    (await verifyResponse.json()) as {
-                      success: boolean;
-                      message?: string;
-                    };
+                const verifyResult =
+                  (await verifyResponse.json()) as {
+                    success: boolean;
+                    message?: string;
+                  };
 
-                  if (
-                    !verifyResponse.ok
-                  ) {
-                    throw new Error(
-                      verifyResult.message ??
-                        "Payment verification failed.",
-                    );
-                  }
-
-                  setPaymentAmount("");
-                  setPaymentMethod("cash");
-                  setChequeNumber("");
-                  setPaymentNotes("");
-                  setIsPaymentModalOpen(false);
-                  setIsActionLoading(false);
-                  setSuccessMessage(
+                if (!verifyResponse.ok) {
+                  throw new Error(
                     verifyResult.message ??
-                      "Online payment received successfully.",
-                  );
-
-                  await loadInvoice();
-                  await loadPayments();
-                } catch (verificationError) {
-                  setIsActionLoading(false);
-                  setError(
-                    verificationError instanceof Error
-                      ? verificationError.message
-                      : "Payment verification failed.",
+                      "Payment verification failed.",
                   );
                 }
-              },
+
+                setPaymentAmount("");
+                setPaymentMethod("cash");
+                setChequeNumber("");
+                setPaymentNotes("");
+                setIsPaymentModalOpen(false);
+                setSuccessMessage(
+                  verifyResult.message ??
+                    "Online payment received successfully.",
+                );
+
+                await loadInvoice();
+                await loadPayments();
+              } catch (verificationError) {
+                setError(
+                  verificationError instanceof Error
+                    ? verificationError.message
+                    : "Payment verification failed.",
+                );
+              } finally {
+                setIsActionLoading(false);
+              }
+            },
             modal: {
               ondismiss: () => {
                 setIsActionLoading(false);
@@ -776,37 +745,28 @@ export default function InvoiceDetailsPage() {
         );
 
         razorpay.open();
-
         return;
       }
 
-      const response =
-        await fetch(          `${API_URL}/invoices/${invoiceId}/payments`,
-          {
-            method: "POST",
-            credentials: "include",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body: JSON.stringify({
-              amount,
-
-              paymentMethod,
-
-              ...(paymentMethod === "cheque" && {
-                referenceNumber:
-                  chequeNumber.trim(),
-              }),
-
-              notes:
-                paymentNotes.trim() ||
-                undefined,
-            }),
+      const response = await fetch(
+        `${API_URL}/invoices/${invoiceId}/payments`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
           },
-        );
+          body: JSON.stringify({
+            amount,
+            paymentMethod,
+            ...(paymentMethod === "cheque" && {
+              referenceNumber: chequeNumber.trim(),
+            }),
+            notes:
+              paymentNotes.trim() || undefined,
+          }),
+        },
+      );
 
       const result =
         (await response.json()) as {
@@ -825,11 +785,7 @@ export default function InvoiceDetailsPage() {
       setPaymentNotes("");
       setPaymentMethod("cash");
       setChequeNumber("");
-
-      setIsPaymentModalOpen(
-        false,
-      );
-
+      setIsPaymentModalOpen(false);
       setSuccessMessage(
         result.message ??
           "Payment recorded successfully.",
@@ -844,9 +800,80 @@ export default function InvoiceDetailsPage() {
           : "Unable to record payment.",
       );
     } finally {
-      setIsActionLoading(
-        false,
+      setIsActionLoading(false);
+    }
+  }
+
+  async function performAction(
+    endpoint: "pay" | "cancel",
+  ) {
+    if (!invoiceId || !invoice) {
+      return;
+    }
+
+    const actionMessage =
+      endpoint === "pay"
+        ? "Mark this invoice as fully paid?"
+        : "Cancel this invoice?";
+
+    const confirmed = window.confirm(actionMessage);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsActionLoading(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      const response = await fetch(
+        endpoint === "pay"
+          ? `${API_URL}/invoices/${invoiceId}/pay`
+          : `${API_URL}/invoices/${invoiceId}/cancel`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
       );
+
+      const result =
+        (await response.json()) as {
+          success: boolean;
+          message?: string;
+        };
+
+      if (!response.ok) {
+        throw new Error(
+          result.message ??
+            (endpoint === "pay"
+              ? "Unable to mark invoice as paid."
+              : "Unable to cancel invoice."),
+        );
+      }
+
+      setSuccessMessage(
+        result.message ??
+          (endpoint === "pay"
+            ? "Invoice marked as paid."
+            : "Invoice cancelled successfully."),
+      );
+
+      await loadInvoice();
+      await loadPayments();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : endpoint === "pay"
+            ? "Unable to mark invoice as paid."
+            : "Unable to cancel invoice.",
+      );
+    } finally {
+      setIsActionLoading(false);
     }
   }
 
