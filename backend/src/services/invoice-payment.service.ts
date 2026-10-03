@@ -336,23 +336,17 @@ export async function getInvoicePaymentsForOwner(
   if (
     initialPaymentAmount > 0
   ) {
-    history.push({
-      id: `initial-${invoice._id.toString()}`,
-
-      amount:
-        initialPaymentAmount,
-
-      paymentMethod:
-        invoice.paymentMethod ??
-        "cash",
-
-      paidAt:
-        invoice.createdAt ??
-        invoice.issueDate,
-
-      notes:
-        "Initial payment recorded when the invoice was created.",
-    });
+history.push({
+  id: `initial-${invoice._id.toString()}`,
+  amount: invoice.amountPaid,
+  paymentMethod: invoice.paymentMethod ?? "cash",
+  paidAt: invoice.createdAt,
+  referenceNumber: undefined,
+  razorpayOrderId: undefined,
+  razorpayPaymentId: undefined,
+  notes:
+    "Initial payment recorded when the invoice was created.",
+});
   }
 
   history.sort(
