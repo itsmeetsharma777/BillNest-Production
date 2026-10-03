@@ -10,10 +10,8 @@ import {
 
 type PaymentMethod =
   | "cash"
-  | "upi"
-  | "card"
-  | "bank_transfer"
-  | "credit";
+  | "online"
+  | "cheque";
 
 export async function findPaymentsByInvoiceId(
   invoiceId: string,
@@ -38,12 +36,14 @@ export async function recordPaymentAtomically(
     amount,
     paymentMethod,
     notes,
+    referenceNumber,
   }: {
     invoiceId: string;
     shopId: string;
     amount: number;
     paymentMethod: PaymentMethod;
     notes?: string;
+    referenceNumber?: string;
   },
   session: ClientSession,
 ) {
@@ -137,6 +137,10 @@ export async function recordPaymentAtomically(
           paymentMethod,
 
           paidAt: new Date(),
+
+          ...(referenceNumber?.trim() && {
+            referenceNumber: referenceNumber.trim(),
+          }),
 
           ...(notes?.trim() && {
             notes:
