@@ -108,10 +108,8 @@ const invoiceStatusSchema = z.enum([
 
 const paymentMethodSchema = z.enum([
   "cash",
-  "upi",
-  "card",
-  "bank_transfer",
-  "credit",
+  "online",
+  "cheque",
 ]);
 
 export const createInvoiceSchema = z.object({
