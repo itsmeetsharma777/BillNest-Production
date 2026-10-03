@@ -23,7 +23,6 @@ import { useNavigate } from "react-router-dom";
 import ProductSelector from "@/components/shopkeeper/ProductSelector";
 import {
   loadRazorpayCheckout,
-  type RazorpayCheckoutResponse,
   type RazorpayOrderResponse,
 } from "@/lib/razorpay";
 
