@@ -23,14 +23,13 @@ import { ApiError } from "../utils/api-error";
 
 type PaymentMethod =
   | "cash"
-  | "upi"
-  | "card"
-  | "bank_transfer"
-  | "credit";
+  | "online"
+  | "cheque";
 
 interface RecordPaymentInput {
   amount: number;
   paymentMethod: PaymentMethod;
+  referenceNumber?: string;
   notes?: string;
 }
 
@@ -129,6 +128,8 @@ export async function recordPaymentForOwner(
                 amount,
                 paymentMethod:
                   input.paymentMethod,
+                referenceNumber:
+                  input.referenceNumber,
                 notes: input.notes,
               },
               session,
@@ -289,6 +290,9 @@ export async function getInvoicePaymentsForOwner(
 
       paidAt:
         payment.paidAt,
+
+      referenceNumber:
+        payment.referenceNumber,
 
       notes:
         payment.notes,
