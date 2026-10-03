@@ -37,12 +37,16 @@ const invoicePaymentSchema = new Schema(
       type: String,
       enum: [
         "cash",
-        "upi",
-        "card",
-        "bank_transfer",
-        "credit",
+        "online",
+        "cheque",
       ],
       required: true,
+    },
+
+    referenceNumber: {
+      type: String,
+      trim: true,
+      maxlength: 200,
     },
 
     paidAt: {
