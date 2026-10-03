@@ -36,6 +36,13 @@ interface RazorpayPaymentResponse {
   captured?: boolean;
 }
 
+interface RazorpayOrderDetailsResponse {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+}
+
 function roundMoney(value: number): number {
   return (
     Math.round(
@@ -381,6 +388,26 @@ export async function verifyRazorpayPaymentForOwner(
     );
   }
 
+  const order =
+    await razorpayRequest<RazorpayOrderDetailsResponse>(
+      `/orders/${encodeURIComponent(
+        trustedOrderId,
+      )}`,
+      {
+        method: "GET",
+      },
+    );
+
+  if (
+    order.currency !== "INR"
+  ) {
+    throw new ApiError(
+      400,
+      "Razorpay order currency is invalid.",
+      "RAZORPAY_ORDER_CURRENCY_INVALID",
+    );
+  }
+
   const payment =
     await razorpayRequest<RazorpayPaymentResponse>(
       `/payments/${encodeURIComponent(
@@ -420,6 +447,17 @@ export async function verifyRazorpayPaymentForOwner(
       400,
       "Razorpay payment has not been captured yet.",
       "RAZORPAY_PAYMENT_NOT_CAPTURED",
+    );
+  }
+
+  if (
+    payment.amount !==
+    order.amount
+  ) {
+    throw new ApiError(
+      400,
+      "Razorpay payment amount does not match the server-created order.",
+      "RAZORPAY_AMOUNT_MISMATCH",
     );
   }
 
