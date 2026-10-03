@@ -2826,6 +2826,12 @@ export default function CreateInvoicePage() {
                   </option>
                 </select>
 
+                {paymentMethod === "ONLINE" && (
+                  <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+                    Online payments are securely processed through Razorpay. The customer can use UPI, cards, or other methods available in Razorpay Checkout.
+                  </div>
+                )}
+
                 {paymentMethod === "CHEQUE" && (
                   <label className="mt-3 block">
                     <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -2908,7 +2914,10 @@ export default function CreateInvoicePage() {
                         .value as InvoiceStatus,
                     )
                   }
-                  className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  disabled={
+                    paymentMethod === "ONLINE"
+                  }
+                  className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <option value="PAID">
                     Paid
