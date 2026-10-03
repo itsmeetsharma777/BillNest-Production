@@ -42,7 +42,7 @@ const invoiceSchema = new Schema(
 
     paymentMethod: {
       type: String,
-      enum: ["cash", "upi", "card", "bank_transfer", "credit"],
+      enum: ["cash", "online", "cheque"],
     },
 
     subtotal: {
