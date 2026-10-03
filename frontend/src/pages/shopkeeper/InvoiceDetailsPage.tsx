@@ -23,7 +23,6 @@ import {
 
 import {
   loadRazorpayCheckout,
-  type RazorpayCheckoutResponse,
   type RazorpayOrderResponse,
 } from "@/lib/razorpay";
 
