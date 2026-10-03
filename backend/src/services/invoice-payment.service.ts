@@ -114,6 +114,28 @@ export async function recordPaymentForOwner(
     );
   }
 
+  if (
+    input.paymentMethod === "cheque" &&
+    !input.referenceNumber?.trim()
+  ) {
+    throw new ApiError(
+      400,
+      "Cheque number is required for cheque payments.",
+      "CHEQUE_NUMBER_REQUIRED",
+    );
+  }
+
+  if (
+    input.paymentMethod === "online" &&
+    !input.razorpayPaymentId?.trim()
+  ) {
+    throw new ApiError(
+      400,
+      "Online payments must be verified through Razorpay.",
+      "ONLINE_PAYMENT_REQUIRES_RAZORPAY",
+    );
+  }
+
   const session =
     await mongoose.startSession();
 
