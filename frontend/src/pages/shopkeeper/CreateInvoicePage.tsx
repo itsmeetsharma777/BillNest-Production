@@ -151,7 +151,8 @@ interface CreateInvoiceResponse {
   success: boolean;
   data?: {
     invoice?: {
-      id: string;
+      id?: string;
+      _id?: string;
       invoiceNo?: string;
     };
   };
@@ -1700,7 +1701,8 @@ export default function CreateInvoicePage() {
         paymentMethod === "ONLINE"
       ) {
         const invoiceId =
-          createdInvoice?.id;
+          createdInvoice?.id ??
+          createdInvoice?._id;
 
         if (!invoiceId) {
           throw new Error(
