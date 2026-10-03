@@ -538,6 +538,17 @@ export async function createInvoiceForOwner(
     );
 
   if (
+    input.paymentMethod === "online" &&
+    paymentState.amountPaid > 0
+  ) {
+    throw new ApiError(
+      400,
+      "Online payments must be completed through Razorpay after the invoice is created.",
+      "ONLINE_PAYMENT_REQUIRES_RAZORPAY",
+    );
+  }
+
+  if (
     input.paymentMethod === "cheque" &&
     paymentState.amountPaid > 0 &&
     !input.referenceNumber?.trim()
