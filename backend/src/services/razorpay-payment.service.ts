@@ -353,16 +353,24 @@ export async function verifyRazorpayPaymentForOwner(
       )
       .digest("hex");
 
+  const generatedSignatureBuffer =
+    Buffer.from(
+      generatedSignature,
+      "utf8",
+    );
+
+  const providedSignatureBuffer =
+    Buffer.from(
+      input.razorpaySignature,
+      "utf8",
+    );
+
   const signaturesMatch =
+    generatedSignatureBuffer.length ===
+      providedSignatureBuffer.length &&
     crypto.timingSafeEqual(
-      Buffer.from(
-        generatedSignature,
-        "utf8",
-      ),
-      Buffer.from(
-        input.razorpaySignature,
-        "utf8",
-      ),
+      generatedSignatureBuffer,
+      providedSignatureBuffer,
     );
 
   if (!signaturesMatch) {
