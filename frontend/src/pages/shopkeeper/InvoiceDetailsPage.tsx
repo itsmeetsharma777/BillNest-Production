@@ -357,17 +357,11 @@ function getPaymentMethodLabel(
     case "cash":
       return "Cash";
 
-    case "upi":
-      return "UPI";
+    case "online":
+      return "Online";
 
-    case "card":
-      return "Card";
-
-    case "bank_transfer":
-      return "Bank Transfer";
-
-    case "credit":
-      return "Credit";
+    case "cheque":
+      return "Cheque";
 
     default:
       return method || "—";
