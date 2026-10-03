@@ -153,6 +153,146 @@ interface CreateInvoiceResponse {
   message?: string;
 }
 
+interface RazorpayOrderResponse {
+  success: boolean;
+  data?: {
+    keyId: string;
+    orderId: string;
+    amount: number;
+    currency: string;
+    invoiceId: string;
+    invoiceNumber: string;
+  };
+  message?: string;
+}
+
+interface RazorpayVerifyResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    alreadyProcessed?: boolean;
+    invoice?: {
+      status?: string;
+      amountPaid?: number;
+      amountDue?: number;
+    };
+  };
+}
+
+interface RazorpayCheckoutResponse {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+}
+
+interface RazorpayFailureResponse {
+  error?: {
+    description?: string;
+  };
+}
+
+interface RazorpayCheckoutOptions {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  prefill?: {
+    name?: string;
+    email?: string;
+    contact?: string;
+  };
+  handler: (
+    response: RazorpayCheckoutResponse,
+  ) => void | Promise<void>;
+  modal?: {
+    ondismiss?: () => void;
+  };
+}
+
+interface RazorpayCheckoutInstance {
+  open: () => void;
+  on: (
+    event: string,
+    handler: (
+      response: RazorpayFailureResponse,
+    ) => void,
+  ) => void;
+}
+
+interface RazorpayConstructor {
+  new (
+    options: RazorpayCheckoutOptions,
+  ): RazorpayCheckoutInstance;
+}
+
+declare global {
+  interface Window {
+    Razorpay?: RazorpayConstructor;
+  }
+}
+
+function loadRazorpayCheckout(): Promise<void> {
+  if (window.Razorpay) {
+    return Promise.resolve();
+  }
+
+  return new Promise(
+    (resolve, reject) => {
+      const existing =
+        document.querySelector(
+          'script[src="https://checkout.razorpay.com/v1/checkout.js"]',
+        );
+
+      if (existing) {
+        existing.addEventListener(
+          "load",
+          () => resolve(),
+          { once: true },
+        );
+
+        existing.addEventListener(
+          "error",
+          () =>
+            reject(
+              new Error(
+                "Unable to load Razorpay Checkout.",
+              ),
+            ),
+          { once: true },
+        );
+
+        return;
+      }
+
+      const script =
+        document.createElement(
+          "script",
+        );
+
+      script.src =
+        "https://checkout.razorpay.com/v1/checkout.js";
+
+      script.async = true;
+
+      script.onload = () =>
+        resolve();
+
+      script.onerror = () =>
+        reject(
+          new Error(
+            "Unable to load Razorpay Checkout.",
+          ),
+        );
+
+      document.body.appendChild(
+        script,
+      );
+    },
+  );
+}
+
 interface PincodePostOffice {
   Name?: string;
   District?: string;
@@ -1469,6 +1609,17 @@ export default function CreateInvoicePage() {
     }
 
     if (
+      paymentMethod === "ONLINE" &&
+      parsedAmountPaid <= 0
+    ) {
+      setError(
+        "Enter the amount you want to pay online.",
+      );
+
+      return;
+    }
+
+    if (
       paymentMethod === "CHEQUE" &&
       parsedAmountPaid > 0 &&
       !chequeNumber.trim()
@@ -1640,14 +1791,18 @@ export default function CreateInvoicePage() {
                   ),
 
                 status:
-                  toBackendStatus(
-                    finalStatus,
-                  ),
+                  paymentMethod === "ONLINE"
+                    ? "draft"
+                    : toBackendStatus(
+                        finalStatus,
+                      ),
 
                 amountPaid:
-                  roundMoney(
-                    parsedAmountPaid,
-                  ),
+                  paymentMethod === "ONLINE"
+                    ? 0
+                    : roundMoney(
+                        parsedAmountPaid,
+                      ),
 
                 ...(paymentMethod === "CHEQUE" &&
                   parsedAmountPaid > 0 && {
@@ -1673,10 +1828,172 @@ export default function CreateInvoicePage() {
         );
       }
 
+      const createdInvoice =
+        result.data?.invoice;
+
+      if (
+        paymentMethod === "ONLINE"
+      ) {
+        const invoiceId =
+          createdInvoice?.id;
+
+        if (!invoiceId) {
+          throw new Error(
+            "Invoice was created but its ID was not returned.",
+          );
+        }
+
+        const orderResponse =
+          await fetch(
+            `${API_URL}/invoices/${invoiceId}/razorpay/order`,
+            {
+              method: "POST",
+              credentials: "include",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                amount:
+                  roundMoney(
+                    parsedAmountPaid,
+                  ),
+              }),
+            },
+          );
+
+        const orderResult =
+          (await orderResponse.json()) as RazorpayOrderResponse;
+
+        if (
+          !orderResponse.ok ||
+          !orderResult.data
+        ) {
+          throw new Error(
+            orderResult.message ??
+              "Unable to start Razorpay payment.",
+          );
+        }
+
+        await loadRazorpayCheckout();
+
+        if (!window.Razorpay) {
+          throw new Error(
+            "Razorpay Checkout is unavailable.",
+          );
+        }
+
+        const razorpay =
+          new window.Razorpay({
+            key:
+              orderResult.data.keyId,
+            amount:
+              orderResult.data.amount,
+            currency:
+              orderResult.data.currency,
+            name: "BillNest",
+            description:
+              `Invoice ${orderResult.data.invoiceNumber}`,
+            order_id:
+              orderResult.data.orderId,
+            prefill: {
+              name:
+                selectedCustomer.name,
+              email:
+                selectedCustomer.email,
+              contact:
+                selectedCustomer.phone,
+            },
+            handler:
+              async (
+                razorpayResponse,
+              ) => {
+                try {
+                  const verifyResponse =
+                    await fetch(
+                      `${API_URL}/invoices/${invoiceId}/razorpay/verify`,
+                      {
+                        method: "POST",
+                        credentials:
+                          "include",
+                        headers: {
+                          "Content-Type":
+                            "application/json",
+                        },
+                        body: JSON.stringify({
+                          razorpayPaymentId:
+                            razorpayResponse.razorpay_payment_id,
+                          razorpayOrderId:
+                            razorpayResponse.razorpay_order_id,
+                          razorpaySignature:
+                            razorpayResponse.razorpay_signature,
+                        }),
+                      },
+                    );
+
+                  const verifyResult =
+                    (await verifyResponse.json()) as RazorpayVerifyResponse;
+
+                  if (
+                    !verifyResponse.ok
+                  ) {
+                    throw new Error(
+                      verifyResult.message ??
+                        "Razorpay payment verification failed.",
+                    );
+                  }
+
+                  setSuccessMessage(
+                    `Payment received for invoice ${createdInvoice?.invoiceNo ?? orderResult.data.invoiceNumber}.`,
+                  );
+
+                  setIsSubmitting(false);
+
+                  setTimeout(() => {
+                    navigate(
+                      `/shopkeeper/invoices/${invoiceId}`,
+                    );
+                  }, 800);
+                } catch (verificationError) {
+                  setIsSubmitting(false);
+
+                  setError(
+                    verificationError instanceof
+                    Error
+                      ? verificationError.message
+                      : "Payment verification failed.",
+                  );
+                }
+              },
+            modal: {
+              ondismiss: () => {
+                setIsSubmitting(false);
+                setError(
+                  "Razorpay checkout was closed. The invoice is saved as a draft and can be paid later.",
+                );
+              },
+            },
+          });
+
+        razorpay.on(
+          "payment.failed",
+          (failure) => {
+            setIsSubmitting(false);
+            setError(
+              failure.error?.description ??
+                "Razorpay payment failed. The invoice remains saved as a draft.",
+            );
+          },
+        );
+
+        razorpay.open();
+
+        return;
+      }
+
       setSuccessMessage(
-        result.data?.invoice
-          ?.invoiceNo
-          ? `Invoice ${result.data.invoice.invoiceNo} created successfully.`
+        createdInvoice?.invoiceNo
+          ? `Invoice ${createdInvoice.invoiceNo} created successfully.`
           : "Invoice created successfully.",
       );
 
@@ -2485,6 +2802,10 @@ export default function CreateInvoicePage() {
                       event.target.value as PaymentMethod;
 
                     setPaymentMethod(value);
+
+                    if (value === "ONLINE") {
+                      setStatus("PAID");
+                    }
 
                     if (value !== "CHEQUE") {
                       setChequeNumber("");
