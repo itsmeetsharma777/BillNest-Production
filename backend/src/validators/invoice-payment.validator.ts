@@ -23,6 +23,16 @@ export const recordInvoicePaymentSchema =
         "cash",
       ),
 
+    referenceNumber:
+      z
+        .string()
+        .trim()
+        .max(
+          200,
+          "Reference number cannot exceed 200 characters.",
+        )
+        .optional(),
+
     notes: z
       .string()
       .trim()
