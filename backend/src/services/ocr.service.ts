@@ -1,5 +1,3 @@
-import OpenAI from "openai";
-
 import { env } from "../config/env";
 
 import { ApiError } from "../utils/api-error";
@@ -28,140 +26,88 @@ export interface OcrResult {
     | "product_document"
     | "other"
     | null;
-
-  invoiceNumber:
-    | string
-    | null;
-
-  invoiceDate:
-    | string
-    | null;
-
-  customerName:
-    | string
-    | null;
-
-  customerPhone:
-    | string
-    | null;
-
-  customerEmail:
-    | string
-    | null;
-
-  shopName:
-    | string
-    | null;
-
-  shopPhone:
-    | string
-    | null;
-
+  invoiceNumber: string | null;
+  invoiceDate: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
+  customerEmail: string | null;
+  shopName: string | null;
+  shopPhone: string | null;
   items: OcrItem[];
-
-  subtotal:
-    | number
-    | null;
-
-  discount:
-    | number
-    | null;
-
-  tax:
-    | number
-    | null;
-
-  total:
-    | number
-    | null;
-
-  paymentMethod:
-    | string
-    | null;
-
-  warrantyPeriod:
-    | string
-    | null;
-
-  warrantyExpiry:
-    | string
-    | null;
-
-  rawText:
-    | string
-    | null;
+  subtotal: number | null;
+  discount: number | null;
+  tax: number | null;
+  total: number | null;
+  paymentMethod: string | null;
+  warrantyPeriod: string | null;
+  warrantyExpiry: string | null;
+  rawText: string | null;
 }
 
-const MAX_OCR_FILE_SIZE =
-  10 * 1024 * 1024;
+interface GeminiPart {
+  text?: string;
+}
 
-const ALLOWED_OCR_MIME_TYPES =
-  new Set([
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-  ]);
+interface GeminiResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: GeminiPart[];
+    };
+  }>;
+  error?: {
+    code?: number;
+    message?: string;
+    status?: string;
+  };
+}
 
-function getOpenAIClient():
-  OpenAI {
-  if (
-    !env.OPENAI_API_KEY
-  ) {
+const MAX_OCR_FILE_SIZE = 10 * 1024 * 1024;
+
+const ALLOWED_OCR_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+function getGeminiConfig() {
+  if (!env.GEMINI_API_KEY) {
     throw new ApiError(
       503,
-      "OCR service is not configured. Please configure OPENAI_API_KEY.",
+      "OCR service is not configured. Please configure GEMINI_API_KEY.",
       "OCR_NOT_CONFIGURED",
     );
   }
 
-  return new OpenAI({
-    apiKey:
-      env.OPENAI_API_KEY,
-  });
+  return {
+    apiKey: env.GEMINI_API_KEY,
+    model: env.GEMINI_OCR_MODEL,
+  };
 }
 
-function createDataUrl(
+function createBase64(
   buffer: Buffer,
-  mimeType: string,
 ): string {
-  return `data:${mimeType};base64,${buffer.toString("base64")}`;
+  return buffer.toString("base64");
 }
 
-function emptyOcrResult():
-  OcrResult {
+function emptyOcrResult(): OcrResult {
   return {
     documentType: null,
-
     invoiceNumber: null,
-
     invoiceDate: null,
-
     customerName: null,
-
     customerPhone: null,
-
     customerEmail: null,
-
     shopName: null,
-
     shopPhone: null,
-
     items: [],
-
     subtotal: null,
-
     discount: null,
-
     tax: null,
-
     total: null,
-
     paymentMethod: null,
-
     warrantyPeriod: null,
-
     warrantyExpiry: null,
-
     rawText: null,
   };
 }
@@ -169,266 +115,164 @@ function emptyOcrResult():
 function normalizeOcrResult(
   value: unknown,
 ): OcrResult {
-  if (
-    !value ||
-    typeof value !== "object"
-  ) {
+  if (!value || typeof value !== "object") {
     return emptyOcrResult();
   }
 
-  const data =
-    value as Record<
-      string,
-      unknown
-    >;
+  const data = value as Record<string, unknown>;
 
-  const rawItems =
-    Array.isArray(
-      data.items,
-    )
-      ? data.items
-      : [];
+  const rawItems = Array.isArray(data.items)
+    ? data.items
+    : [];
 
-  const items: OcrItem[] =
-    rawItems.map(
-      (item) => {
-        if (
-          !item ||
-          typeof item !==
-            "object"
-        ) {
-          return {
-            productName: "",
-            quantity: null,
-            unitPrice: null,
-            discount: null,
-            taxRate: null,
-            serialNumber: null,
-            sku: null,
-          };
-        }
-
-        const row =
-          item as Record<
-            string,
-            unknown
-          >;
-
+  const items: OcrItem[] = rawItems.map(
+    (item) => {
+      if (!item || typeof item !== "object") {
         return {
-          productName:
-            typeof row.productName ===
-            "string"
-              ? row.productName.trim()
-              : "",
-
-          quantity:
-            typeof row.quantity ===
-              "number" &&
-            Number.isFinite(
-              row.quantity,
-            )
-              ? row.quantity
-              : null,
-
-          unitPrice:
-            typeof row.unitPrice ===
-              "number" &&
-            Number.isFinite(
-              row.unitPrice,
-            )
-              ? row.unitPrice
-              : null,
-
-          discount:
-            typeof row.discount ===
-              "number" &&
-            Number.isFinite(
-              row.discount,
-            )
-              ? row.discount
-              : null,
-
-          taxRate:
-            typeof row.taxRate ===
-              "number" &&
-            Number.isFinite(
-              row.taxRate,
-            )
-              ? row.taxRate
-              : null,
-
-          serialNumber:
-            typeof row.serialNumber ===
-            "string"
-              ? row.serialNumber.trim()
-              : null,
-
-          sku:
-            typeof row.sku ===
-            "string"
-              ? row.sku.trim()
-              : null,
+          productName: "",
+          quantity: null,
+          unitPrice: null,
+          discount: null,
+          taxRate: null,
+          serialNumber: null,
+          sku: null,
         };
-      },
-    );
+      }
+
+      const row = item as Record<string, unknown>;
+
+      return {
+        productName:
+          typeof row.productName === "string"
+            ? row.productName.trim()
+            : "",
+        quantity:
+          typeof row.quantity === "number" &&
+          Number.isFinite(row.quantity)
+            ? row.quantity
+            : null,
+        unitPrice:
+          typeof row.unitPrice === "number" &&
+          Number.isFinite(row.unitPrice)
+            ? row.unitPrice
+            : null,
+        discount:
+          typeof row.discount === "number" &&
+          Number.isFinite(row.discount)
+            ? row.discount
+            : null,
+        taxRate:
+          typeof row.taxRate === "number" &&
+          Number.isFinite(row.taxRate)
+            ? row.taxRate
+            : null,
+        serialNumber:
+          typeof row.serialNumber === "string"
+            ? row.serialNumber.trim()
+            : null,
+        sku:
+          typeof row.sku === "string"
+            ? row.sku.trim()
+            : null,
+      };
+    },
+  );
 
   const documentType =
-    typeof data.documentType ===
-    "string"
+    typeof data.documentType === "string"
       ? data.documentType
       : null;
 
   return {
     documentType:
-      documentType ===
-        "invoice" ||
-      documentType ===
-        "receipt" ||
-      documentType ===
-        "warranty" ||
-      documentType ===
-        "product_document" ||
-      documentType ===
-        "other"
+      documentType === "invoice" ||
+      documentType === "receipt" ||
+      documentType === "warranty" ||
+      documentType === "product_document" ||
+      documentType === "other"
         ? documentType
         : null,
-
     invoiceNumber:
-      typeof data.invoiceNumber ===
-      "string"
+      typeof data.invoiceNumber === "string"
         ? data.invoiceNumber.trim()
         : null,
-
     invoiceDate:
-      typeof data.invoiceDate ===
-      "string"
+      typeof data.invoiceDate === "string"
         ? data.invoiceDate.trim()
         : null,
-
     customerName:
-      typeof data.customerName ===
-      "string"
+      typeof data.customerName === "string"
         ? data.customerName.trim()
         : null,
-
     customerPhone:
-      typeof data.customerPhone ===
-      "string"
+      typeof data.customerPhone === "string"
         ? data.customerPhone.trim()
         : null,
-
     customerEmail:
-      typeof data.customerEmail ===
-      "string"
+      typeof data.customerEmail === "string"
         ? data.customerEmail.trim()
         : null,
-
     shopName:
-      typeof data.shopName ===
-      "string"
+      typeof data.shopName === "string"
         ? data.shopName.trim()
         : null,
-
     shopPhone:
-      typeof data.shopPhone ===
-      "string"
+      typeof data.shopPhone === "string"
         ? data.shopPhone.trim()
         : null,
-
     items,
-
     subtotal:
-      typeof data.subtotal ===
-        "number" &&
-      Number.isFinite(
-        data.subtotal,
-      )
+      typeof data.subtotal === "number" &&
+      Number.isFinite(data.subtotal)
         ? data.subtotal
         : null,
-
     discount:
-      typeof data.discount ===
-        "number" &&
-      Number.isFinite(
-        data.discount,
-      )
+      typeof data.discount === "number" &&
+      Number.isFinite(data.discount)
         ? data.discount
         : null,
-
     tax:
-      typeof data.tax ===
-        "number" &&
-      Number.isFinite(
-        data.tax,
-      )
+      typeof data.tax === "number" &&
+      Number.isFinite(data.tax)
         ? data.tax
         : null,
-
     total:
-      typeof data.total ===
-        "number" &&
-      Number.isFinite(
-        data.total,
-      )
+      typeof data.total === "number" &&
+      Number.isFinite(data.total)
         ? data.total
         : null,
-
     paymentMethod:
-      typeof data.paymentMethod ===
-      "string"
+      typeof data.paymentMethod === "string"
         ? data.paymentMethod.trim()
         : null,
-
     warrantyPeriod:
-      typeof data.warrantyPeriod ===
-      "string"
+      typeof data.warrantyPeriod === "string"
         ? data.warrantyPeriod.trim()
         : null,
-
     warrantyExpiry:
-      typeof data.warrantyExpiry ===
-      "string"
+      typeof data.warrantyExpiry === "string"
         ? data.warrantyExpiry.trim()
         : null,
-
     rawText:
-      typeof data.rawText ===
-      "string"
+      typeof data.rawText === "string"
         ? data.rawText.trim()
         : null,
   };
 }
 
-function extractJson(
-  text: string,
-): unknown {
-  const cleaned =
-    text
-      .trim()
-      .replace(
-        /^```json\s*/i,
-        "",
-      )
-      .replace(
-        /^```\s*/i,
-        "",
-      )
-      .replace(
-        /\s*```$/i,
-        "",
-      )
-      .trim();
+function extractJson(text: string): unknown {
+  const cleaned = text
+    .trim()
+    .replace(/^\`\`\`json\s*/i, "")
+    .replace(/^\`\`\`\s*/i, "")
+    .replace(/\s*\`\`\`$/i, "")
+    .trim();
 
   try {
-    return JSON.parse(
-      cleaned,
-    );
+    return JSON.parse(cleaned);
   } catch {
-    const firstBrace =
-      cleaned.indexOf("{");
-
-    const lastBrace =
-      cleaned.lastIndexOf("}");
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
 
     if (
       firstBrace === -1 ||
@@ -444,10 +288,7 @@ function extractJson(
 
     try {
       return JSON.parse(
-        cleaned.slice(
-          firstBrace,
-          lastBrace + 1,
-        ),
+        cleaned.slice(firstBrace, lastBrace + 1),
       );
     } catch {
       throw new ApiError(
@@ -463,9 +304,7 @@ export async function extractInvoiceDataFromImage(
   input: OcrInput,
   requestedDocumentType?: string,
 ): Promise<OcrResult> {
-  if (
-    !input.buffer.length
-  ) {
+  if (!input.buffer.length) {
     throw new ApiError(
       400,
       "Uploaded OCR image is empty.",
@@ -473,10 +312,7 @@ export async function extractInvoiceDataFromImage(
     );
   }
 
-  if (
-    input.buffer.length >
-    MAX_OCR_FILE_SIZE
-  ) {
+  if (input.buffer.length > MAX_OCR_FILE_SIZE) {
     throw new ApiError(
       400,
       "OCR image cannot exceed 10 MB.",
@@ -485,15 +321,9 @@ export async function extractInvoiceDataFromImage(
   }
 
   const normalizedMimeType =
-    input.mimeType
-      .toLowerCase()
-      .trim();
+    input.mimeType.toLowerCase().trim();
 
-  if (
-    !ALLOWED_OCR_MIME_TYPES.has(
-      normalizedMimeType,
-    )
-  ) {
+  if (!ALLOWED_OCR_MIME_TYPES.has(normalizedMimeType)) {
     throw new ApiError(
       400,
       "OCR currently supports JPG, PNG, and WebP images.",
@@ -501,19 +331,11 @@ export async function extractInvoiceDataFromImage(
     );
   }
 
-  const client =
-    getOpenAIClient();
+  const { apiKey, model } = getGeminiConfig();
 
-  const imageDataUrl =
-    createDataUrl(
-      input.buffer,
-      normalizedMimeType,
-    );
-
-  const requestedTypeInstruction =
-    requestedDocumentType
-      ? `The user expects this document to be a ${requestedDocumentType}.`
-      : "Determine the document type yourself.";
+  const requestedTypeInstruction = requestedDocumentType
+    ? `The user expects this document to be a ${requestedDocumentType}.`
+    : "Determine the document type yourself.";
 
   const prompt = `
 You are the OCR and document extraction engine for BillNest,
@@ -576,41 +398,75 @@ Return this exact structure:
 }
 `;
 
-  try {
-    const response =
-      await client.responses.create({
-        model:
-          env.OPENAI_OCR_MODEL,
+  const endpoint =
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+      model,
+    )}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-        input: [
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
           {
             role: "user",
-
-            content: [
+            parts: [
               {
-                type:
-                  "input_text",
-
-                text: prompt,
+                inline_data: {
+                  mime_type: normalizedMimeType,
+                  data: createBase64(input.buffer),
+                },
               },
-
               {
-                type:
-                  "input_image",
-
-                image_url:
-                  imageDataUrl,
-
-                detail:
-                  "high",
+                text: prompt,
               },
             ],
           },
         ],
-      });
+        generationConfig: {
+          responseMimeType: "application/json",
+        },
+      }),
+    });
+
+    const payload =
+      (await response.json()) as GeminiResponse;
+
+    if (!response.ok) {
+      const message =
+        payload.error?.message ??
+        "Unknown Gemini API error.";
+
+      console.error(
+        "OCR request failed:",
+        {
+          status: response.status,
+          code:
+            payload.error?.code ??
+            "unknown",
+          geminiStatus:
+            payload.error?.status ??
+            "unknown",
+          message,
+          model,
+        },
+      );
+
+      throw new ApiError(
+        502,
+        `Gemini OCR request failed [${response.status}]: ${message}`,
+        "OCR_PROCESSING_FAILED",
+      );
+    }
 
     const outputText =
-      response.output_text?.trim();
+      payload.candidates?.[0]?.content?.parts
+        ?.map((part) => part.text ?? "")
+        .join("")
+        .trim();
 
     if (!outputText) {
       throw new ApiError(
@@ -620,56 +476,30 @@ Return this exact structure:
       );
     }
 
-    const parsed =
-      extractJson(
-        outputText,
-      );
+    const parsed = extractJson(outputText);
 
-    return normalizeOcrResult(
-      parsed,
-    );
+    return normalizeOcrResult(parsed);
   } catch (error) {
-    if (
-      error instanceof ApiError
-    ) {
+    if (error instanceof ApiError) {
       throw error;
     }
 
-    const openAiError =
-      error as {
-        message?: string;
-        status?: number;
-        code?: string;
-        type?: string;
-      };
-
     const message =
-      openAiError.message ??
-      "Unknown OpenAI API error.";
-
-    const status =
-      openAiError.status ??
-      "unknown";
-
-    const code =
-      openAiError.code ??
-      openAiError.type ??
-      "unknown";
+      error instanceof Error
+        ? error.message
+        : "Unknown Gemini API error.";
 
     console.error(
-      "OCR request failed:",
+      "Gemini OCR request failed:",
       {
-        status,
-        code,
         message,
-        model:
-          env.OPENAI_OCR_MODEL,
+        model,
       },
     );
 
     throw new ApiError(
       502,
-      `OpenAI OCR request failed [${status}/${code}]: ${message}`,
+      `Gemini OCR request failed: ${message}`,
       "OCR_PROCESSING_FAILED",
     );
   }
