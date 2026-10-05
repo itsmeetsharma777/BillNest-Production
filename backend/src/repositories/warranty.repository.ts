@@ -1,6 +1,9 @@
 import { Types } from "mongoose";
 import { WarrantyModel } from "../models/warranty.model";
 
+const CUSTOMER_FIELDS =
+  "name phone email";
+
 export async function findWarrantyByIdForShop(
   warrantyId: string,
   shopId: string,
@@ -8,7 +11,10 @@ export async function findWarrantyByIdForShop(
   return WarrantyModel.findOne({
     _id: warrantyId,
     shopId,
-  });
+  }).populate(
+    "customerId",
+    CUSTOMER_FIELDS,
+  );
 }
 
 export async function findWarrantiesByShopId(
@@ -24,8 +30,11 @@ export async function findWarrantiesByShopId(
       | "no_warranty";
   },
 ) {
-  const skip = options?.skip ?? 0;
-  const limit = options?.limit ?? 20;
+  const skip =
+    options?.skip ?? 0;
+
+  const limit =
+    options?.limit ?? 20;
 
   const filter: {
     shopId: Types.ObjectId;
@@ -36,21 +45,36 @@ export async function findWarrantiesByShopId(
       | "expired"
       | "no_warranty";
   } = {
-    shopId: new Types.ObjectId(shopId),
+    shopId:
+      new Types.ObjectId(
+        shopId,
+      ),
   };
 
-  if (options?.customerId) {
-    filter.customerId = new Types.ObjectId(
-      options.customerId,
-    );
+  if (
+    options?.customerId
+  ) {
+    filter.customerId =
+      new Types.ObjectId(
+        options.customerId,
+      );
   }
 
   if (options?.status) {
-    filter.status = options.status;
+    filter.status =
+      options.status;
   }
 
-  return WarrantyModel.find(filter)
-    .sort({ expiryDate: 1 })
+  return WarrantyModel.find(
+    filter,
+  )
+    .populate(
+      "customerId",
+      CUSTOMER_FIELDS,
+    )
+    .sort({
+      expiryDate: 1,
+    })
     .skip(skip)
     .limit(limit);
 }
@@ -61,15 +85,25 @@ export async function findWarrantiesExpiringSoon(
   endDate: Date,
 ) {
   return WarrantyModel.find({
-    shopId: new Types.ObjectId(shopId),
+    shopId:
+      new Types.ObjectId(
+        shopId,
+      ),
+
     expiryDate: {
       $gt: startDate,
       $lte: endDate,
     },
+
     isActive: true,
-  }).sort({
-    expiryDate: 1,
-  });
+  })
+    .populate(
+      "customerId",
+      CUSTOMER_FIELDS,
+    )
+    .sort({
+      expiryDate: 1,
+    });
 }
 
 /**
@@ -87,13 +121,20 @@ export async function findAllWarrantiesExpiringBetween(
       $gt: startDate,
       $lte: endDate,
     },
+
     isActive: true,
+
     warrantyPeriodMonths: {
       $gt: 0,
     },
-  }).sort({
-    expiryDate: 1,
-  });
+  })
+    .populate(
+      "customerId",
+      CUSTOMER_FIELDS,
+    )
+    .sort({
+      expiryDate: 1,
+    });
 }
 
 /**
@@ -108,13 +149,20 @@ export async function findAllExpiredWarranties(
     expiryDate: {
       $lte: now,
     },
+
     isActive: true,
+
     warrantyPeriodMonths: {
       $gt: 0,
     },
-  }).sort({
-    expiryDate: 1,
-  });
+  })
+    .populate(
+      "customerId",
+      CUSTOMER_FIELDS,
+    )
+    .sort({
+      expiryDate: 1,
+    });
 }
 
 /**
@@ -128,9 +176,14 @@ export async function findAllExpiredWarranties(
 export async function findAllActiveWarranties() {
   return WarrantyModel.find({
     isActive: true,
-  }).sort({
-    expiryDate: 1,
-  });
+  })
+    .populate(
+      "customerId",
+      CUSTOMER_FIELDS,
+    )
+    .sort({
+      expiryDate: 1,
+    });
 }
 
 /**
@@ -151,16 +204,20 @@ export async function updateWarrantyStatusIfChanged(
   return WarrantyModel.findOneAndUpdate(
     {
       _id: warrantyId,
+
       isActive: true,
+
       status: {
         $ne: status,
       },
     },
+
     {
       $set: {
         status,
       },
     },
+
     {
       new: true,
       runValidators: true,
@@ -168,25 +225,29 @@ export async function updateWarrantyStatusIfChanged(
   );
 }
 
-export async function createWarranty(data: {
-  shopId: string;
-  customerId: string;
-  invoiceId?: string;
-  invoiceItemId?: string;
-  productName: string;
-  serialNumber?: string;
-  warrantyPeriodMonths: number;
-  startDate: Date;
-  expiryDate: Date;
-  status?:
-    | "active"
-    | "expiring_soon"
-    | "expired"
-    | "no_warranty";
-  terms?: string;
-  notes?: string;
-}) {
-  return WarrantyModel.create(data);
+export async function createWarranty(
+  data: {
+    shopId: string;
+    customerId: string;
+    invoiceId?: string;
+    invoiceItemId?: string;
+    productName: string;
+    serialNumber?: string;
+    warrantyPeriodMonths: number;
+    startDate: Date;
+    expiryDate: Date;
+    status?:
+      | "active"
+      | "expiring_soon"
+      | "expired"
+      | "no_warranty";
+    terms?: string;
+    notes?: string;
+  },
+) {
+  return WarrantyModel.create(
+    data,
+  );
 }
 
 export async function updateWarrantyByIdForShop(
@@ -213,12 +274,17 @@ export async function updateWarrantyByIdForShop(
       _id: warrantyId,
       shopId,
     },
+
     {
       $set: data,
     },
+
     {
       new: true,
       runValidators: true,
     },
+  ).populate(
+    "customerId",
+    CUSTOMER_FIELDS,
   );
 }
