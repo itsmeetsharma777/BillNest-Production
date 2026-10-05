@@ -1832,6 +1832,11 @@ export default function CreateInvoicePage() {
                     paymentMethod,
                   ),
 
+                source:
+                  ocrDraft
+                    ? "ocr"
+                    : "manual",
+
                 status:
                   paymentMethod === "ONLINE" &&
                   !isImportedOcrPaid
