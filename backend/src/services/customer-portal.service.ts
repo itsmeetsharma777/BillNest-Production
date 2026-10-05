@@ -820,6 +820,23 @@ export async function getCustomerInvoice(
 
     items,
 
+    customer: {
+      id:
+        customer._id,
+
+      name:
+        customer.name,
+
+      phone:
+        customer.phone,
+
+      email:
+        customer.email,
+
+      address:
+        customer.address,
+    },
+
     shop: shop
       ? {
           id:
