@@ -3,6 +3,7 @@ import { Navigate, Route } from "react-router-dom";
 import App from "@/App";
 import ExplorePage from "@/pages/ExplorePage";
 import GetStartedPage from "@/pages/GetStartedPage";
+import PublicWarrantyCardPage from "@/pages/PublicWarrantyCardPage";
 
 import ForgotPasswordPage from "@/pages/shopkeeper/ForgotPasswordPage";
 import ResetPasswordPage from "@/pages/shopkeeper/ResetPasswordPage";
@@ -86,6 +87,15 @@ export function PublicRoutes() {
       <Route
         path="/explore"
         element={<ExplorePage />}
+      />
+
+      {/* =====================================================
+          PUBLIC WARRANTY CARD
+          ===================================================== */}
+
+      <Route
+        path="/warranty-card/:warrantyId/:token"
+        element={<PublicWarrantyCardPage />}
       />
 
       {/* =====================================================
