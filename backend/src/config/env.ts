@@ -62,21 +62,23 @@ const envSchema = z.object({
 
   /*
    * ============================================================
-   * OPENAI / OCR
+   * GEMINI / OCR
    * ============================================================
    *
-   * OPENAI_API_KEY is used only by the backend.
+   * GEMINI_API_KEY is used only by the backend.
    *
    * NEVER expose this variable to the frontend.
+   *
+   * The default model is multimodal and has a free tier.
    */
 
-  OPENAI_API_KEY:
+  GEMINI_API_KEY:
     z.string().optional(),
 
-  OPENAI_OCR_MODEL:
+  GEMINI_OCR_MODEL:
     z
       .string()
-      .default("gpt-6-luna"),
+      .default("gemini-2.5-flash-lite"),
 });
 
 const parsedEnv =
