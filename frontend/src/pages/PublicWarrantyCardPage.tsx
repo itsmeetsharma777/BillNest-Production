@@ -270,7 +270,7 @@ function PublicWarrantyCardContent() {
                 <section style={styles.section}>
                   <h2 style={styles.sectionTitle}>PURCHASE STORE</h2>
                   <div style={styles.value}>{shop?.name || "Store"}</div>
-                  {shop?.address && (
+                  {Boolean(shop?.address) && (
                     <div style={styles.muted}>
                       {formatAddress(shop.address)}
                     </div>
