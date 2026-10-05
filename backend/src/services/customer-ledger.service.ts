@@ -618,6 +618,75 @@ export async function getCustomerLedgerForOwner(
       ),
     );
 
+  const invoiceItems =
+    invoices.length > 0
+      ? await InvoiceItemModel.find({
+          invoiceId: {
+            $in: invoices.map(
+              (invoice) => invoice._id,
+            ),
+          },
+        })
+          .select({
+            invoiceId: 1,
+            productName: 1,
+          })
+          .lean()
+      : [];
+
+  const productNamesByInvoice =
+    new Map<string, string[]>();
+
+  for (const item of invoiceItems) {
+    const invoiceId =
+      item.invoiceId.toString();
+
+    const names =
+      productNamesByInvoice.get(
+        invoiceId,
+      ) ?? [];
+
+    if (
+      item.productName &&
+      !names.includes(
+        item.productName,
+      )
+    ) {
+      names.push(
+        item.productName,
+      );
+    }
+
+    productNamesByInvoice.set(
+      invoiceId,
+      names,
+    );
+  }
+
+  const getProductName = (
+    invoiceId: string,
+  ): string => {
+    const names =
+      productNamesByInvoice.get(
+        invoiceId,
+      ) ?? [];
+
+    if (names.length === 0) {
+      return "Invoice";
+    }
+
+    if (names.length === 1) {
+      return names[0];
+    }
+
+    return (
+      names[0] +
+      " + " +
+      (names.length - 1) +
+      " more"
+    );
+  };
+
   const ledgerPayments:
     LedgerPayment[] =
     payments.map(
@@ -637,6 +706,11 @@ export async function getCustomerLedgerForOwner(
           invoiceNumber:
             invoice?.invoiceNumber ??
             "Invoice",
+
+          productName:
+            getProductName(
+              payment.invoiceId.toString(),
+            ),
 
           amount:
             roundMoney(
@@ -702,6 +776,11 @@ export async function getCustomerLedgerForOwner(
 
       invoiceNumber:
         invoice.invoiceNumber,
+
+      productName:
+        getProductName(
+          invoice._id.toString(),
+        ),
 
       amount:
         historicalAmount,
