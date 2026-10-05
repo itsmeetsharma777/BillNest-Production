@@ -1,27 +1,11 @@
-import {
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  Mail,
-  Phone,
-  QrCode,
-  ShieldCheck,
-  Store,
-  Tag,
-  UserRound,
-  XCircle,
-} from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-
-import { Card, CardContent } from "@/components/ui/card";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
   "https://billnest-backend-oq1j.onrender.com/api";
 
-interface PublicWarrantyData {
+type PublicWarrantyData = {
   warranty: {
     id: string;
     productName: string;
@@ -41,418 +25,500 @@ interface PublicWarrantyData {
     phone?: string;
     email?: string;
     address?: string;
-    logoUrl?: string;
   } | null;
-}
+};
 
 function formatDate(value?: string) {
   if (!value) return "—";
-
   const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-
+  if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("en-IN", {
-    day: "numeric",
-    month: "long",
+    day: "2-digit",
+    month: "short",
     year: "numeric",
   }).format(date);
 }
 
-function getStatusLabel(status: string) {
-  switch (status) {
-    case "active":
-      return "Active";
-    case "expiring_soon":
-      return "Expiring Soon";
-    case "expired":
-      return "Expired";
-    default:
-      return "Warranty";
-  }
-}
-
-function getStatusClass(status: string) {
-  switch (status) {
-    case "active":
-      return "border-emerald-500/20 bg-emerald-500/10 text-emerald-400";
-    case "expiring_soon":
-      return "border-amber-500/20 bg-amber-500/10 text-amber-400";
-    case "expired":
-      return "border-red-500/20 bg-red-500/10 text-red-400";
-    default:
-      return "border-primary/20 bg-primary/10 text-primary";
-  }
-}
-
-function StatusIcon({ status }: { status: string }) {
-  if (status === "active") {
-    return <CheckCircle2 className="size-4" />;
-  }
-
-  if (status === "expiring_soon") {
-    return <Clock3 className="size-4" />;
-  }
-
-  return <XCircle className="size-4" />;
+function statusText(status: string) {
+  if (status === "active") return "ACTIVE WARRANTY";
+  if (status === "expiring_soon") return "EXPIRING SOON";
+  if (status === "expired") return "EXPIRED";
+  return status.replaceAll("_", " ").toUpperCase();
 }
 
 export default function PublicWarrantyCardPage() {
-  const {
-    warrantyId,
-    token,
-  } = useParams<{
+  const { warrantyId, token } = useParams<{
     warrantyId: string;
     token: string;
   }>();
 
-  const [data, setData] =
-    useState<PublicWarrantyData | null>(null);
-  const [isLoading, setIsLoading] =
-    useState(true);
-  const [error, setError] =
-    useState("");
+  const [data, setData] = useState<PublicWarrantyData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    let mounted = true;
+    let active = true;
 
-    async function loadCard() {
+    async function load() {
       if (!warrantyId || !token) {
-        setError(
-          "This warranty verification link is invalid.",
-        );
-        setIsLoading(false);
+        setError("Invalid warranty verification link.");
+        setLoading(false);
         return;
       }
 
       try {
-        const response = await fetch(
-          `${API_URL}/public/warranties/${warrantyId}/${token}`,
-        );
+        const url = `${API_URL}/public/warranties/${encodeURIComponent(
+          warrantyId,
+        )}/${encodeURIComponent(token)}`;
 
-        const result =
-          await response.json();
+        const response = await fetch(url, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+        });
+
+        const text = await response.text();
+        let result: { data?: PublicWarrantyData; message?: string } = {};
+
+        try {
+          result = text ? JSON.parse(text) : {};
+        } catch {
+          throw new Error(
+            `Server returned an invalid response (HTTP ${response.status}).`,
+          );
+        }
 
         if (!response.ok) {
           throw new Error(
-            result?.message ??
-              "Warranty card not found.",
+            result.message || `Warranty verification failed (HTTP ${response.status}).`,
           );
         }
 
-        if (mounted) {
-          setData(
-            result?.data ?? null,
-          );
+        if (!result.data?.warranty) {
+          throw new Error("Warranty data was not returned by the server.");
         }
+
+        if (active) setData(result.data);
       } catch (err) {
-        if (mounted) {
+        if (active) {
           setError(
             err instanceof Error
               ? err.message
-              : "Warranty card not found.",
+              : "Unable to load the warranty card.",
           );
         }
       } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
+        if (active) setLoading(false);
       }
     }
 
-    void loadCard();
+    void load();
 
     return () => {
-      mounted = false;
+      active = false;
     };
   }, [warrantyId, token]);
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#030712] px-6 text-white">
-        <div className="text-center">
-          <div className="mx-auto size-9 animate-spin rounded-full border-2 border-white/10 border-t-blue-500" />
-          <p className="mt-4 text-sm text-white/60">
-            Verifying warranty card...
-          </p>
+      <main style={pageStyle}>
+        <div style={messageStyle}>
+          <div style={spinnerStyle} />
+          <h1 style={titleStyle}>Verifying Warranty</h1>
+          <p style={mutedStyle}>Please wait while BillNest verifies this card.</p>
         </div>
-      </div>
+      </main>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#030712] px-6">
-        <Card className="w-full max-w-md border-white/10 bg-[#080d18] text-white">
-          <CardContent className="p-8 text-center">
-            <ShieldCheck className="mx-auto size-12 text-blue-400" />
-            <h1 className="mt-5 text-2xl font-bold">
-              Warranty card unavailable
-            </h1>
-            <p className="mt-2 text-sm text-white/55">
-              {error ||
-                "This verification link is invalid or the warranty is no longer available."}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <main style={pageStyle}>
+        <div style={errorCardStyle}>
+          <div style={badgeStyle}>BILLNEST</div>
+          <h1 style={titleStyle}>Warranty Card Unavailable</h1>
+          <p style={mutedStyle}>{error || "The warranty could not be verified."}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            style={buttonStyle}
+          >
+            Try Again
+          </button>
+        </div>
+      </main>
     );
   }
 
-  const {
-    warranty,
-    customer,
-    shop,
-  } = data;
-
-  const publicUrl =
-    window.location.href;
+  const { warranty, customer, shop } = data;
+  const publicUrl = window.location.href;
+  const qrUrl =
+    "https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=12&data=" +
+    encodeURIComponent(publicUrl);
 
   return (
-    <main className="min-h-screen bg-[#030712] px-4 py-8 text-white sm:px-6 lg:px-10">
-      <div className="mx-auto w-full max-w-6xl">
-        <div className="mb-6 flex items-center justify-between">
+    <main style={pageStyle}>
+      <div style={containerStyle}>
+        <div style={brandRowStyle}>
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.25em] text-blue-400">
-              BillNest
-            </p>
-            <p className="mt-1 text-sm text-white/45">
-              Digital Warranty Verification
-            </p>
+            <div style={brandStyle}>BILLNEST</div>
+            <div style={mutedSmallStyle}>DIGITAL WARRANTY VERIFICATION</div>
           </div>
-
-          <div
-            className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold ${getStatusClass(
-              warranty.status,
-            )}`}
-          >
-            <StatusIcon
-              status={warranty.status}
-            />
-            {getStatusLabel(
-              warranty.status,
-            )}
-          </div>
+          <div style={statusStyle}>{statusText(warranty.status)}</div>
         </div>
 
-        <Card className="overflow-hidden border-white/10 bg-[#070c16] shadow-2xl shadow-blue-950/20">
-          <div className="border-b border-white/10 bg-gradient-to-r from-blue-500/[0.08] via-transparent to-blue-500/[0.04] p-6 sm:p-8 lg:p-10">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-sm text-white/45">
-                  Verified Warranty Card
-                </p>
-                <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
-                  {warranty.productName}
-                </h1>
-                <p className="mt-2 text-sm text-white/45">
-                  Genuine BillNest warranty record
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 text-sm text-white/50">
-                <ShieldCheck className="size-5 text-blue-400" />
-                Digitally verified
-              </div>
+        <section style={cardStyle}>
+          <div style={headerStyle}>
+            <div>
+              <div style={eyebrowStyle}>VERIFIED WARRANTY CARD</div>
+              <h1 style={productTitleStyle}>{warranty.productName}</h1>
+              <div style={mutedStyle}>Genuine BillNest warranty record</div>
             </div>
+            <div style={verifiedStyle}>✓ Digitally Verified</div>
           </div>
 
-          <CardContent className="p-6 sm:p-8 lg:p-10">
-            <div className="grid gap-6 lg:grid-cols-[1fr_260px]">
-              <div className="space-y-6">
-                <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
-                  <div className="mb-5 flex items-center gap-2">
-                    <Tag className="size-5 text-blue-400" />
-                    <h2 className="font-semibold">
-                      Product & Warranty
-                    </h2>
-                  </div>
-
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <div>
-                      <p className="text-xs uppercase tracking-wider text-white/35">
-                        Product
-                      </p>
-                      <p className="mt-1 font-semibold">
-                        {warranty.productName}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs uppercase tracking-wider text-white/35">
-                        Serial number
-                      </p>
-                      <p className="mt-1 font-semibold break-all">
-                        {warranty.serialNumber ||
-                          "Not provided"}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs uppercase tracking-wider text-white/35">
-                        Start date
-                      </p>
-                      <p className="mt-1 flex items-center gap-2 font-semibold">
-                        <CalendarDays className="size-4 text-blue-400" />
-                        {formatDate(
-                          warranty.startDate,
-                        )}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs uppercase tracking-wider text-white/35">
-                        Expiry date
-                      </p>
-                      <p className="mt-1 flex items-center gap-2 font-semibold">
-                        <CalendarDays className="size-4 text-blue-400" />
-                        {formatDate(
-                          warranty.expiryDate,
-                        )}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs uppercase tracking-wider text-white/35">
-                        Warranty period
-                      </p>
-                      <p className="mt-1 font-semibold">
-                        {warranty.warrantyPeriodMonths} month
-                        {warranty.warrantyPeriodMonths ===
-                        1
-                          ? ""
-                          : "s"}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs uppercase tracking-wider text-white/35">
-                        Status
-                      </p>
-                      <p className="mt-1 font-semibold text-emerald-400">
-                        {getStatusLabel(
-                          warranty.status,
-                        )}
-                      </p>
-                    </div>
+          <div style={bodyStyle}>
+            <div style={mainGridStyle}>
+              <div>
+                <section style={sectionStyle}>
+                  <div style={sectionTitleStyle}>PRODUCT & WARRANTY</div>
+                  <div style={detailsGridStyle}>
+                    <Detail label="Product" value={warranty.productName} />
+                    <Detail
+                      label="Serial Number"
+                      value={warranty.serialNumber || "Not provided"}
+                    />
+                    <Detail label="Start Date" value={formatDate(warranty.startDate)} />
+                    <Detail label="Expiry Date" value={formatDate(warranty.expiryDate)} />
+                    <Detail
+                      label="Warranty Period"
+                      value={`${warranty.warrantyPeriodMonths} month${warranty.warrantyPeriodMonths === 1 ? "" : "s"}`}
+                    />
+                    <Detail label="Status" value={statusText(warranty.status)} />
                   </div>
                 </section>
 
-                <div className="grid gap-6 sm:grid-cols-2">
-                  <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-                    <div className="flex items-center gap-2">
-                      <UserRound className="size-5 text-blue-400" />
-                      <h2 className="font-semibold">
-                        Customer
-                      </h2>
-                    </div>
-                    <p className="mt-4 font-semibold">
-                      {customer?.name ||
-                        "Customer"}
-                    </p>
-                    <p className="mt-1 text-sm text-white/45">
-                      Warranty holder
-                    </p>
+                <div style={twoColumnStyle}>
+                  <section style={sectionStyle}>
+                    <div style={sectionTitleStyle}>CUSTOMER</div>
+                    <div style={valueStyle}>{customer?.name || "Customer"}</div>
+                    <div style={mutedSmallStyle}>Warranty holder</div>
                   </section>
 
-                  <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-                    <div className="flex items-center gap-2">
-                      <Store className="size-5 text-blue-400" />
-                      <h2 className="font-semibold">
-                        Purchase store
-                      </h2>
-                    </div>
-                    <p className="mt-4 font-semibold">
-                      {shop?.name ||
-                        "Store"}
-                    </p>
+                  <section style={sectionStyle}>
+                    <div style={sectionTitleStyle}>PURCHASE STORE</div>
+                    <div style={valueStyle}>{shop?.name || "Store"}</div>
                     {shop?.address && (
-                      <p className="mt-1 text-sm leading-6 text-white/45">
-                        {shop.address}
-                      </p>
+                      <div style={mutedSmallStyle}>{shop.address}</div>
                     )}
                   </section>
                 </div>
 
-                {(shop?.phone ||
-                  shop?.email) && (
-                  <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-                    <p className="text-sm font-semibold">
-                      Store support
-                    </p>
-
-                    <div className="mt-4 flex flex-wrap gap-4 text-sm text-white/55">
-                      {shop.phone && (
-                        <span className="flex items-center gap-2">
-                          <Phone className="size-4 text-blue-400" />
-                          {shop.phone}
-                        </span>
-                      )}
-
-                      {shop.email && (
-                        <span className="flex items-center gap-2 break-all">
-                          <Mail className="size-4 text-blue-400" />
-                          {shop.email}
-                        </span>
-                      )}
+                {(shop?.phone || shop?.email) && (
+                  <section style={sectionStyle}>
+                    <div style={sectionTitleStyle}>STORE SUPPORT</div>
+                    <div style={supportStyle}>
+                      {shop.phone && <span>☎ {shop.phone}</span>}
+                      {shop.email && <span>✉ {shop.email}</span>}
                     </div>
                   </section>
                 )}
 
                 {warranty.terms && (
-                  <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-                    <h2 className="font-semibold">
-                      Warranty terms
-                    </h2>
-                    <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-white/55">
-                      {warranty.terms}
-                    </p>
+                  <section style={sectionStyle}>
+                    <div style={sectionTitleStyle}>WARRANTY TERMS</div>
+                    <div style={termsStyle}>{warranty.terms}</div>
                   </section>
                 )}
               </div>
 
-              <aside className="lg:sticky lg:top-8 lg:self-start">
-                <div className="rounded-3xl border border-blue-400/20 bg-gradient-to-b from-blue-500/[0.10] to-white/[0.02] p-5 text-center">
-                  <div className="mx-auto flex size-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400">
-                    <QrCode className="size-5" />
-                  </div>
-
-                  <h2 className="mt-4 font-semibold">
-                    Verify this warranty
-                  </h2>
-
-                  <p className="mt-1 text-xs leading-5 text-white/45">
-                    Scan this QR code from any device to
-                    open this verified warranty card.
-                  </p>
-
-                  <div className="mx-auto mt-5 flex aspect-square max-w-[210px] items-center justify-center rounded-2xl bg-white p-4">
-                    <QRCodeSVG
-                      value={publicUrl}
-                      size={170}
-                      level="H"
-                      includeMargin
-                    />
-                  </div>
-
-                  <p className="mt-4 text-[11px] leading-4 text-white/35">
-                    Computer generated card
-                    <br />
-                    Signature not required
-                  </p>
+              <aside style={qrPanelStyle}>
+                <div style={qrHeadingStyle}>VERIFY THIS WARRANTY</div>
+                <div style={mutedSmallStyle}>
+                  Scan this QR code from any device to open this verified warranty card.
+                </div>
+                <div style={qrBoxStyle}>
+                  <img
+                    src={qrUrl}
+                    alt="Warranty verification QR code"
+                    width={210}
+                    height={210}
+                    style={{ display: "block", width: "210px", height: "210px" }}
+                  />
+                </div>
+                <div style={mutedSmallStyle}>
+                  Computer generated card
+                  <br />
+                  Signature not required
                 </div>
               </aside>
             </div>
 
-            <div className="mt-8 border-t border-white/10 pt-6 text-center text-xs text-white/30">
-              This warranty card is digitally verified by BillNest.
-              Keep your original invoice for service requests.
+            <div style={footerStyle}>
+              This warranty card is digitally verified by BillNest. Keep your original
+              invoice for service requests.
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </div>
     </main>
   );
 }
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div style={labelStyle}>{label}</div>
+      <div style={valueStyle}>{value}</div>
+    </div>
+  );
+}
+
+const pageStyle: React.CSSProperties = {
+  minHeight: "100vh",
+  background: "#030712",
+  color: "#fff",
+  padding: "32px 16px",
+  fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+};
+
+const containerStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 1180,
+  margin: "0 auto",
+};
+
+const brandRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 16,
+  marginBottom: 20,
+};
+
+const brandStyle: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 800,
+  letterSpacing: "0.28em",
+  color: "#60a5fa",
+};
+
+const mutedSmallStyle: React.CSSProperties = {
+  fontSize: 12,
+  lineHeight: 1.6,
+  color: "rgba(255,255,255,.45)",
+};
+
+const mutedStyle: React.CSSProperties = {
+  fontSize: 14,
+  lineHeight: 1.6,
+  color: "rgba(255,255,255,.55)",
+};
+
+const statusStyle: React.CSSProperties = {
+  border: "1px solid rgba(52,211,153,.25)",
+  background: "rgba(52,211,153,.08)",
+  color: "#6ee7b7",
+  borderRadius: 999,
+  padding: "9px 14px",
+  fontSize: 11,
+  fontWeight: 800,
+  letterSpacing: ".08em",
+};
+
+const cardStyle: React.CSSProperties = {
+  overflow: "hidden",
+  border: "1px solid rgba(255,255,255,.10)",
+  borderRadius: 24,
+  background: "#070c16",
+  boxShadow: "0 30px 80px rgba(0,0,0,.35)",
+};
+
+const headerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-end",
+  gap: 24,
+  padding: "38px 40px",
+  borderBottom: "1px solid rgba(255,255,255,.08)",
+  background: "linear-gradient(110deg, rgba(37,99,235,.13), transparent 60%)",
+};
+
+const eyebrowStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  letterSpacing: ".16em",
+  color: "rgba(255,255,255,.45)",
+};
+
+const productTitleStyle: React.CSSProperties = {
+  margin: "8px 0",
+  fontSize: "clamp(28px, 5vw, 46px)",
+  lineHeight: 1.05,
+  fontWeight: 800,
+  letterSpacing: "-.03em",
+};
+
+const verifiedStyle: React.CSSProperties = {
+  color: "#60a5fa",
+  fontSize: 13,
+  fontWeight: 700,
+  whiteSpace: "nowrap",
+};
+
+const bodyStyle: React.CSSProperties = {
+  padding: "32px 40px 28px",
+};
+
+const mainGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) 280px",
+  gap: 24,
+};
+
+const sectionStyle: React.CSSProperties = {
+  border: "1px solid rgba(255,255,255,.08)",
+  borderRadius: 18,
+  background: "rgba(255,255,255,.018)",
+  padding: 22,
+  marginBottom: 20,
+};
+
+const sectionTitleStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 800,
+  letterSpacing: ".12em",
+  color: "#60a5fa",
+  marginBottom: 18,
+};
+
+const detailsGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "22px 28px",
+};
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 10,
+  textTransform: "uppercase",
+  letterSpacing: ".12em",
+  color: "rgba(255,255,255,.32)",
+  marginBottom: 5,
+};
+
+const valueStyle: React.CSSProperties = {
+  fontSize: 15,
+  fontWeight: 650,
+  lineHeight: 1.5,
+  wordBreak: "break-word",
+};
+
+const twoColumnStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: 20,
+};
+
+const supportStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 16,
+  color: "rgba(255,255,255,.6)",
+  fontSize: 13,
+};
+
+const termsStyle: React.CSSProperties = {
+  whiteSpace: "pre-wrap",
+  color: "rgba(255,255,255,.55)",
+  fontSize: 13,
+  lineHeight: 1.8,
+};
+
+const qrPanelStyle: React.CSSProperties = {
+  alignSelf: "start",
+  border: "1px solid rgba(96,165,250,.20)",
+  borderRadius: 22,
+  background: "linear-gradient(180deg, rgba(37,99,235,.10), rgba(255,255,255,.015))",
+  padding: 22,
+  textAlign: "center",
+};
+
+const qrHeadingStyle: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 800,
+  marginBottom: 8,
+};
+
+const qrBoxStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  margin: "18px auto",
+  width: 242,
+  height: 242,
+  maxWidth: "100%",
+  borderRadius: 18,
+  background: "#fff",
+  padding: 16,
+};
+
+const footerStyle: React.CSSProperties = {
+  borderTop: "1px solid rgba(255,255,255,.08)",
+  paddingTop: 20,
+  textAlign: "center",
+  color: "rgba(255,255,255,.30)",
+  fontSize: 11,
+  lineHeight: 1.6,
+};
+
+const messageStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 460,
+  margin: "18vh auto 0",
+  textAlign: "center",
+};
+
+const errorCardStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 520,
+  margin: "14vh auto 0",
+  border: "1px solid rgba(255,255,255,.10)",
+  borderRadius: 24,
+  background: "#070c16",
+  padding: 36,
+  textAlign: "center",
+};
+
+const titleStyle: React.CSSProperties = {
+  margin: "16px 0 8px",
+  fontSize: 26,
+  fontWeight: 800,
+};
+
+const badgeStyle: React.CSSProperties = {
+  color: "#60a5fa",
+  fontSize: 12,
+  fontWeight: 800,
+  letterSpacing: ".25em",
+};
+
+const spinnerStyle: React.CSSProperties = {
+  width: 38,
+  height: 38,
+  margin: "0 auto",
+  border: "3px solid rgba(255,255,255,.12)",
+  borderTopColor: "#60a5fa",
+  borderRadius: "50%",
+  animation: "spin 1s linear infinite",
+};
+
+const buttonStyle: React.CSSProperties = {
+  marginTop: 22,
+  border: 0,
+  borderRadius: 10,
+  padding: "11px 18px",
+  background: "#2563eb",
+  color: "#fff",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
