@@ -1176,6 +1176,21 @@ export default function CreateInvoicePage() {
     );
 
   /*
+   * A normal paid invoice is paid in full by default.
+   * Only a partially-paid invoice needs a manually entered
+   * amount from the user.
+   */
+  useEffect(() => {
+    if (status === "PAID") {
+      setAmountPaid(
+        total > 0
+          ? total.toFixed(2)
+          : "0",
+      );
+    }
+  }, [status, total]);
+
+  /*
    * ============================================================
    * ITEM HANDLERS
    * ============================================================
@@ -2824,6 +2839,11 @@ export default function CreateInvoicePage() {
 
                     if (value === "ONLINE") {
                       setStatus("PAID");
+                      setAmountPaid(
+                        total > 0
+                          ? total.toFixed(2)
+                          : "0",
+                      );
                     }
 
                     if (value !== "CHEQUE") {
@@ -2874,46 +2894,57 @@ export default function CreateInvoicePage() {
               </div>
 
               {/* Amount paid */}
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Amount paid
-                </span>
-
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                    ₹
+              {status === "PARTIALLY_PAID" ? (
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                    Amount paid by customer
                   </span>
 
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={
-                      amountPaid
-                    }
-                    onFocus={(event) =>
-                      event.currentTarget.select()
-                    }
-                    onChange={(event) => {
-                      const value =
-                        event.target
-                          .value;
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                      ₹
+                    </span>
 
-                      if (
-                        value === "" ||
-                        /^\d*\.?\d{0,2}$/.test(
-                          value,
-                        )
-                      ) {
-                        setAmountPaid(
-                          value,
-                        );
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={amountPaid}
+                      onFocus={(event) =>
+                        event.currentTarget.select()
                       }
-                    }}
-                    placeholder="0.00"
-                    className="h-10 w-full rounded-lg border bg-background pl-7 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                  />
+                      onChange={(event) => {
+                        const value =
+                          event.target.value;
+
+                        if (
+                          value === "" ||
+                          /^\d*\.?\d{0,2}$/.test(
+                            value,
+                          )
+                        ) {
+                          setAmountPaid(value);
+                        }
+                      }}
+                      placeholder="Enter amount paid"
+                      className="h-10 w-full rounded-lg border bg-background pl-7 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                </label>
+              ) : (
+                <div className="rounded-lg border bg-muted/30 px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Amount paid
+                    </span>
+                    <span className="text-sm font-semibold">
+                      {formatCurrency(total)}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Full invoice amount will be recorded as paid.
+                  </p>
                 </div>
-              </label>
+              )}
 
               {/* Status */}
               <div>
@@ -2927,12 +2958,23 @@ export default function CreateInvoicePage() {
                   }
                   onChange={(
                     event,
-                  ) =>
-                    setStatus(
+                  ) => {
+                    const nextStatus =
                       event.target
-                        .value as InvoiceStatus,
-                    )
-                  }
+                        .value as InvoiceStatus;
+
+                    setStatus(nextStatus);
+
+                    if (nextStatus === "PARTIALLY_PAID") {
+                      setAmountPaid("");
+                    } else if (nextStatus === "PAID") {
+                      setAmountPaid(
+                        total > 0
+                          ? total.toFixed(2)
+                          : "0",
+                      );
+                    }
+                  }}
                   disabled={
                     paymentMethod === "ONLINE"
                   }
