@@ -2002,7 +2002,7 @@ export default function CreateInvoicePage() {
    */
 
   return (
-    <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
+    <div className="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
@@ -2056,10 +2056,10 @@ export default function CreateInvoicePage() {
 
       <form
         onSubmit={handleSubmit}
-        className="grid gap-6 lg:grid-cols-[1fr_360px]"
+        className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]"
       >
         {/* Main */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {/* Customer */}
           <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
             <div className="mb-5 flex items-center gap-3">
@@ -2472,7 +2472,7 @@ export default function CreateInvoicePage() {
                     key={
                       item.id
                     }
-                    className="rounded-xl border bg-background p-4"
+                    className="min-w-0 rounded-xl border bg-background p-4"
                   >
                     <div className="mb-3 flex items-center justify-between">
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -2500,7 +2500,7 @@ export default function CreateInvoicePage() {
                       </button>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-[1fr_110px_140px]">
+                    <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_110px_140px]">
                       <ProductSelector
                         value={
                           item.description
@@ -2670,7 +2670,7 @@ export default function CreateInvoicePage() {
         </div>
 
         {/* Summary */}
-        <aside className="lg:sticky lg:top-6 lg:h-fit">
+        <aside className="min-w-0 lg:sticky lg:top-6 lg:h-fit">
           <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <div className="border-b p-5">
               <div className="flex items-center gap-3">
