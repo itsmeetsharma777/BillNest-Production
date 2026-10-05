@@ -635,14 +635,41 @@ Return this exact structure:
       throw error;
     }
 
+    const openAiError =
+      error as {
+        message?: string;
+        status?: number;
+        code?: string;
+        type?: string;
+      };
+
+    const message =
+      openAiError.message ??
+      "Unknown OpenAI API error.";
+
+    const status =
+      openAiError.status ??
+      "unknown";
+
+    const code =
+      openAiError.code ??
+      openAiError.type ??
+      "unknown";
+
     console.error(
       "OCR request failed:",
-      error,
+      {
+        status,
+        code,
+        message,
+        model:
+          env.OPENAI_OCR_MODEL,
+      },
     );
 
     throw new ApiError(
       502,
-      "Unable to process the document with the OCR service.",
+      `OpenAI OCR request failed [${status}/${code}]: ${message}`,
       "OCR_PROCESSING_FAILED",
     );
   }
