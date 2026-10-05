@@ -399,8 +399,42 @@ export default function OcrPage() {
   function continueToCreateInvoice() {
     if (!extracted) return;
 
+    const excludedChargePatterns = [
+      "marketplace fee",
+      "platform fee",
+      "shipping fee",
+      "delivery fee",
+      "handling fee",
+      "convenience fee",
+      "payment processing fee",
+      "service charge",
+      "gst",
+      "tax",
+      "subtotal",
+      "total amount",
+      "discount",
+    ];
+
+    const extractedCharges = (extracted.items ?? []).filter((item) => {
+      const name = item.productName?.trim().toLowerCase() ?? "";
+      return (
+        Boolean(name) &&
+        excludedChargePatterns.some((pattern) =>
+          name.includes(pattern),
+        )
+      );
+    });
+
     const items = (extracted.items ?? [])
-      .filter((item) => Boolean(item.productName?.trim()))
+      .filter((item) => {
+        const name = item.productName?.trim().toLowerCase() ?? "";
+        return (
+          Boolean(name) &&
+          !excludedChargePatterns.some((pattern) =>
+            name.includes(pattern),
+          )
+        );
+      })
       .map((item) => ({
         productName: item.productName?.trim() ?? "",
         quantity: Number(item.quantity) > 0 ? Number(item.quantity) : 1,
@@ -425,9 +459,21 @@ export default function OcrPage() {
       discount: Number.isFinite(Number(extracted.discount)) ? Number(extracted.discount) : 0,
       tax: Number.isFinite(Number(extracted.tax)) ? Number(extracted.tax) : 0,
       paymentMethod: extracted.paymentMethod?.trim() || undefined,
-      notes: extracted.invoiceNumber?.trim()
-        ? "Imported from OCR. Source invoice number: " + extracted.invoiceNumber.trim()
-        : "Imported from OCR.",
+      notes: [
+        extracted.invoiceNumber?.trim()
+          ? "Imported from OCR. Source invoice number: " + extracted.invoiceNumber.trim()
+          : "Imported from OCR.",
+        extractedCharges.length > 0
+          ? "OCR charges detected (not products): " +
+            extractedCharges
+              .map((charge) =>
+                `${charge.productName.trim()} ₹${Number(charge.unitPrice || 0).toFixed(2)}`,
+              )
+              .join(", ")
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" | "),
     };
 
     sessionStorage.setItem("billnest_ocr_invoice_draft", JSON.stringify(draft));
