@@ -53,6 +53,7 @@ interface Shop {
 
 interface WarrantyResponse {
   warranty: Warranty;
+  publicVerificationUrl?: string;
   invoice?: Invoice | null;
   shop?: Shop | null;
 }
@@ -248,11 +249,11 @@ export default function CustomerWarrantyDetailsPage() {
     );
   }
 
-  const { warranty, invoice, shop } = data;
+  const { warranty, invoice, shop, publicVerificationUrl } = data;
 
   return (
     <div className="mx-auto w-full max-w-5xl p-4 sm:p-6 lg:p-8">
-      <div className="mb-5">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button
           variant="ghost"
           onClick={() =>
@@ -263,6 +264,22 @@ export default function CustomerWarrantyDetailsPage() {
           <ArrowLeft className="mr-2 size-4" />
           Back to warranties
         </Button>
+
+        {publicVerificationUrl && (
+          <Button
+            onClick={() =>
+              window.open(
+                publicVerificationUrl,
+                "_blank",
+                "noopener,noreferrer",
+              )
+            }
+            className="shadow-sm"
+          >
+            <ShieldCheck className="mr-2 size-4" />
+            View Warranty Card
+          </Button>
+        )}
       </div>
 
       <Card className="overflow-hidden">
