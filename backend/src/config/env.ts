@@ -78,7 +78,7 @@ const envSchema = z.object({
   GEMINI_OCR_MODEL:
     z
       .string()
-      .default("gemini-2.5-flash-lite"),
+      .default("gemini-3.5-flash-lite"),
 });
 
 const parsedEnv =
