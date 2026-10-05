@@ -266,16 +266,15 @@ export default function CustomerWarrantyDetailsPage() {
         </Button>
 
         {publicVerificationUrl && (
-          <Button asChild className="shadow-sm">
-            <a
-              href={publicVerificationUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <ShieldCheck className="mr-2 size-4" />
-              View Warranty Card
-            </a>
-          </Button>
+          <a
+            href={publicVerificationUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+          >
+            <ShieldCheck className="mr-2 size-4" />
+            View Warranty Card
+          </a>
         )}
       </div>
 
