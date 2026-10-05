@@ -36,6 +36,7 @@ interface Payment {
   id: string;
   invoiceId: string;
   invoiceNumber: string;
+  productName: string;
   amount: number;
   paymentMethod: string;
   paidAt: string;
@@ -448,9 +449,16 @@ export default function CustomerPaymentsPage() {
                       <div className="min-w-0">
                         <p className="truncate font-semibold">
                           {
+                            payment.productName ??
                             payment.invoiceNumber
                           }
                         </p>
+
+                        {payment.productName && (
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {payment.invoiceNumber}
+                          </p>
+                        )}
 
                         <p className="mt-1 text-xs text-muted-foreground">
                           {dateTime(
