@@ -1853,9 +1853,49 @@ export default function CreateInvoicePage() {
         (await response.json()) as CreateInvoiceResponse;
 
       if (!response.ok) {
+        const validationDetails =
+          (result as CreateInvoiceResponse & {
+            details?: unknown;
+          }).details;
+
+        let detailMessage = "";
+
+        if (
+          validationDetails &&
+          typeof validationDetails === "object"
+        ) {
+          try {
+            const flattened =
+              validationDetails as {
+                fieldErrors?: Record<string, string[]>;
+                formErrors?: string[];
+              };
+
+            const fieldMessages =
+              Object.entries(
+                flattened.fieldErrors ?? {},
+              )
+                .flatMap(
+                  ([field, messages]) =>
+                    messages.map(
+                      (message) =>
+                        `${field}: ${message}`,
+                    ),
+                );
+
+            detailMessage = [
+              ...(flattened.formErrors ?? []),
+              ...fieldMessages,
+            ].join(" • ");
+          } catch {
+            detailMessage = "";
+          }
+        }
+
         throw new Error(
-          result.message ??
-            "Unable to create invoice.",
+          [result.message ?? "Unable to create invoice.", detailMessage]
+            .filter(Boolean)
+            .join(" "),
         );
       }
 
