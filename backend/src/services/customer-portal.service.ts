@@ -24,6 +24,10 @@ import {
   ApiError,
 } from "../utils/api-error";
 
+import {
+  verifyWarrantyPublicToken,
+} from "../utils/warranty-public-token";
+
 type InvoiceStatus =
   | "draft"
   | "paid"
@@ -1064,6 +1068,113 @@ export async function getCustomerWarranty(
           taxId:
             shop.taxId,
 
+          logoUrl:
+            shop.logoUrl,
+        }
+      : null,
+  };
+}
+
+/**
+ * Public warranty-card verification.
+ *
+ * This endpoint is intentionally unauthenticated so a
+ * customer can scan the QR code on any device.
+ *
+ * The HMAC token prevents someone from changing the
+ * warranty ID in the URL and reading another warranty.
+ */
+export async function getPublicWarranty(
+  warrantyId: string,
+  token: string,
+) {
+  if (
+    !Types.ObjectId.isValid(
+      warrantyId,
+    ) ||
+    !verifyWarrantyPublicToken(
+      warrantyId,
+      token,
+    )
+  ) {
+    throw new ApiError(
+      404,
+      "Warranty card not found.",
+      "WARRANTY_CARD_NOT_FOUND",
+    );
+  }
+
+  const warranty =
+    await WarrantyModel.findOne({
+      _id:
+        new Types.ObjectId(
+          warrantyId,
+        ),
+      isActive: true,
+    }).lean();
+
+  if (!warranty) {
+    throw new ApiError(
+      404,
+      "Warranty card not found.",
+      "WARRANTY_CARD_NOT_FOUND",
+    );
+  }
+
+  const [
+    customer,
+    shop,
+  ] = await Promise.all([
+    CustomerModel.findById(
+      warranty.customerId,
+    ).lean(),
+
+    ShopModel.findOne({
+      _id:
+        warranty.shopId,
+      isActive: true,
+    }).lean(),
+  ]);
+
+  return {
+    warranty: {
+      id:
+        warranty._id,
+      productName:
+        warranty.productName,
+      serialNumber:
+        warranty.serialNumber,
+      warrantyPeriodMonths:
+        warranty.warrantyPeriodMonths,
+      startDate:
+        warranty.startDate,
+      expiryDate:
+        warranty.expiryDate,
+      status:
+        warranty.status,
+      terms:
+        warranty.terms,
+      notes:
+        warranty.notes,
+    },
+
+    customer: customer
+      ? {
+          name:
+            customer.name,
+        }
+      : null,
+
+    shop: shop
+      ? {
+          name:
+            shop.name,
+          phone:
+            shop.phone,
+          email:
+            shop.email,
+          address:
+            shop.address,
           logoUrl:
             shop.logoUrl,
         }
