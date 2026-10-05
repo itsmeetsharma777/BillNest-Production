@@ -1,4 +1,3 @@
-
 import { Navigate, Route } from "react-router-dom";
 
 import { ProtectedRoute } from "@/components/common/ProtectedRoute";
@@ -26,6 +25,7 @@ import InvoiceDetailsPage from "@/pages/shopkeeper/InvoiceDetailsPage";
 import InvoicesPage from "@/pages/shopkeeper/InvoicesPage";
 import InventoryHistoryPage from "@/pages/shopkeeper/InventoryHistoryPage";
 import NotificationsPage from "@/pages/shopkeeper/NotificationsPage";
+import OcrPage from "@/pages/shopkeeper/OcrPage";
 import ProductsPage from "@/pages/shopkeeper/ProductsPage";
 import ProductVariantsPage from "@/pages/shopkeeper/ProductVariantsPage";
 import ReportsPage from "@/pages/shopkeeper/ReportsPage";
@@ -39,10 +39,6 @@ import BrandsPage from "@/pages/shopkeeper/BrandsPage";
 export function ProtectedRoutes() {
   return (
     <>
-      {/* ===================================================== */}
-      {/* SHOPKEEPER AUTHENTICATION                             */}
-      {/* ===================================================== */}
-
       <Route
         element={
           <ProtectedRoute
@@ -52,30 +48,12 @@ export function ProtectedRoutes() {
           />
         }
       >
-        {/* =================================================== */}
-        {/* FIRST-TIME SHOP SETUP                               */}
-        {/* =================================================== */}
-
         <Route
           path="/shopkeeper/create-shop"
           element={
             <CreateShopPage />
           }
         />
-
-        {/* =================================================== */}
-        {/* BRANDS                                              */}
-        {/* =================================================== */}
-        {/*
-         * Brands is intentionally kept outside
-         * ShopkeeperShopRequired.
-         *
-         * Authentication + shopkeeper role are still
-         * required through the ProtectedRoute above.
-         *
-         * This prevents the Brands navigation item from
-         * being intercepted by the shop-existence guard.
-         */}
 
         <Route
           element={
@@ -90,10 +68,6 @@ export function ProtectedRoutes() {
           />
         </Route>
 
-        {/* =================================================== */}
-        {/* SHOPKEEPER APPLICATION                              */}
-        {/* =================================================== */}
-
         <Route
           element={
             <ShopkeeperShopRequired />
@@ -104,20 +78,12 @@ export function ProtectedRoutes() {
               <ShopkeeperLayout />
             }
           >
-            {/* ================================================= */}
-            {/* DASHBOARD                                         */}
-            {/* ================================================= */}
-
             <Route
               path="/shopkeeper"
               element={
                 <ShopkeeperDashboard />
               }
             />
-
-            {/* ================================================= */}
-            {/* CUSTOMERS                                         */}
-            {/* ================================================= */}
 
             <Route
               path="/shopkeeper/customers"
@@ -133,10 +99,6 @@ export function ProtectedRoutes() {
               }
             />
 
-            {/* ================================================= */}
-            {/* PRODUCTS                                          */}
-            {/* ================================================= */}
-
             <Route
               path="/shopkeeper/products"
               element={
@@ -146,12 +108,10 @@ export function ProtectedRoutes() {
 
             <Route
               path="/shopkeeper/products/:productId/variants"
-              element={<ProductVariantsPage />}
+              element={
+                <ProductVariantsPage />
+              }
             />
-
-            {/* ================================================= */}
-            {/* CATEGORIES                                        */}
-            {/* ================================================= */}
 
             <Route
               path="/shopkeeper/categories"
@@ -160,20 +120,12 @@ export function ProtectedRoutes() {
               }
             />
 
-            {/* ================================================= */}
-            {/* INVENTORY                                         */}
-            {/* ================================================= */}
-
             <Route
               path="/shopkeeper/inventory/history"
               element={
                 <InventoryHistoryPage />
               }
             />
-
-            {/* ================================================= */}
-            {/* INVOICES                                          */}
-            {/* ================================================= */}
 
             <Route
               path="/shopkeeper/invoices"
@@ -196,9 +148,12 @@ export function ProtectedRoutes() {
               }
             />
 
-            {/* ================================================= */}
-            {/* WARRANTIES                                        */}
-            {/* ================================================= */}
+            <Route
+              path="/shopkeeper/ocr"
+              element={
+                <OcrPage />
+              }
+            />
 
             <Route
               path="/shopkeeper/warranties"
@@ -221,10 +176,6 @@ export function ProtectedRoutes() {
               }
             />
 
-            {/* ================================================= */}
-            {/* REPORTS                                            */}
-            {/* ================================================= */}
-
             <Route
               path="/shopkeeper/reports"
               element={
@@ -232,20 +183,12 @@ export function ProtectedRoutes() {
               }
             />
 
-            {/* ================================================= */}
-            {/* NOTIFICATIONS                                      */}
-            {/* ================================================= */}
-
             <Route
               path="/shopkeeper/notifications"
               element={
                 <NotificationsPage />
               }
             />
-
-            {/* ================================================= */}
-            {/* SETTINGS                                           */}
-            {/* ================================================= */}
 
             <Route
               path="/shopkeeper/settings"
@@ -256,10 +199,6 @@ export function ProtectedRoutes() {
           </Route>
         </Route>
       </Route>
-
-      {/* ===================================================== */}
-      {/* CUSTOMER                                              */}
-      {/* ===================================================== */}
 
       <Route
         element={
@@ -275,16 +214,12 @@ export function ProtectedRoutes() {
             <CustomerLayout />
           }
         >
-          {/* Dashboard */}
-
           <Route
             path="/customer"
             element={
               <CustomerDashboardPage />
             }
           />
-
-          {/* Invoices */}
 
           <Route
             path="/customer/invoices"
@@ -300,16 +235,12 @@ export function ProtectedRoutes() {
             }
           />
 
-          {/* Payments */}
-
           <Route
             path="/customer/payments"
             element={
               <CustomerPaymentsPage />
             }
           />
-
-          {/* Warranties */}
 
           <Route
             path="/customer/warranties"
@@ -325,16 +256,12 @@ export function ProtectedRoutes() {
             }
           />
 
-          {/* Notifications */}
-
           <Route
             path="/customer/notifications"
             element={
               <CustomerNotificationsPage />
             }
           />
-
-          {/* Settings */}
 
           <Route
             path="/customer/settings"
@@ -344,10 +271,6 @@ export function ProtectedRoutes() {
           />
         </Route>
       </Route>
-
-      {/* ===================================================== */}
-      {/* LEGACY DASHBOARD REDIRECT                             */}
-      {/* ===================================================== */}
 
       <Route
         path="/dashboard"
@@ -363,4 +286,3 @@ export function ProtectedRoutes() {
 }
 
 export default ProtectedRoutes;
-
