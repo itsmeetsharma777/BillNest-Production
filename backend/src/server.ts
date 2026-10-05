@@ -28,6 +28,7 @@ import notificationRoutes from "./routes/notification.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
 import documentRoutes from "./routes/document.routes";
 import inventoryRoutes from "./routes/inventory.routes";
+import publicWarrantyRoutes from "./routes/public-warranty.routes";
 
 import { errorMiddleware } from "./middleware/error.middleware";
 import { csrfProtection } from "./middleware/csrf.middleware";
@@ -361,6 +362,15 @@ app.use(
 app.use(
   "/api/customer",
   customerPortalRoutes,
+);
+
+/*
+ * Public warranty-card verification.
+ * This route intentionally does not require authentication.
+ */
+app.use(
+  "/api/public",
+  publicWarrantyRoutes,
 );
 
 app.use(
