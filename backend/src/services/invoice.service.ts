@@ -66,6 +66,7 @@ interface CreateInvoiceInput {
   referenceNumber?: string;
   notes?: string;
   items: InvoiceItemInput[];
+  source?: "manual" | "ocr";
 }
 
 interface UpdateInvoiceInput {
@@ -539,6 +540,7 @@ export async function createInvoiceForOwner(
 
   if (
     input.paymentMethod === "online" &&
+    input.source !== "ocr" &&
     paymentState.amountPaid > 0
   ) {
     throw new ApiError(
