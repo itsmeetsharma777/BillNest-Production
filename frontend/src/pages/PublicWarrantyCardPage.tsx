@@ -212,111 +212,97 @@ function PublicWarrantyCardContent() {
     encodeURIComponent(publicUrl);
 
   return (
-    <div style={styles.page}>
-      <div style={styles.wrapper}>
-        <header style={styles.top}>
-          <div>
-            <div style={styles.logo}>BILLNEST</div>
-            <div style={styles.caption}>DIGITAL WARRANTY CARD</div>
+    <div className="warranty-page" style={styles.page}>
+      <style>{responsiveStyles}</style>
+      <div className="warranty-wrapper" style={styles.wrapper}>
+        <header className="warranty-top" style={styles.top}>
+          <div className="brand-block">
+            <div className="brand-mark">B</div>
+            <div>
+              <div className="brand-name">BillNest</div>
+              <div className="brand-subtitle">Customer Portal</div>
+            </div>
           </div>
-          <div style={styles.active}>✓ VERIFIED</div>
+          <div className="brand-tagline">GENUINE PRODUCTS&nbsp; • &nbsp;PEACE OF MIND</div>
         </header>
 
-        <div style={styles.card}>
-          <div style={styles.hero}>
+        <div className="warranty-card" style={styles.card}>
+          <section className="warranty-hero" style={styles.hero}>
             <div>
-              <div style={styles.caption}>PRODUCT WARRANTY</div>
-              <h1 style={styles.product}>{warranty.productName}</h1>
-              <p style={styles.muted}>Official BillNest warranty record</p>
+              <div className="hero-kicker">WARRANTY CARD</div>
+              <h1 className="hero-title">Warranty Card</h1>
+              <p className="hero-subtitle">Covered today. Supported tomorrow.</p>
+              <div className="hero-line" />
             </div>
-            <div style={styles.verified}>DIGITALLY VERIFIED</div>
-          </div>
-
-          <div style={styles.content}>
-            <div style={styles.grid}>
-              <div>
-                <section style={styles.section}>
-                  <h2 style={styles.sectionTitle}>WARRANTY DETAILS</h2>
-                  <Info label="Product" value={warranty.productName} />
-                  <Info
-                    label="Serial Number"
-                    value={warranty.serialNumber || "Not provided"}
-                  />
-                  <Info
-                    label="Warranty Period"
-                    value={String(warranty.warrantyPeriodMonths) + " months"}
-                  />
-                  <Info
-                    label="Start Date"
-                    value={formatDate(warranty.startDate)}
-                  />
-                  <Info
-                    label="Expiry Date"
-                    value={formatDate(warranty.expiryDate)}
-                  />
-                  <Info
-                    label="Status"
-                    value={warranty.status.toUpperCase()}
-                  />
-                </section>
-
-                <section style={styles.section}>
-                  <h2 style={styles.sectionTitle}>CUSTOMER</h2>
-                  <div style={styles.value}>
-                    {customer?.name || "Warranty Holder"}
-                  </div>
-                </section>
-
-                <section style={styles.section}>
-                  <h2 style={styles.sectionTitle}>PURCHASE STORE</h2>
-                  <div style={styles.value}>{shop?.name || "Store"}</div>
-                  {Boolean(shop?.address) && (
-                    <div style={styles.muted}>
-                      {formatAddress(shop?.address)}
-                    </div>
-                  )}
-                  {shop?.phone && (
-                    <div style={styles.muted}>☎ {shop.phone}</div>
-                  )}
-                  {shop?.email && (
-                    <div style={styles.muted}>✉ {shop.email}</div>
-                  )}
-                </section>
-
-                {warranty.terms && (
-                  <section style={styles.section}>
-                    <h2 style={styles.sectionTitle}>TERMS</h2>
-                    <div style={styles.muted}>{warranty.terms}</div>
-                  </section>
-                )}
+            <div className="valid-block">
+              <div className="valid-badge">
+                <span className="valid-icon">✓</span>
+                VALID WARRANTY
               </div>
+              <div className="valid-note">Keep this card for future reference</div>
+            </div>
+          </section>
 
-              <aside style={styles.qrPanel}>
-                <h2 style={styles.sectionTitle}>SCAN TO VERIFY</h2>
-                <div style={styles.qrBox}>
-                  <img
-                    src={qrUrl}
-                    alt="Warranty verification QR code"
-                    style={styles.qr}
-                  />
-                </div>
-                <p style={styles.caption}>
-                  Scan from any device to open this warranty card.
-                </p>
-                <p style={styles.caption}>
-                  Computer generated • Signature not required
-                </p>
-              </aside>
+          <section className="details-panel">
+            <div className="details-column details-left">
+              <Info label="Product" value={warranty.productName} />
+              <Info label="Customer" value={customer?.name || "Warranty Holder"} />
+              <Info label="Serial Number" value={warranty.serialNumber || "Not provided"} />
+            </div>
+            <div className="details-divider" />
+            <div className="details-column details-right">
+              <Info label="Warranty Start Date" value={formatDate(warranty.startDate)} />
+              <Info label="Warranty End Date" value={formatDate(warranty.expiryDate)} />
+              <Info label="Warranty Period" value={String(warranty.warrantyPeriodMonths) + " Months"} />
+              <Info label="Warranty Status" value={warranty.status.toUpperCase()} />
+            </div>
+          </section>
+
+          <section className="bottom-panel">
+            <div className="store-column">
+              <div className="panel-heading">PURCHASE STORE</div>
+              <div className="store-name">{shop?.name || "Store"}</div>
+              {Boolean(shop?.address) && (
+                <div className="store-text">{formatAddress(shop?.address)}</div>
+              )}
+              {shop?.phone && <div className="store-text">☎ {shop.phone}</div>}
+              {shop?.email && <div className="store-text">✉ {shop.email}</div>}
             </div>
 
-            <footer style={styles.footer}>
-              This warranty card is digitally verified by BillNest.
-            </footer>
-          </div>
+            <div className="qr-column">
+              <div className="qr-box-large">
+                <img src={qrUrl} alt="Warranty verification QR code" style={styles.qr} />
+              </div>
+              <div className="qr-title">Scan to Verify</div>
+              <div className="qr-subtitle">Verify this warranty card<br />on BillNest</div>
+            </div>
+
+            <div className="notes-column">
+              <div className="panel-heading">IMPORTANT NOTES</div>
+              <ul className="notes-list">
+                <li>This warranty covers manufacturing defects only.</li>
+                <li>Keep this card and original invoice.</li>
+                <li>Warranty is valid only with matching serial number.</li>
+                <li>For service or support, contact the purchase store.</li>
+              </ul>
+            </div>
+          </section>
+
+          {warranty.terms && (
+            <section className="terms-panel">
+              <div className="panel-heading">TERMS</div>
+              <div className="store-text">{warranty.terms}</div>
+            </section>
+          )}
+
+          <footer className="warranty-footer" style={styles.footer}>
+            This warranty card is digitally verified by BillNest • Computer generated • Signature not required
+          </footer>
         </div>
       </div>
     </div>
   );
+}
 }
 
 function Info({ label, value }: { label: string; value: string }) {
@@ -335,6 +321,86 @@ export default function PublicWarrantyCardPage() {
     </WarrantyErrorBoundary>
   );
 }
+
+
+const responsiveStyles = `
+  * { box-sizing: border-box; }
+  .warranty-page { width: 100%; overflow-x: hidden; }
+  .warranty-wrapper { width: 100%; }
+  .warranty-top { min-height: 72px; }
+  .brand-block { display:flex; align-items:center; gap:12px; }
+  .brand-mark { width:46px; height:46px; border-radius:13px; display:grid; place-items:center; color:#fff; font-size:25px; font-weight:900; background:linear-gradient(135deg,#38bdf8,#2563eb 55%,#7c3aed); box-shadow:0 8px 25px rgba(37,99,235,.25); }
+  .brand-name { color:#f8fafc; font-size:30px; line-height:1; font-weight:850; letter-spacing:-.04em; }
+  .brand-subtitle { color:#91a4c5; font-size:15px; margin-top:5px; }
+  .brand-tagline { color:#9fb1d0; font-size:12px; letter-spacing:.14em; font-weight:600; }
+  .warranty-card { border-color:rgba(96,165,250,.32)!important; }
+  .warranty-hero { min-height:190px; }
+  .hero-kicker { color:#91a4c5; font-size:13px; letter-spacing:.14em; font-weight:700; }
+  .hero-title { margin:8px 0 3px; color:#f8fafc; font-size:clamp(42px,5vw,68px); line-height:1; letter-spacing:-.055em; font-weight:850; }
+  .hero-subtitle { margin:8px 0 0; color:#8ea3c7; font-size:21px; }
+  .hero-line { width:68px; height:3px; margin-top:20px; border-radius:99px; background:#3b82f6; }
+  .valid-block { text-align:center; min-width:300px; }
+  .valid-badge { display:flex; align-items:center; justify-content:center; gap:12px; min-height:64px; padding:0 24px; border:1px solid rgba(96,165,250,.55); border-radius:999px; color:#7db9ff; font-size:16px; letter-spacing:.08em; font-weight:800; }
+  .valid-icon { width:32px; height:32px; display:grid; place-items:center; border-radius:50%; background:#9ac7ff; color:#07101f; font-size:20px; font-weight:900; }
+  .valid-note { margin-top:12px; color:#9aaaca; font-size:13px; }
+  .details-panel, .bottom-panel { margin:20px 34px 0; border:1px solid rgba(255,255,255,.08); border-radius:22px; background:rgba(3,12,25,.72); }
+  .details-panel { display:grid; grid-template-columns:minmax(0,1fr) 1px minmax(0,1fr); padding:26px 34px; gap:34px; }
+  .details-column { min-width:0; }
+  .details-divider { width:1px; background:rgba(148,163,184,.2); }
+  .details-panel .info { margin:0; padding:0 0 20px; }
+  .details-panel .info + .info { padding-top:18px; border-top:1px solid rgba(255,255,255,.08); }
+  .details-panel .label { color:#8ea3c7; font-size:12px; letter-spacing:.14em; font-weight:600; }
+  .details-panel .value { color:#f1f5f9; font-size:20px; font-weight:750; line-height:1.35; overflow-wrap:anywhere; }
+  .details-right .info:last-child .value { color:#34d399; }
+  .bottom-panel { display:grid; grid-template-columns:1.15fr .7fr 1.15fr; padding:28px 34px; gap:28px; align-items:center; }
+  .store-column, .qr-column, .notes-column { min-width:0; }
+  .qr-column { border-left:1px solid rgba(148,163,184,.2); border-right:1px solid rgba(148,163,184,.2); text-align:center; padding:0 28px; }
+  .panel-heading { color:#8ea3c7; font-size:12px; letter-spacing:.14em; font-weight:700; margin-bottom:10px; }
+  .store-name { color:#f1f5f9; font-size:20px; font-weight:750; margin-bottom:4px; }
+  .store-text { color:#91a4c5; font-size:15px; line-height:1.6; overflow-wrap:anywhere; }
+  .qr-box-large { width:128px; height:128px; padding:7px; margin:0 auto 10px; border-radius:8px; background:#fff; }
+  .qr-title { color:#f8fafc; font-size:21px; font-weight:800; }
+  .qr-subtitle { color:#91a4c5; font-size:14px; line-height:1.4; margin-top:4px; }
+  .notes-list { list-style:none; padding:0; margin:0; }
+  .notes-list li { position:relative; padding-left:18px; color:#91a4c5; font-size:14px; line-height:1.55; margin:8px 0; }
+  .notes-list li:before { content:""; width:8px; height:8px; border-radius:50%; background:#3b82f6; position:absolute; left:0; top:.55em; }
+  .terms-panel { margin:20px 34px 0; padding:22px 26px; border:1px solid rgba(255,255,255,.08); border-radius:18px; background:rgba(255,255,255,.02); }
+  .warranty-footer { margin:20px 34px 0; }
+  @media (max-width: 820px) {
+    .warranty-page { padding:16px 10px!important; }
+    .warranty-top { align-items:flex-start!important; margin-bottom:14px!important; }
+    .brand-tagline { display:none; }
+    .brand-name { font-size:24px; }
+    .brand-subtitle { font-size:12px; }
+    .brand-mark { width:40px; height:40px; font-size:21px; border-radius:11px; }
+    .warranty-card { border-radius:20px!important; }
+    .warranty-hero { padding:26px 20px!important; display:block!important; min-height:0!important; }
+    .hero-title { font-size:44px; }
+    .hero-subtitle { font-size:17px; }
+    .valid-block { min-width:0; margin-top:24px; text-align:left; }
+    .valid-badge { width:100%; min-height:54px; font-size:13px; }
+    .valid-note { text-align:center; }
+    .details-panel { grid-template-columns:1fr; gap:0; margin:14px 14px 0; padding:20px; border-radius:17px; }
+    .details-divider { display:none; }
+    .details-column + .details-column { margin-top:0; }
+    .details-panel .info { padding:14px 0!important; }
+    .details-panel .value { font-size:17px; }
+    .bottom-panel { grid-template-columns:1fr; margin:14px 14px 0; padding:20px; gap:22px; border-radius:17px; }
+    .qr-column { border-left:0; border-right:0; border-top:1px solid rgba(148,163,184,.2); border-bottom:1px solid rgba(148,163,184,.2); padding:22px 0; }
+    .store-text { font-size:14px; }
+    .notes-list li { font-size:13px; }
+    .terms-panel { margin:14px 14px 0; padding:18px; }
+    .warranty-footer { margin:16px 20px 0; font-size:10px!important; line-height:1.5; }
+  }
+  @media (max-width: 430px) {
+    .warranty-page { padding:8px 6px!important; }
+    .hero-title { font-size:38px; }
+    .hero-subtitle { font-size:15px; }
+    .details-panel, .bottom-panel { margin-left:8px; margin-right:8px; padding:16px; }
+    .details-panel .value { font-size:16px; }
+    .qr-box-large { width:150px; height:150px; }
+  }
+`;
 
 const styles: Record<string, React.CSSProperties> = {
   page: {
