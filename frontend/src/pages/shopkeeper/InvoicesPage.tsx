@@ -151,8 +151,29 @@ function normalizeInvoice(
       "",
 
     status:
-      invoice.status ??
-      "DRAFT",
+      (() => {
+        const rawStatus =
+          invoice.status
+            ?.trim()
+            .toLowerCase();
+
+        switch (rawStatus) {
+          case "paid":
+            return "PAID";
+
+          case "partially_paid":
+            return "PARTIALLY_PAID";
+
+          case "cancelled":
+            return "CANCELLED";
+
+          case "draft":
+            return "DRAFT";
+
+          default:
+            return "DRAFT";
+        }
+      })(),
 
     subtotal:
       Number(
