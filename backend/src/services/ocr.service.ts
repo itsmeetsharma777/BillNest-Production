@@ -379,18 +379,18 @@ Return this exact structure:
   "items": [
     {
       "productName": "string",
-      "quantity": "number or null",
-      "unitPrice": "number or null",
-      "discount": "number or null",
-      "taxRate": "number or null",
+      "quantity": 0,
+      "unitPrice": 0,
+      "discount": 0,
+      "taxRate": 0,
       "serialNumber": "string or null",
       "sku": "string or null"
     }
   ],
-  "subtotal": "number or null",
-  "discount": "number or null",
-  "tax": "number or null",
-  "total": "number or null",
+  "subtotal": 0,
+  "discount": 0,
+  "tax": 0,
+  "total": 0,
   "paymentMethod": "string or null",
   "warrantyPeriod": "string or null",
   "warrantyExpiry": "YYYY-MM-DD or null",
@@ -401,13 +401,14 @@ Return this exact structure:
   const endpoint =
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
       model,
-    )}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    )}:generateContent`;
 
   try {
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
       },
       body: JSON.stringify({
         contents: [
