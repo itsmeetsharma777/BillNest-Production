@@ -144,3 +144,80 @@ export const uploadProductImage =
   productImageUpload.single(
     "image",
   );
+
+  /*
+ * ============================================================
+ * OCR IMAGE UPLOAD
+ * ============================================================
+ *
+ * OCR intentionally uses a separate Multer instance.
+ *
+ * This prevents OCR requirements from changing the existing
+ * document-upload behaviour.
+ *
+ * Supported:
+ *
+ * JPG
+ * PNG
+ * WebP
+ *
+ * Maximum:
+ *
+ * 10 MB
+ * 1 image per request
+ */
+
+const ocrImageStorage =
+  multer.memoryStorage();
+
+const ocrImageUpload =
+  multer({
+    storage:
+      ocrImageStorage,
+
+    limits: {
+      fileSize:
+        10 * 1024 * 1024,
+
+      files: 1,
+    },
+
+    fileFilter: (
+      _req,
+      file,
+      callback,
+    ) => {
+      const allowedOcrImageTypes =
+        new Set([
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+        ]);
+
+      if (
+        !allowedOcrImageTypes.has(
+          file.mimetype.toLowerCase(),
+        )
+      ) {
+        callback(
+          new ApiError(
+            400,
+            "Only JPG, PNG, and WebP images are supported for OCR.",
+            "OCR_UNSUPPORTED_FILE_TYPE",
+          ),
+        );
+
+        return;
+      }
+
+      callback(
+        null,
+        true,
+      );
+    },
+  });
+
+export const uploadOcrImage =
+  ocrImageUpload.single(
+    "file",
+  );

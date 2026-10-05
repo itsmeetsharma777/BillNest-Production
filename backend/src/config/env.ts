@@ -59,6 +59,24 @@ const envSchema = z.object({
 
   RAZORPAY_KEY_SECRET:
     z.string().optional(),
+
+  /*
+   * ============================================================
+   * OPENAI / OCR
+   * ============================================================
+   *
+   * OPENAI_API_KEY is used only by the backend.
+   *
+   * NEVER expose this variable to the frontend.
+   */
+
+  OPENAI_API_KEY:
+    z.string().optional(),
+
+  OPENAI_OCR_MODEL:
+    z
+      .string()
+      .default("gpt-6-luna"),
 });
 
 const parsedEnv =
