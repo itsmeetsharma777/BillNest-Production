@@ -25,8 +25,11 @@ import {
 } from "../utils/api-error";
 
 import {
+  createWarrantyPublicToken,
   verifyWarrantyPublicToken,
 } from "../utils/warranty-public-token";
+
+import { env } from "../config/env";
 
 type InvoiceStatus =
   | "draft"
@@ -1017,8 +1020,18 @@ export async function getCustomerWarranty(
     }).lean(),
   ]);
 
+  const publicVerificationToken =
+    createWarrantyPublicToken(
+      warranty._id.toString(),
+    );
+
+  const publicVerificationUrl =
+    `${env.FRONTEND_URL}/warranty-card/${warranty._id.toString()}/${publicVerificationToken}`;
+
   return {
     warranty,
+
+    publicVerificationUrl,
 
     invoice: invoice
       ? {
