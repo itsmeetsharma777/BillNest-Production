@@ -29,6 +29,7 @@ import dashboardRoutes from "./routes/dashboard.routes";
 import documentRoutes from "./routes/document.routes";
 import inventoryRoutes from "./routes/inventory.routes";
 import publicWarrantyRoutes from "./routes/public-warranty.routes";
+import ocrRoutes from "./routes/ocr.routes";
 
 import { errorMiddleware } from "./middleware/error.middleware";
 import { csrfProtection } from "./middleware/csrf.middleware";
@@ -318,6 +319,25 @@ app.use(
 app.use(
   "/api/documents",
   documentRoutes,
+);
+
+/**
+ * ============================================================
+ * OCR / AI DOCUMENT PROCESSING
+ * ============================================================
+ *
+ * Feature 25:
+ *
+ * POST
+ * /api/ocr/process
+ *
+ * Authenticated shopkeepers can upload a document image
+ * and receive structured OCR/AI extracted data.
+ */
+
+app.use(
+  "/api/ocr",
+  ocrRoutes,
 );
 
 /**
