@@ -272,7 +272,7 @@ function PublicWarrantyCardContent() {
                   <div style={styles.value}>{shop?.name || "Store"}</div>
                   {Boolean(shop?.address) && (
                     <div style={styles.muted}>
-                      {formatAddress(shop.address)}
+                      {formatAddress(shop?.address)}
                     </div>
                   )}
                   {shop?.phone && (
