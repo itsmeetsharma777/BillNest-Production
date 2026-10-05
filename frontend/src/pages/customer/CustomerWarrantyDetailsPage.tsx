@@ -38,7 +38,7 @@ interface Warranty {
 }
 
 interface Invoice {
-  _id: string;
+  id: string;
   invoiceNumber: string;
   issueDate: string;
   total: number;
@@ -416,7 +416,7 @@ export default function CustomerWarrantyDetailsPage() {
                   <Button
                     onClick={() =>
                       navigate(
-                        `/customer/invoices/${invoice._id}`,
+                        `/customer/invoices/${invoice.id}`,
                       )
                     }
                   >
