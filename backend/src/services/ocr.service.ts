@@ -78,9 +78,14 @@ function getGeminiConfig() {
     );
   }
 
+  /*
+   * Gemini currently rejects gemini-2.5-flash-lite for new users.
+   * Keep the OCR model pinned to the currently supported model so
+   * an old GEMINI_OCR_MODEL value in a local .env cannot override it.
+   */
   return {
     apiKey: env.GEMINI_API_KEY,
-    model: env.GEMINI_OCR_MODEL,
+    model: "gemini-3.5-flash-lite",
   };
 }
 
