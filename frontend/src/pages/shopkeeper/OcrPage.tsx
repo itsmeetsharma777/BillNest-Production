@@ -14,6 +14,7 @@ import {
   type ChangeEvent,
   type DragEvent,
 } from "react";
+import { useNavigate } from "react-router-dom";
 
 const API_URL =
   import.meta.env.VITE_API_URL ??
@@ -54,6 +55,27 @@ interface OcrResult {
   warrantyPeriod?: string;
   warrantyExpiry?: string;
   rawText?: string;
+}
+
+
+interface OcrInvoiceDraft {
+  sourceInvoiceNumber?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  items: Array<{
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    discount: number;
+    taxRate: number;
+    serialNumber?: string;
+    sku?: string;
+  }>;
+  discount: number;
+  tax: number;
+  paymentMethod?: string;
+  notes?: string;
 }
 
 interface OcrResponse {
@@ -105,6 +127,8 @@ function displayValue(
 }
 
 export default function OcrPage() {
+  const navigate = useNavigate();
+
   const fileInputRef =
     useRef<HTMLInputElement | null>(
       null,
@@ -369,6 +393,45 @@ export default function OcrPage() {
         };
       },
     );
+  }
+
+
+  function continueToCreateInvoice() {
+    if (!extracted) return;
+
+    const items = (extracted.items ?? [])
+      .filter((item) => Boolean(item.productName?.trim()))
+      .map((item) => ({
+        productName: item.productName?.trim() ?? "",
+        quantity: Number(item.quantity) > 0 ? Number(item.quantity) : 1,
+        unitPrice: Number.isFinite(Number(item.unitPrice)) ? Number(item.unitPrice) : 0,
+        discount: Number.isFinite(Number(item.discount)) ? Number(item.discount) : 0,
+        taxRate: Number.isFinite(Number(item.taxRate)) ? Number(item.taxRate) : 0,
+        serialNumber: item.serialNumber?.trim() || undefined,
+        sku: item.sku?.trim() || undefined,
+      }));
+
+    if (items.length === 0) {
+      setError("No invoice items were extracted. Please add at least one item before continuing.");
+      return;
+    }
+
+    const draft: OcrInvoiceDraft = {
+      sourceInvoiceNumber: extracted.invoiceNumber?.trim() || undefined,
+      customerName: extracted.customerName?.trim() || undefined,
+      customerPhone: extracted.customerPhone?.trim() || undefined,
+      customerEmail: extracted.customerEmail?.trim() || undefined,
+      items,
+      discount: Number.isFinite(Number(extracted.discount)) ? Number(extracted.discount) : 0,
+      tax: Number.isFinite(Number(extracted.tax)) ? Number(extracted.tax) : 0,
+      paymentMethod: extracted.paymentMethod?.trim() || undefined,
+      notes: extracted.invoiceNumber?.trim()
+        ? "Imported from OCR. Source invoice number: " + extracted.invoiceNumber.trim()
+        : "Imported from OCR.",
+    };
+
+    sessionStorage.setItem("billnest_ocr_invoice_draft", JSON.stringify(draft));
+    navigate("/shopkeeper/invoices/create?from=ocr");
   }
 
   function resetForAnotherDocument() {
@@ -804,14 +867,20 @@ export default function OcrPage() {
 
                 <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
                   <p className="text-sm font-semibold">
-                    Next step
+                    Ready to create an invoice?
                   </p>
 
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    The extracted data is currently only being
-                    reviewed on this screen. It is not automatically
-                    saved as an invoice or customer record.
+                    Your edited OCR data will be transferred to the normal BillNest invoice form. Nothing is saved until you review and click Create Invoice.
                   </p>
+
+                  <button
+                    type="button"
+                    onClick={continueToCreateInvoice}
+                    className="mt-4 flex h-10 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+                  >
+                    Continue to Create Invoice
+                  </button>
                 </div>
               </div>
             </>
