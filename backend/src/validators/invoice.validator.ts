@@ -122,6 +122,9 @@ export const createInvoiceSchema = z.object({
   paymentMethod:
     paymentMethodSchema.default("cash"),
 
+  source:
+    z.enum(["manual", "ocr"]).default("manual"),
+
   status:
     invoiceStatusSchema.default("draft"),
 
