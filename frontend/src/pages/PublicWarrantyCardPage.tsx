@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { Component, useEffect, useState } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 import { useParams } from "react-router-dom";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
   "https://billnest-backend-oq1j.onrender.com/api";
 
-type PublicWarrantyData = {
+type WarrantyResponse = {
   warranty: {
     id: string;
     productName: string;
@@ -15,11 +16,8 @@ type PublicWarrantyData = {
     expiryDate: string;
     status: string;
     terms?: string;
-    notes?: string;
   };
-  customer?: {
-    name?: string;
-  } | null;
+  customer?: { name?: string } | null;
   shop?: {
     name?: string;
     phone?: string;
@@ -28,497 +26,432 @@ type PublicWarrantyData = {
   } | null;
 };
 
+class WarrantyErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: string | null }
+> {
+  state = { error: null as string | null };
+
+  static getDerivedStateFromError(error: unknown) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "The warranty card could not be displayed.",
+    };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("Warranty card error:", error, info);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={styles.page}>
+          <div style={styles.message}>
+            <div style={styles.logo}>BILLNEST</div>
+            <h1 style={styles.heading}>Warranty Card Error</h1>
+            <p style={styles.muted}>{this.state.error}</p>
+            <button
+              style={styles.button}
+              onClick={() => window.location.reload()}
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 function formatDate(value?: string) {
-  if (!value) return "—";
+  if (!value) return "Not available";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(date);
+  return Number.isNaN(date.getTime())
+    ? "Not available"
+    : date.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
 }
 
-function statusText(status: string) {
-  if (status === "active") return "ACTIVE WARRANTY";
-  if (status === "expiring_soon") return "EXPIRING SOON";
-  if (status === "expired") return "EXPIRED";
-  return status.replaceAll("_", " ").toUpperCase();
-}
-
-export default function PublicWarrantyCardPage() {
+function PublicWarrantyCardContent() {
   const { warrantyId, token } = useParams<{
     warrantyId: string;
     token: string;
   }>();
 
-  const [data, setData] = useState<PublicWarrantyData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<WarrantyResponse | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let active = true;
-
-    async function load() {
-      if (!warrantyId || !token) {
-        setError("Invalid warranty verification link.");
-        setLoading(false);
-        return;
-      }
-
+    const loadWarranty = async () => {
       try {
-        const url = `${API_URL}/public/warranties/${encodeURIComponent(
-          warrantyId,
-        )}/${encodeURIComponent(token)}`;
+        if (!warrantyId || !token) {
+          throw new Error("Invalid warranty card URL.");
+        }
 
-        const response = await fetch(url, {
+        const endpoint =
+          API_URL.replace(/\/$/, "") +
+          "/public/warranties/" +
+          encodeURIComponent(warrantyId) +
+          "/" +
+          encodeURIComponent(token);
+
+        console.log("Warranty API:", endpoint);
+
+        const response = await fetch(endpoint, {
           method: "GET",
           headers: { Accept: "application/json" },
         });
 
-        const text = await response.text();
-        let result: { data?: PublicWarrantyData; message?: string } = {};
+        const body = await response.text();
+
+        let json: {
+          success?: boolean;
+          data?: WarrantyResponse;
+          message?: string;
+        };
 
         try {
-          result = text ? JSON.parse(text) : {};
+          json = JSON.parse(body);
         } catch {
           throw new Error(
-            `Server returned an invalid response (HTTP ${response.status}).`,
+            "BillNest server returned an invalid response. HTTP " +
+              response.status,
           );
         }
 
-        if (!response.ok) {
+        if (!response.ok || !json.data?.warranty) {
           throw new Error(
-            result.message || `Warranty verification failed (HTTP ${response.status}).`,
+            json.message ||
+              "Warranty verification failed. HTTP " + response.status,
           );
         }
 
-        if (!result.data?.warranty) {
-          throw new Error("Warranty data was not returned by the server.");
-        }
-
-        if (active) setData(result.data);
-      } catch (err) {
-        if (active) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Unable to load the warranty card.",
-          );
-        }
+        setData(json.data);
+      } catch (e) {
+        console.error("Warranty loading error:", e);
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Unable to load this warranty card.",
+        );
       } finally {
-        if (active) setLoading(false);
+        setLoading(false);
       }
-    }
-
-    void load();
-
-    return () => {
-      active = false;
     };
+
+    void loadWarranty();
   }, [warrantyId, token]);
 
   if (loading) {
     return (
-      <main style={pageStyle}>
-        <div style={messageStyle}>
-          <div style={spinnerStyle} />
-          <h1 style={titleStyle}>Verifying Warranty</h1>
-          <p style={mutedStyle}>Please wait while BillNest verifies this card.</p>
+      <div style={styles.page}>
+        <div style={styles.message}>
+          <div style={styles.logo}>BILLNEST</div>
+          <h1 style={styles.heading}>Verifying Warranty</h1>
+          <p style={styles.muted}>
+            Connecting to BillNest warranty verification...
+          </p>
         </div>
-      </main>
+      </div>
     );
   }
 
   if (error || !data) {
     return (
-      <main style={pageStyle}>
-        <div style={errorCardStyle}>
-          <div style={badgeStyle}>BILLNEST</div>
-          <h1 style={titleStyle}>Warranty Card Unavailable</h1>
-          <p style={mutedStyle}>{error || "The warranty could not be verified."}</p>
+      <div style={styles.page}>
+        <div style={styles.message}>
+          <div style={styles.logo}>BILLNEST</div>
+          <h1 style={styles.heading}>Warranty Card Unavailable</h1>
+          <p style={styles.muted}>{error || "No warranty data found."}</p>
           <button
-            type="button"
+            style={styles.button}
             onClick={() => window.location.reload()}
-            style={buttonStyle}
           >
             Try Again
           </button>
         </div>
-      </main>
+      </div>
     );
   }
 
   const { warranty, customer, shop } = data;
   const publicUrl = window.location.href;
   const qrUrl =
-    "https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=12&data=" +
+    "https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=10&data=" +
     encodeURIComponent(publicUrl);
 
   return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
-        <div style={brandRowStyle}>
+    <div style={styles.page}>
+      <div style={styles.wrapper}>
+        <header style={styles.top}>
           <div>
-            <div style={brandStyle}>BILLNEST</div>
-            <div style={mutedSmallStyle}>DIGITAL WARRANTY VERIFICATION</div>
+            <div style={styles.logo}>BILLNEST</div>
+            <div style={styles.caption}>DIGITAL WARRANTY CARD</div>
           </div>
-          <div style={statusStyle}>{statusText(warranty.status)}</div>
-        </div>
+          <div style={styles.active}>✓ VERIFIED</div>
+        </header>
 
-        <section style={cardStyle}>
-          <div style={headerStyle}>
+        <div style={styles.card}>
+          <div style={styles.hero}>
             <div>
-              <div style={eyebrowStyle}>VERIFIED WARRANTY CARD</div>
-              <h1 style={productTitleStyle}>{warranty.productName}</h1>
-              <div style={mutedStyle}>Genuine BillNest warranty record</div>
+              <div style={styles.caption}>PRODUCT WARRANTY</div>
+              <h1 style={styles.product}>{warranty.productName}</h1>
+              <p style={styles.muted}>Official BillNest warranty record</p>
             </div>
-            <div style={verifiedStyle}>✓ Digitally Verified</div>
+            <div style={styles.verified}>DIGITALLY VERIFIED</div>
           </div>
 
-          <div style={bodyStyle}>
-            <div style={mainGridStyle}>
+          <div style={styles.content}>
+            <div style={styles.grid}>
               <div>
-                <section style={sectionStyle}>
-                  <div style={sectionTitleStyle}>PRODUCT & WARRANTY</div>
-                  <div style={detailsGridStyle}>
-                    <Detail label="Product" value={warranty.productName} />
-                    <Detail
-                      label="Serial Number"
-                      value={warranty.serialNumber || "Not provided"}
-                    />
-                    <Detail label="Start Date" value={formatDate(warranty.startDate)} />
-                    <Detail label="Expiry Date" value={formatDate(warranty.expiryDate)} />
-                    <Detail
-                      label="Warranty Period"
-                      value={`${warranty.warrantyPeriodMonths} month${warranty.warrantyPeriodMonths === 1 ? "" : "s"}`}
-                    />
-                    <Detail label="Status" value={statusText(warranty.status)} />
+                <section style={styles.section}>
+                  <h2 style={styles.sectionTitle}>WARRANTY DETAILS</h2>
+                  <Info label="Product" value={warranty.productName} />
+                  <Info
+                    label="Serial Number"
+                    value={warranty.serialNumber || "Not provided"}
+                  />
+                  <Info
+                    label="Warranty Period"
+                    value={String(warranty.warrantyPeriodMonths) + " months"}
+                  />
+                  <Info
+                    label="Start Date"
+                    value={formatDate(warranty.startDate)}
+                  />
+                  <Info
+                    label="Expiry Date"
+                    value={formatDate(warranty.expiryDate)}
+                  />
+                  <Info
+                    label="Status"
+                    value={warranty.status.toUpperCase()}
+                  />
+                </section>
+
+                <section style={styles.section}>
+                  <h2 style={styles.sectionTitle}>CUSTOMER</h2>
+                  <div style={styles.value}>
+                    {customer?.name || "Warranty Holder"}
                   </div>
                 </section>
 
-                <div style={twoColumnStyle}>
-                  <section style={sectionStyle}>
-                    <div style={sectionTitleStyle}>CUSTOMER</div>
-                    <div style={valueStyle}>{customer?.name || "Customer"}</div>
-                    <div style={mutedSmallStyle}>Warranty holder</div>
-                  </section>
-
-                  <section style={sectionStyle}>
-                    <div style={sectionTitleStyle}>PURCHASE STORE</div>
-                    <div style={valueStyle}>{shop?.name || "Store"}</div>
-                    {shop?.address && (
-                      <div style={mutedSmallStyle}>{shop.address}</div>
-                    )}
-                  </section>
-                </div>
-
-                {(shop?.phone || shop?.email) && (
-                  <section style={sectionStyle}>
-                    <div style={sectionTitleStyle}>STORE SUPPORT</div>
-                    <div style={supportStyle}>
-                      {shop.phone && <span>☎ {shop.phone}</span>}
-                      {shop.email && <span>✉ {shop.email}</span>}
-                    </div>
-                  </section>
-                )}
+                <section style={styles.section}>
+                  <h2 style={styles.sectionTitle}>PURCHASE STORE</h2>
+                  <div style={styles.value}>{shop?.name || "Store"}</div>
+                  {shop?.address && (
+                    <div style={styles.muted}>{shop.address}</div>
+                  )}
+                  {shop?.phone && (
+                    <div style={styles.muted}>☎ {shop.phone}</div>
+                  )}
+                  {shop?.email && (
+                    <div style={styles.muted}>✉ {shop.email}</div>
+                  )}
+                </section>
 
                 {warranty.terms && (
-                  <section style={sectionStyle}>
-                    <div style={sectionTitleStyle}>WARRANTY TERMS</div>
-                    <div style={termsStyle}>{warranty.terms}</div>
+                  <section style={styles.section}>
+                    <h2 style={styles.sectionTitle}>TERMS</h2>
+                    <div style={styles.muted}>{warranty.terms}</div>
                   </section>
                 )}
               </div>
 
-              <aside style={qrPanelStyle}>
-                <div style={qrHeadingStyle}>VERIFY THIS WARRANTY</div>
-                <div style={mutedSmallStyle}>
-                  Scan this QR code from any device to open this verified warranty card.
-                </div>
-                <div style={qrBoxStyle}>
+              <aside style={styles.qrPanel}>
+                <h2 style={styles.sectionTitle}>SCAN TO VERIFY</h2>
+                <div style={styles.qrBox}>
                   <img
                     src={qrUrl}
                     alt="Warranty verification QR code"
-                    width={210}
-                    height={210}
-                    style={{ display: "block", width: "210px", height: "210px" }}
+                    style={styles.qr}
                   />
                 </div>
-                <div style={mutedSmallStyle}>
-                  Computer generated card
-                  <br />
-                  Signature not required
-                </div>
+                <p style={styles.caption}>
+                  Scan from any device to open this warranty card.
+                </p>
+                <p style={styles.caption}>
+                  Computer generated • Signature not required
+                </p>
               </aside>
             </div>
 
-            <div style={footerStyle}>
-              This warranty card is digitally verified by BillNest. Keep your original
-              invoice for service requests.
-            </div>
+            <footer style={styles.footer}>
+              This warranty card is digitally verified by BillNest.
+            </footer>
           </div>
-        </section>
+        </div>
       </div>
-    </main>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div style={labelStyle}>{label}</div>
-      <div style={valueStyle}>{value}</div>
     </div>
   );
 }
 
-const pageStyle: React.CSSProperties = {
-  minHeight: "100vh",
-  background: "#030712",
-  color: "#fff",
-  padding: "32px 16px",
-  fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-};
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={styles.info}>
+      <div style={styles.label}>{label}</div>
+      <div style={styles.value}>{value}</div>
+    </div>
+  );
+}
 
-const containerStyle: React.CSSProperties = {
-  width: "100%",
-  maxWidth: 1180,
-  margin: "0 auto",
-};
+export default function PublicWarrantyCardPage() {
+  return (
+    <WarrantyErrorBoundary>
+      <PublicWarrantyCardContent />
+    </WarrantyErrorBoundary>
+  );
+}
 
-const brandRowStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 16,
-  marginBottom: 20,
+const styles: Record<string, React.CSSProperties> = {
+  page: {
+    minHeight: "100vh",
+    boxSizing: "border-box",
+    background: "#020617",
+    color: "#f8fafc",
+    padding: "32px 16px",
+    fontFamily:
+      "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+  },
+  wrapper: { maxWidth: 1100, margin: "0 auto" },
+  top: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 20,
+  },
+  logo: {
+    color: "#60a5fa",
+    fontSize: 14,
+    fontWeight: 900,
+    letterSpacing: "0.28em",
+  },
+  caption: {
+    color: "rgba(255,255,255,.42)",
+    fontSize: 11,
+    letterSpacing: ".12em",
+    lineHeight: 1.6,
+  },
+  active: {
+    color: "#6ee7b7",
+    background: "rgba(52,211,153,.08)",
+    border: "1px solid rgba(52,211,153,.25)",
+    borderRadius: 999,
+    padding: "8px 13px",
+    fontSize: 11,
+    fontWeight: 800,
+  },
+  card: {
+    overflow: "hidden",
+    background: "#07101f",
+    border: "1px solid rgba(255,255,255,.10)",
+    borderRadius: 24,
+    boxShadow: "0 30px 90px rgba(0,0,0,.45)",
+  },
+  hero: {
+    padding: "38px 40px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    gap: 20,
+    borderBottom: "1px solid rgba(255,255,255,.08)",
+  },
+  product: {
+    margin: "8px 0",
+    fontSize: "clamp(28px,5vw,48px)",
+    lineHeight: 1.05,
+    letterSpacing: "-.04em",
+  },
+  verified: { color: "#60a5fa", fontSize: 12, fontWeight: 800 },
+  content: { padding: 32 },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0,1fr) 300px",
+    gap: 24,
+  },
+  section: {
+    padding: 20,
+    marginBottom: 18,
+    border: "1px solid rgba(255,255,255,.08)",
+    borderRadius: 16,
+    background: "rgba(255,255,255,.018)",
+  },
+  sectionTitle: {
+    margin: "0 0 16px",
+    color: "#60a5fa",
+    fontSize: 11,
+    fontWeight: 800,
+    letterSpacing: ".12em",
+  },
+  info: { marginBottom: 15 },
+  label: {
+    color: "rgba(255,255,255,.35)",
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: ".1em",
+    marginBottom: 4,
+  },
+  value: { fontSize: 15, fontWeight: 650, lineHeight: 1.5 },
+  muted: {
+    color: "rgba(255,255,255,.55)",
+    fontSize: 13,
+    lineHeight: 1.7,
+    wordBreak: "break-word",
+  },
+  qrPanel: {
+    padding: 22,
+    borderRadius: 18,
+    border: "1px solid rgba(96,165,250,.20)",
+    background: "rgba(37,99,235,.06)",
+    textAlign: "center",
+    alignSelf: "start",
+  },
+  qrBox: {
+    background: "#fff",
+    padding: 15,
+    borderRadius: 16,
+    width: 260,
+    maxWidth: "100%",
+    boxSizing: "border-box",
+    margin: "18px auto",
+  },
+  qr: { display: "block", width: "100%", height: "auto" },
+  footer: {
+    borderTop: "1px solid rgba(255,255,255,.08)",
+    paddingTop: 20,
+    color: "rgba(255,255,255,.35)",
+    fontSize: 11,
+    textAlign: "center",
+  },
+  message: {
+    maxWidth: 560,
+    margin: "15vh auto",
+    padding: 36,
+    boxSizing: "border-box",
+    textAlign: "center",
+    borderRadius: 24,
+    border: "1px solid rgba(255,255,255,.10)",
+    background: "#07101f",
+  },
+  heading: { margin: "14px 0 8px", fontSize: 28, fontWeight: 800 },
+  button: {
+    marginTop: 20,
+    border: 0,
+    borderRadius: 10,
+    padding: "11px 20px",
+    background: "#2563eb",
+    color: "#fff",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
 };
-
-const brandStyle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 800,
-  letterSpacing: "0.28em",
-  color: "#60a5fa",
-};
-
-const mutedSmallStyle: React.CSSProperties = {
-  fontSize: 12,
-  lineHeight: 1.6,
-  color: "rgba(255,255,255,.45)",
-};
-
-const mutedStyle: React.CSSProperties = {
-  fontSize: 14,
-  lineHeight: 1.6,
-  color: "rgba(255,255,255,.55)",
-};
-
-const statusStyle: React.CSSProperties = {
-  border: "1px solid rgba(52,211,153,.25)",
-  background: "rgba(52,211,153,.08)",
-  color: "#6ee7b7",
-  borderRadius: 999,
-  padding: "9px 14px",
-  fontSize: 11,
-  fontWeight: 800,
-  letterSpacing: ".08em",
-};
-
-const cardStyle: React.CSSProperties = {
-  overflow: "hidden",
-  border: "1px solid rgba(255,255,255,.10)",
-  borderRadius: 24,
-  background: "#070c16",
-  boxShadow: "0 30px 80px rgba(0,0,0,.35)",
-};
-
-const headerStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-end",
-  gap: 24,
-  padding: "38px 40px",
-  borderBottom: "1px solid rgba(255,255,255,.08)",
-  background: "linear-gradient(110deg, rgba(37,99,235,.13), transparent 60%)",
-};
-
-const eyebrowStyle: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 700,
-  letterSpacing: ".16em",
-  color: "rgba(255,255,255,.45)",
-};
-
-const productTitleStyle: React.CSSProperties = {
-  margin: "8px 0",
-  fontSize: "clamp(28px, 5vw, 46px)",
-  lineHeight: 1.05,
-  fontWeight: 800,
-  letterSpacing: "-.03em",
-};
-
-const verifiedStyle: React.CSSProperties = {
-  color: "#60a5fa",
-  fontSize: 13,
-  fontWeight: 700,
-  whiteSpace: "nowrap",
-};
-
-const bodyStyle: React.CSSProperties = {
-  padding: "32px 40px 28px",
-};
-
-const mainGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) 280px",
-  gap: 24,
-};
-
-const sectionStyle: React.CSSProperties = {
-  border: "1px solid rgba(255,255,255,.08)",
-  borderRadius: 18,
-  background: "rgba(255,255,255,.018)",
-  padding: 22,
-  marginBottom: 20,
-};
-
-const sectionTitleStyle: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 800,
-  letterSpacing: ".12em",
-  color: "#60a5fa",
-  marginBottom: 18,
-};
-
-const detailsGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: "22px 28px",
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 10,
-  textTransform: "uppercase",
-  letterSpacing: ".12em",
-  color: "rgba(255,255,255,.32)",
-  marginBottom: 5,
-};
-
-const valueStyle: React.CSSProperties = {
-  fontSize: 15,
-  fontWeight: 650,
-  lineHeight: 1.5,
-  wordBreak: "break-word",
-};
-
-const twoColumnStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: 20,
-};
-
-const supportStyle: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 16,
-  color: "rgba(255,255,255,.6)",
-  fontSize: 13,
-};
-
-const termsStyle: React.CSSProperties = {
-  whiteSpace: "pre-wrap",
-  color: "rgba(255,255,255,.55)",
-  fontSize: 13,
-  lineHeight: 1.8,
-};
-
-const qrPanelStyle: React.CSSProperties = {
-  alignSelf: "start",
-  border: "1px solid rgba(96,165,250,.20)",
-  borderRadius: 22,
-  background: "linear-gradient(180deg, rgba(37,99,235,.10), rgba(255,255,255,.015))",
-  padding: 22,
-  textAlign: "center",
-};
-
-const qrHeadingStyle: React.CSSProperties = {
-  fontSize: 14,
-  fontWeight: 800,
-  marginBottom: 8,
-};
-
-const qrBoxStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  margin: "18px auto",
-  width: 242,
-  height: 242,
-  maxWidth: "100%",
-  borderRadius: 18,
-  background: "#fff",
-  padding: 16,
-};
-
-const footerStyle: React.CSSProperties = {
-  borderTop: "1px solid rgba(255,255,255,.08)",
-  paddingTop: 20,
-  textAlign: "center",
-  color: "rgba(255,255,255,.30)",
-  fontSize: 11,
-  lineHeight: 1.6,
-};
-
-const messageStyle: React.CSSProperties = {
-  width: "100%",
-  maxWidth: 460,
-  margin: "18vh auto 0",
-  textAlign: "center",
-};
-
-const errorCardStyle: React.CSSProperties = {
-  width: "100%",
-  maxWidth: 520,
-  margin: "14vh auto 0",
-  border: "1px solid rgba(255,255,255,.10)",
-  borderRadius: 24,
-  background: "#070c16",
-  padding: 36,
-  textAlign: "center",
-};
-
-const titleStyle: React.CSSProperties = {
-  margin: "16px 0 8px",
-  fontSize: 26,
-  fontWeight: 800,
-};
-
-const badgeStyle: React.CSSProperties = {
-  color: "#60a5fa",
-  fontSize: 12,
-  fontWeight: 800,
-  letterSpacing: ".25em",
-};
-
-const spinnerStyle: React.CSSProperties = {
-  width: 38,
-  height: 38,
-  margin: "0 auto",
-  border: "3px solid rgba(255,255,255,.12)",
-  borderTopColor: "#60a5fa",
-  borderRadius: "50%",
-  animation: "spin 1s linear infinite",
-};
-
-const buttonStyle: React.CSSProperties = {
-  marginTop: 22,
-  border: 0,
-  borderRadius: 10,
-  padding: "11px 18px",
-  background: "#2563eb",
-  color: "#fff",
-  fontWeight: 700,
-  cursor: "pointer",
-};
-
