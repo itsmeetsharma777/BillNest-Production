@@ -61,7 +61,7 @@ const invoiceItemSchema = new Schema(
       required: true,
       trim: true,
       minlength: 1,
-      maxlength: 200,
+      maxlength: 500,
     },
 
     /*
