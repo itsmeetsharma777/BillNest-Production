@@ -600,8 +600,45 @@ export default function CreateInvoicePage() {
     try {
       const draft = JSON.parse(rawDraft) as OcrInvoiceDraft;
       if (!draft.items?.length) return;
-      setOcrDraft(draft);
-      setItems(draft.items.map((item) => ({
+      const excludedChargePatterns = [
+        "marketplace fee",
+        "platform fee",
+        "shipping fee",
+        "delivery fee",
+        "handling fee",
+        "convenience fee",
+        "payment processing fee",
+        "service charge",
+        "gst",
+        "tax",
+        "subtotal",
+        "total amount",
+        "discount",
+      ];
+
+      const invoiceItems = draft.items.filter((item) => {
+        const name = item.productName?.trim().toLowerCase() ?? "";
+        return (
+          Boolean(name) &&
+          !excludedChargePatterns.some((pattern) =>
+            name.includes(pattern),
+          )
+        );
+      });
+
+      if (invoiceItems.length === 0) {
+        sessionStorage.removeItem("billnest_ocr_invoice_draft");
+        ocrDraftLoadedRef.current = true;
+        return;
+      }
+
+      const sanitizedDraft = {
+        ...draft,
+        items: invoiceItems,
+      };
+
+      setOcrDraft(sanitizedDraft);
+      setItems(invoiceItems.map((item) => ({
         id: crypto.randomUUID(),
         description: item.productName,
         quantity: String(item.quantity || 1),
