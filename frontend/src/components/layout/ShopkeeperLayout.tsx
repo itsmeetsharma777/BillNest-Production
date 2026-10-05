@@ -15,6 +15,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   PieChart,
+  ScanLine,
   Settings,
   ShieldCheck,
   Sun,
@@ -89,6 +90,11 @@ const navigationItems: NavigationItem[] = [
     label: "Notifications",
     href: "/shopkeeper/notifications",
     icon: Bell,
+  },
+  {
+    label: "AI OCR",
+    href: "/shopkeeper/ocr",
+    icon: ScanLine,
   },
 ];
 
