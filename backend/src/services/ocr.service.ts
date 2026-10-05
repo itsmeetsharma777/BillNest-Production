@@ -130,8 +130,9 @@ function normalizeOcrResult(
     ? data.items
     : [];
 
-  const items: OcrItem[] = rawItems.map(
-    (item) => {
+  const items: OcrItem[] = rawItems
+    .map(
+      (item) => {
       if (!item || typeof item !== "object") {
         return {
           productName: "",
@@ -181,7 +182,32 @@ function normalizeOcrResult(
             : null,
       };
     },
-  );
+  )
+    .filter((item) => {
+      const name = item.productName.toLowerCase();
+      const excludedChargePatterns = [
+        "marketplace fee",
+        "platform fee",
+        "shipping fee",
+        "delivery fee",
+        "handling fee",
+        "convenience fee",
+        "payment processing fee",
+        "service charge",
+        "gst",
+        "tax",
+        "subtotal",
+        "total amount",
+        "discount",
+      ];
+
+      return (
+        Boolean(item.productName) &&
+        !excludedChargePatterns.some((pattern) =>
+          name.includes(pattern),
+        )
+      );
+    });
 
   const documentType =
     typeof data.documentType === "string"
@@ -369,6 +395,15 @@ IMPORTANT RULES:
 13. rawText should contain the important readable text from the document.
 14. Do not add explanations outside the JSON.
 15. Return ONLY valid JSON.
+
+16. The "items" array must contain ONLY actual products or billable services that are clearly listed as invoice line items.
+17. Do NOT create an item from marketplace fees, platform fees, shipping fees, delivery charges, handling charges, convenience fees, payment-processing fees, taxes/GST, discounts, subtotals, totals, order summaries, or other summary/fee rows.
+18. For Amazon-style invoices, treat labels such as "Marketplace Fees" as a charge/summary component, NOT as a product. Do not put them in the items array.
+19. If there is one actual product purchased, return exactly one item for that product. Never duplicate the same product because it appears in multiple sections of the document.
+20. Prefer the product description from the actual item/order line over text from totals, fee, payment, or summary sections.
+21. Quantity and unitPrice must come from the actual product line. Do not use a fee amount as a product price.
+
+Return ONLY valid JSON.
 
 Return this exact structure:
 
