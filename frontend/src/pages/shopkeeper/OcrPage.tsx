@@ -431,7 +431,7 @@ export default function OcrPage() {
     };
 
     sessionStorage.setItem("billnest_ocr_invoice_draft", JSON.stringify(draft));
-    navigate("/shopkeeper/invoices/create?from=ocr");
+    navigate("/shopkeeper/invoices/new?from=ocr");
   }
 
   function resetForAnotherDocument() {
