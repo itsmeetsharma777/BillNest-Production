@@ -18,8 +18,8 @@ const invoiceItemSchema = z.object({
     .trim()
     .min(1, "Product name is required.")
     .max(
-      200,
-      "Product name cannot exceed 200 characters.",
+      500,
+      "Product name cannot exceed 500 characters.",
     ),
 
   sku: z
