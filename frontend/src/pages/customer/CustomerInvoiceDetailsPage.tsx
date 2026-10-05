@@ -98,6 +98,7 @@ interface InvoiceResponse {
   data?: {
     invoice?: Invoice;
     items?: InvoiceItem[];
+    customer?: InvoiceCustomer | null;
     shop?: Shop | null;
   };
   message?: string;
@@ -438,7 +439,9 @@ export default function CustomerInvoiceDetailsPage() {
     invoice.invoiceNo ??
     "Invoice";
 
-  const customer = invoice.customer;
+  const customer =
+    invoice.customer ??
+    data.customer;
 
   return (
     <div className="mx-auto w-full max-w-5xl p-4 sm:p-6 lg:p-8">
