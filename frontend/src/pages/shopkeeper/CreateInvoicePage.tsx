@@ -147,6 +147,26 @@ interface InvoiceItem {
   barcode?: string;
 }
 
+interface OcrInvoiceDraft {
+  sourceInvoiceNumber?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  items: Array<{
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    discount: number;
+    taxRate: number;
+    serialNumber?: string;
+    sku?: string;
+  }>;
+  discount: number;
+  tax: number;
+  paymentMethod?: string;
+  notes?: string;
+}
+
 interface CreateInvoiceResponse {
   success: boolean;
   data?: {
@@ -482,6 +502,13 @@ export default function CreateInvoicePage() {
     setSuccessMessage,
   ] = useState("");
 
+  const [
+    ocrDraft,
+    setOcrDraft,
+  ] = useState<OcrInvoiceDraft | null>(null);
+
+  const ocrDraftLoadedRef = useRef(false);
+
   /*
    * ============================================================
    * LOAD CUSTOMERS
@@ -561,6 +588,58 @@ export default function CreateInvoicePage() {
     };
   }, [loadCustomers]);
 
+  useEffect(() => {
+    if (ocrDraftLoadedRef.current) return;
+
+    const rawDraft = sessionStorage.getItem("billnest_ocr_invoice_draft");
+    if (!rawDraft) {
+      ocrDraftLoadedRef.current = true;
+      return;
+    }
+
+    try {
+      const draft = JSON.parse(rawDraft) as OcrInvoiceDraft;
+      if (!draft.items?.length) return;
+      setOcrDraft(draft);
+      setItems(draft.items.map((item) => ({
+        id: crypto.randomUUID(),
+        description: item.productName,
+        quantity: String(item.quantity || 1),
+        unitPrice: String(item.unitPrice || 0),
+        sku: item.sku,
+      })));
+      setDiscount(String(draft.discount || 0));
+      setTax(String(draft.tax || 0));
+      setNotes(draft.notes ?? '');
+      const payment = draft.paymentMethod?.toLowerCase();
+      if (payment === 'cash') setPaymentMethod('CASH');
+      else if (payment === 'cheque') setPaymentMethod('CHEQUE');
+      else if (payment === 'online' || payment === 'upi') setPaymentMethod('ONLINE');
+      if (draft.customerName || draft.customerPhone) {
+        setCustomerSearch(draft.customerPhone || draft.customerName || '');
+      }
+    } catch {
+      sessionStorage.removeItem("billnest_ocr_invoice_draft");
+    } finally {
+      ocrDraftLoadedRef.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!ocrDraft || selectedCustomerId || customers.length === 0) return;
+    const normalizePhone = (value?: string) => (value ?? '').replace(/\D/g, '');
+    const draftPhone = normalizePhone(ocrDraft.customerPhone);
+    const draftName = ocrDraft.customerName?.trim().toLowerCase();
+    const matched = customers.find((customer) => {
+      const phoneMatches = Boolean(draftPhone) && normalizePhone(customer.phone) === draftPhone;
+      const nameMatches = Boolean(draftName) && customer.name.trim().toLowerCase() === draftName;
+      return phoneMatches || nameMatches;
+    });
+    if (matched) {
+      setSelectedCustomerId(matched.id);
+      setCustomerSearch('');
+    }
+  }, [customers, ocrDraft, selectedCustomerId]);
   /*
    * ============================================================
    * SELECTED CUSTOMER
@@ -1367,14 +1446,48 @@ export default function CreateInvoicePage() {
     setError("");
     setSuccessMessage("");
 
-    if (
-      !selectedCustomerId ||
-      !selectedCustomer
-    ) {
-      setError(
-        "Please select a customer.",
-      );
+    let invoiceCustomer = selectedCustomer;
 
+    if (!invoiceCustomer && ocrDraft?.customerName && ocrDraft.customerPhone) {
+      try {
+        const response = await fetch(
+          `${API_URL}/customers`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: ocrDraft.customerName.trim(),
+              phone: ocrDraft.customerPhone.trim(),
+              ...(ocrDraft.customerEmail?.trim()
+                ? { email: ocrDraft.customerEmail.trim() }
+                : {}),
+            }),
+          },
+        );
+        const result = (await response.json()) as CustomerResponse;
+        if (!response.ok || !result.data?.customer) {
+          throw new Error(result.message ?? "Unable to create or match the OCR customer.");
+        }
+        invoiceCustomer = normalizeCustomer(result.data.customer);
+        setCustomers((current) => {
+          const exists = current.some((customer) => customer.id === invoiceCustomer?.id);
+          return exists
+            ? current.map((customer) => customer.id === invoiceCustomer?.id ? invoiceCustomer! : customer)
+            : [invoiceCustomer!, ...current];
+        });
+        setSelectedCustomerId(invoiceCustomer.id);
+        setCustomerAddress(normalizeAddress(result.data.customer.address));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unable to create or match the OCR customer.');
+        return;
+      }
+    }
+
+    if (!invoiceCustomer) {
+      setError("Please select a customer. OCR needs a customer phone number to create a new customer.");
       return;
     }
 
@@ -1767,11 +1880,11 @@ export default function CreateInvoicePage() {
               orderData.orderId,
             prefill: {
               name:
-                selectedCustomer.name,
+                invoiceCustomer?.name,
               email:
-                selectedCustomer.email,
+                invoiceCustomer?.email,
               contact:
-                selectedCustomer.phone,
+                invoiceCustomer?.phone,
             },
             handler:
               async (
