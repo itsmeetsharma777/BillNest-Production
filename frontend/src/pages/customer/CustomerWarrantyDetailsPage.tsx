@@ -266,18 +266,15 @@ export default function CustomerWarrantyDetailsPage() {
         </Button>
 
         {publicVerificationUrl && (
-          <Button
-            onClick={() =>
-              window.open(
-                publicVerificationUrl,
-                "_blank",
-                "noopener,noreferrer",
-              )
-            }
-            className="shadow-sm"
-          >
-            <ShieldCheck className="mr-2 size-4" />
-            View Warranty Card
+          <Button asChild className="shadow-sm">
+            <a
+              href={publicVerificationUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ShieldCheck className="mr-2 size-4" />
+              View Warranty Card
+            </a>
           </Button>
         )}
       </div>
