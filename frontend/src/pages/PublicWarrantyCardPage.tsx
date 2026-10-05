@@ -18,8 +18,8 @@ import { useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 
 const API_URL =
-  import.meta.env.VITE_API_URL ??
-  "http://localhost:5001/api";
+  import.meta.env.VITE_API_URL ||
+  "https://billnest-backend-oq1j.onrender.com/api";
 
 interface PublicWarrantyData {
   warranty: {
