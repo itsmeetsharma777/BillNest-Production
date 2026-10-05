@@ -303,7 +303,6 @@ function PublicWarrantyCardContent() {
     </div>
   );
 }
-}
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
