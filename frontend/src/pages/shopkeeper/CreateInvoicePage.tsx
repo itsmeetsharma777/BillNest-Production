@@ -2880,125 +2880,92 @@ export default function CreateInvoicePage() {
               {/* Payment */}
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Payment method
+                  Payment
                 </label>
 
-                <select
-                  value={paymentMethod}
-                  onChange={(event) => {
-                    const value =
-                      event.target.value as PaymentMethod;
+                {ocrDraft ? (
+                  <div className="rounded-xl border border-green-500/25 bg-green-500/5 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold">
+                        Paid
+                      </span>
 
-                    setPaymentMethod(value);
+                      <span className="rounded-full bg-green-500/15 px-2.5 py-1 text-xs font-semibold text-green-600 dark:text-green-400">
+                        Already paid
+                      </span>
+                    </div>
 
-                    if (value === "ONLINE") {
-                      setStatus("PAID");
-                      setAmountPaid(
-                        total > 0
-                          ? total.toFixed(2)
-                          : "0",
-                      );
-                    }
-
-                    if (value !== "CHEQUE") {
-                      setChequeNumber("");
-                    }
-                  }}
-                  className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="CASH">
-                    Cash
-                  </option>
-
-                  <option value="ONLINE">
-                    Online
-                  </option>
-
-                  <option value="CHEQUE">
-                    Cheque
-                  </option>
-                </select>
-
-                {paymentMethod === "ONLINE" && (
-                  <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
-                    Online payments are securely processed through Razorpay. The customer can use UPI, cards, or other methods available in Razorpay Checkout.
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      Payment is recorded from the uploaded invoice. No new payment or Razorpay checkout is required.
+                    </p>
                   </div>
-                )}
-
-                {paymentMethod === "CHEQUE" && (
-                  <label className="mt-3 block">
-                    <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                      Cheque Number
-                    </span>
-
-                    <input
-                      type="text"
-                      value={chequeNumber}
-                      onChange={(event) =>
-                        setChequeNumber(
-                          event.target.value,
-                        )
-                      }
-                      placeholder="Enter cheque number"
-                      maxLength={50}
-                      className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                    />
-                  </label>
-                )}
-              </div>
-
-              {/* Amount paid */}
-              {status === "PARTIALLY_PAID" ? (
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                    Amount paid by customer
-                  </span>
-
-                  <div className="relative">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                      ₹
-                    </span>
-
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={amountPaid}
-                      onFocus={(event) =>
-                        event.currentTarget.select()
-                      }
+                ) : (
+                  <>
+                    <select
+                      value={paymentMethod}
                       onChange={(event) => {
                         const value =
-                          event.target.value;
+                          event.target.value as PaymentMethod;
 
-                        if (
-                          value === "" ||
-                          /^\d*\.?\d{0,2}$/.test(
-                            value,
-                          )
-                        ) {
-                          setAmountPaid(value);
+                        setPaymentMethod(value);
+
+                        if (value === "ONLINE") {
+                          setStatus("PAID");
+                          setAmountPaid(
+                            total > 0
+                              ? total.toFixed(2)
+                              : "0",
+                          );
+                        }
+
+                        if (value !== "CHEQUE") {
+                          setChequeNumber("");
                         }
                       }}
-                      placeholder="Enter amount paid"
-                      className="h-10 w-full rounded-lg border bg-background pl-7 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                </label>
-              ) : (
-                <div className="rounded-lg border bg-muted/30 px-3 py-2.5">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Amount paid
-                    </span>
-                    <span className="text-sm font-semibold">
-                      {formatCurrency(total)}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Full invoice amount will be recorded as paid.
-                  </p>
-                </div>
-              )}
+                      className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="CASH">
+                        Cash
+                      </option>
+
+                      <option value="ONLINE">
+                        Online
+                      </option>
+
+                      <option value="CHEQUE">
+                        Cheque
+                      </option>
+                    </select>
+
+                    {paymentMethod === "ONLINE" && (
+                      <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+                        Online payments are securely processed through Razorpay. The customer can use UPI, cards, or other methods available in Razorpay Checkout.
+                      </div>
+                    )}
+
+                    {paymentMethod === "CHEQUE" && (
+                      <label className="mt-3 block">
+                        <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                          Cheque Number
+                        </span>
+
+                        <input
+                          type="text"
+                          value={chequeNumber}
+                          onChange={(event) =>
+                            setChequeNumber(
+                              event.target.value,
+                            )
+                          }
+                          placeholder="Enter cheque number"
+                          maxLength={50}
+                          className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        />
+                      </label>
+                    )}
+                  </>
+                )}
+              </div>
 
               {/* Status */}
               <div>
