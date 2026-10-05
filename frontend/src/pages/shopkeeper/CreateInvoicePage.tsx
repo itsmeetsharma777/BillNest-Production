@@ -1617,6 +1617,16 @@ export default function CreateInvoicePage() {
     const parsedAmountPaid =
       parseAmount(amountPaid);
 
+    /*
+     * OCR imports an invoice that already exists in the
+     * real world. If that source invoice is marked as paid,
+     * "Online/UPI" describes the historical payment method;
+     * it must NOT start a new Razorpay checkout.
+     */
+    const isImportedOcrPaid =
+      Boolean(ocrDraft) &&
+      status === "PAID";
+
     if (
       parsedDiscount >
       subtotal
@@ -1641,6 +1651,7 @@ export default function CreateInvoicePage() {
 
     if (
       paymentMethod === "ONLINE" &&
+      !isImportedOcrPaid &&
       parsedAmountPaid <= 0
     ) {
       setError(
@@ -1822,14 +1833,16 @@ export default function CreateInvoicePage() {
                   ),
 
                 status:
-                  paymentMethod === "ONLINE"
+                  paymentMethod === "ONLINE" &&
+                  !isImportedOcrPaid
                     ? "draft"
                     : toBackendStatus(
                         finalStatus,
                       ),
 
                 amountPaid:
-                  paymentMethod === "ONLINE"
+                  paymentMethod === "ONLINE" &&
+                  !isImportedOcrPaid
                     ? 0
                     : roundMoney(
                         parsedAmountPaid,
@@ -1903,7 +1916,8 @@ export default function CreateInvoicePage() {
         result.data?.invoice;
 
       if (
-        paymentMethod === "ONLINE"
+        paymentMethod === "ONLINE" &&
+        !isImportedOcrPaid
       ) {
         const invoiceId =
           createdInvoice?.id ??
