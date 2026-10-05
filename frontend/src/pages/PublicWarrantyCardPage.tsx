@@ -22,7 +22,7 @@ type WarrantyResponse = {
     name?: string;
     phone?: string;
     email?: string;
-    address?: string;
+    address?: unknown;
   } | null;
 };
 
@@ -78,6 +78,28 @@ function formatDate(value?: string) {
         month: "short",
         year: "numeric",
       });
+}
+
+function formatAddress(address: unknown): string {
+  if (!address) return "";
+  if (typeof address === "string") return address;
+  if (typeof address !== "object") return String(address);
+
+  const value = address as Record<string, unknown>;
+  return [
+    value.line1,
+    value.line2,
+    value.addressLine1,
+    value.addressLine2,
+    value.area,
+    value.city,
+    value.state,
+    value.postalCode,
+    value.pincode,
+    value.country,
+  ]
+    .filter((part) => typeof part === "string" && part.trim())
+    .join(", ");
 }
 
 function PublicWarrantyCardContent() {
@@ -249,7 +271,9 @@ function PublicWarrantyCardContent() {
                   <h2 style={styles.sectionTitle}>PURCHASE STORE</h2>
                   <div style={styles.value}>{shop?.name || "Store"}</div>
                   {shop?.address && (
-                    <div style={styles.muted}>{shop.address}</div>
+                    <div style={styles.muted}>
+                      {formatAddress(shop.address)}
+                    </div>
                   )}
                   {shop?.phone && (
                     <div style={styles.muted}>☎ {shop.phone}</div>
