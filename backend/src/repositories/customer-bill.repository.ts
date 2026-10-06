@@ -40,3 +40,36 @@ export async function findCustomerBillById(
     isActive: true,
   }).lean();
 }
+
+
+export async function updateCustomerBillForCustomer(
+  customerId: string,
+  billId: string,
+  data: {
+    documentType?: string;
+    extractedData?: Record<string, unknown>;
+  },
+) {
+  return CustomerBillModel.findOneAndUpdate(
+    {
+      _id: billId,
+      customerId,
+      isActive: true,
+    },
+    {
+      ...(data.documentType !== undefined
+        ? { documentType: data.documentType }
+        : {}),
+      ...(data.extractedData !== undefined
+        ? { extractedData: data.extractedData }
+        : {}),
+      $set: {
+        ocrStatus: "processed",
+      },
+    },
+    {
+      new: true,
+      runValidators: true,
+    },
+  ).lean();
+}
