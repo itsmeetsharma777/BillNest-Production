@@ -58,6 +58,19 @@ interface OcrConfidence {
   [key: string]: FieldConfidence | undefined;
 }
 
+interface BillQualityCheck {
+  code: string;
+  message: string;
+  severity: "info" | "warning" | "error";
+}
+
+interface BillQuality {
+  score: number;
+  severity: "good" | "warning" | "poor";
+  checks: BillQualityCheck[];
+  checkedAt: string;
+}
+
 interface ExtractedData {
   invoiceNumber?: string;
   invoiceDate?: string;
@@ -77,6 +90,7 @@ interface ExtractedData {
   warrantyExpiry?: string;
   rawText?: string;
   confidence?: OcrConfidence;
+  quality?: BillQuality;
   [key: string]: unknown;
 }
 
@@ -444,6 +458,14 @@ export default function CustomerBillReviewPage() {
       field?.level === "low" ||
       field?.level === "medium",
   ).length;
+  const quality = data.quality;
+  const qualityTone =
+    quality?.severity === "good"
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+      : quality?.severity === "poor"
+        ? "border-destructive/30 bg-destructive/10 text-destructive"
+        : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400";
+
 
   return (
     <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
@@ -537,6 +559,43 @@ export default function CustomerBillReviewPage() {
           </div>
         </div>
       </div>
+
+      {quality && (
+        <div className="mb-6 rounded-2xl border bg-card p-5 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold">Bill quality check</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Automatic validation checks the extracted data before you save it.
+              </p>
+            </div>
+            <div className={`inline-flex items-center gap-2 self-start rounded-full border px-3 py-1.5 text-sm font-bold ${qualityTone}`}>
+              {quality.score}/100
+              <span className="text-xs font-semibold capitalize">
+                {quality.severity}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-2">
+            {quality.checks.map((check) => (
+              <div
+                key={check.code}
+                className="flex items-start gap-2 rounded-xl bg-muted/40 p-3 text-sm"
+              >
+                <span className="mt-0.5 shrink-0">
+                  {check.severity === "error"
+                    ? "🔴"
+                    : check.severity === "warning"
+                      ? "🟠"
+                      : "🟢"}
+                </span>
+                <span>{check.message}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6">
