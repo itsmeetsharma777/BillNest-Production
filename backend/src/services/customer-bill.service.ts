@@ -9,6 +9,7 @@ import {
   findCustomerBillByHash,
   findCustomerBills,
   findCustomerBillById,
+  updateCustomerBillForCustomer,
 } from "../repositories/customer-bill.repository";
 
 import {
@@ -182,6 +183,44 @@ export async function getCustomerBillForUser(
     await findCustomerBillById(
       customer._id.toString(),
       billId,
+    );
+
+  if (!bill) {
+    throw new ApiError(
+      404,
+      "Bill not found.",
+      "CUSTOMER_BILL_NOT_FOUND",
+    );
+  }
+
+  return bill;
+}
+
+
+export async function updateCustomerBillForUser(
+  userId: string,
+  billId: string,
+  data: {
+    documentType?: string;
+    extractedData?: Record<string, unknown>;
+  },
+) {
+  const customer =
+    await getCustomerForUser(userId);
+
+  if (!customer) {
+    throw new ApiError(
+      404,
+      "Customer profile not found.",
+      "CUSTOMER_PROFILE_NOT_FOUND",
+    );
+  }
+
+  const bill =
+    await updateCustomerBillForCustomer(
+      customer._id.toString(),
+      billId,
+      data,
     );
 
   if (!bill) {
