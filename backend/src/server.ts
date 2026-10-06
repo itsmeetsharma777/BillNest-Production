@@ -30,6 +30,7 @@ import documentRoutes from "./routes/document.routes";
 import inventoryRoutes from "./routes/inventory.routes";
 import publicWarrantyRoutes from "./routes/public-warranty.routes";
 import ocrRoutes from "./routes/ocr.routes";
+import customerBillRoutes from "./routes/customer-bill.routes";
 
 import { errorMiddleware } from "./middleware/error.middleware";
 import { csrfProtection } from "./middleware/csrf.middleware";
@@ -338,6 +339,11 @@ app.use(
 app.use(
   "/api/ocr",
   ocrRoutes,
+);
+
+app.use(
+  "/api/customer/bills",
+  customerBillRoutes,
 );
 
 /**
