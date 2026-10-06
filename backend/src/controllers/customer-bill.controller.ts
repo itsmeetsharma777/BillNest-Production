@@ -5,6 +5,7 @@ import {
   getCustomerBillsForUser,
   getCustomerBillForUser,
   updateCustomerBillForUser,
+  archiveCustomerBillForUser,
 } from "../services/customer-bill.service";
 
 import { ApiError } from "../utils/api-error";
@@ -162,6 +163,37 @@ export async function updateCustomerBill(
     success: true,
     data: {
       bill,
+    },
+  });
+}
+
+
+export async function archiveCustomerBill(
+  request: AuthenticatedRequest,
+  response: Response,
+) {
+  const billId =
+    typeof request.params.billId === "string"
+      ? request.params.billId
+      : "";
+
+  if (!billId) {
+    throw new ApiError(
+      400,
+      "Bill ID is required.",
+      "BILL_ID_REQUIRED",
+    );
+  }
+
+  await archiveCustomerBillForUser(
+    getUserId(request),
+    billId,
+  );
+
+  response.status(200).json({
+    success: true,
+    data: {
+      message: "Bill removed successfully.",
     },
   });
 }
