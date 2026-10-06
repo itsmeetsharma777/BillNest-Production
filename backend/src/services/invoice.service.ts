@@ -764,14 +764,22 @@ export async function getInvoiceForOwner(
     );
   }
 
-  const items =
-    await findInvoiceItems(
+  const [
+    items,
+    customer,
+  ] = await Promise.all([
+    findInvoiceItems(
       invoice._id.toString(),
-    );
+    ),
+    findCustomerById(
+      invoice.customerId.toString(),
+    ),
+  ]);
 
   return {
     invoice,
     items,
+    customer,
   };
 }
 
