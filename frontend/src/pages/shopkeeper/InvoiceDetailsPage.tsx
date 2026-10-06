@@ -108,8 +108,11 @@ interface InvoiceResponse {
   success: boolean;
 
   data?: {
-    invoice?: Invoice;
+    invoice?: Invoice & {
+      issueDate?: string;
+    };
     items?: InvoiceItem[];
+    customer?: InvoiceCustomer | null;
   };
 
   message?: string;
@@ -417,6 +420,14 @@ export default function InvoiceDetailsPage() {
 
       setInvoice({
         ...loadedInvoice,
+
+        invoiceDate:
+          loadedInvoice.invoiceDate ??
+          loadedInvoice.issueDate,
+
+        customer:
+          result.data?.customer ??
+          loadedInvoice.customer,
 
         status:
           normalizeStatus(
