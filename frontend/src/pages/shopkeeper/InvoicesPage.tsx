@@ -19,6 +19,8 @@ import {
   MoreHorizontal,
   Plus,
   Search,
+  SlidersHorizontal,
+  X,
   XCircle,
 } from "lucide-react";
 
@@ -347,6 +349,26 @@ export default function InvoicesPage() {
   >("ALL");
 
   const [
+    dateFrom,
+    setDateFrom,
+  ] = useState("");
+
+  const [
+    dateTo,
+    setDateTo,
+  ] = useState("");
+
+  const [
+    amountMin,
+    setAmountMin,
+  ] = useState("");
+
+  const [
+    amountMax,
+    setAmountMax,
+  ] = useState("");
+
+  const [
     actionInvoiceId,
     setActionInvoiceId,
   ] = useState<string | null>(
@@ -441,6 +463,71 @@ export default function InvoicesPage() {
             return false;
           }
 
+          const invoiceDate =
+            invoice.date
+              ? new Date(invoice.date)
+              : null;
+
+          const invoiceDateKey =
+            invoiceDate &&
+            !Number.isNaN(
+              invoiceDate.getTime(),
+            )
+              ? invoiceDate
+                  .toISOString()
+                  .slice(0, 10)
+              : "";
+
+          if (
+            dateFrom &&
+            (!invoiceDateKey ||
+              invoiceDateKey <
+                dateFrom)
+          ) {
+            return false;
+          }
+
+          if (
+            dateTo &&
+            (!invoiceDateKey ||
+              invoiceDateKey >
+                dateTo)
+          ) {
+            return false;
+          }
+
+          const minimumAmount =
+            amountMin === ""
+              ? null
+              : Number(amountMin);
+
+          const maximumAmount =
+            amountMax === ""
+              ? null
+              : Number(amountMax);
+
+          if (
+            minimumAmount !== null &&
+            Number.isFinite(
+              minimumAmount,
+            ) &&
+            invoice.total <
+              minimumAmount
+          ) {
+            return false;
+          }
+
+          if (
+            maximumAmount !== null &&
+            Number.isFinite(
+              maximumAmount,
+            ) &&
+            invoice.total >
+              maximumAmount
+          ) {
+            return false;
+          }
+
           if (!query) {
             return true;
           }
@@ -465,6 +552,10 @@ export default function InvoicesPage() {
       invoices,
       search,
       statusFilter,
+      dateFrom,
+      dateTo,
+      amountMin,
+      amountMax,
     ]);
 
   const totalSales =
@@ -1151,6 +1242,118 @@ export default function InvoicesPage() {
         </button>
       </div>
 
+      {/* ADVANCED FILTERS */}
+
+      <div className="mb-4 rounded-2xl border bg-card p-4 shadow-sm">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="size-4 text-primary" />
+            <h2 className="text-sm font-semibold">
+              Filter invoices
+            </h2>
+          </div>
+
+          {(dateFrom ||
+            dateTo ||
+            amountMin ||
+            amountMax) && (
+            <button
+              type="button"
+              onClick={() => {
+                setDateFrom("");
+                setDateTo("");
+                setAmountMin("");
+                setAmountMax("");
+              }}
+              className="inline-flex h-8 items-center justify-center gap-1.5 self-start rounded-lg px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:self-auto"
+            >
+              <X className="size-3.5" />
+              Clear filters
+            </button>
+          )}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              From date
+            </span>
+            <input
+              type="date"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(event) =>
+                setDateFrom(event.target.value)
+              }
+              className="h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+              aria-label="Filter invoices from date"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              To date
+            </span>
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(event) =>
+                setDateTo(event.target.value)
+              }
+              className="h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+              aria-label="Filter invoices to date"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Minimum amount
+            </span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={amountMin}
+              onChange={(event) =>
+                setAmountMin(event.target.value)
+              }
+              placeholder="₹ 0"
+              className="h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+              aria-label="Filter invoices by minimum amount"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Maximum amount
+            </span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={amountMax}
+              onChange={(event) =>
+                setAmountMax(event.target.value)
+              }
+              placeholder="₹ 0"
+              className="h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+              aria-label="Filter invoices by maximum amount"
+            />
+          </label>
+        </div>
+
+        {(dateFrom ||
+          dateTo ||
+          amountMin ||
+          amountMax) && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Showing {filteredInvoices.length} matching invoice
+            {filteredInvoices.length === 1 ? "" : "s"}.
+          </p>
+        )}
+      </div>
+
       {/* ERROR */}
 
       {error && (
@@ -1214,7 +1417,11 @@ export default function InvoicesPage() {
             <h2 className="text-lg font-semibold">
               {search ||
               statusFilter !==
-                "ALL"
+                "ALL" ||
+              dateFrom ||
+              dateTo ||
+              amountMin ||
+              amountMax
                 ? "No invoices found"
                 : "No invoices yet"}
             </h2>
@@ -1222,14 +1429,22 @@ export default function InvoicesPage() {
             <p className="mt-1 max-w-md text-sm text-muted-foreground">
               {search ||
               statusFilter !==
-                "ALL"
-                ? "Try changing your search or status filter."
+                "ALL" ||
+              dateFrom ||
+              dateTo ||
+              amountMin ||
+              amountMax
+                ? "Try changing your search, status, date or amount filters."
                 : "Create your first invoice to start recording sales."}
             </p>
 
             {!search &&
               statusFilter ===
-                "ALL" && (
+                "ALL" &&
+              !dateFrom &&
+              !dateTo &&
+              !amountMin &&
+              !amountMax && (
                 <button
                   type="button"
                   onClick={() =>
