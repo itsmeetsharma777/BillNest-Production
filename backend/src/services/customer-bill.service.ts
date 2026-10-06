@@ -201,6 +201,84 @@ function withBillQuality(
   };
 }
 
+
+
+type PurchaseCategory =
+  | "Mobile & Accessories"
+  | "Computers & Electronics"
+  | "Home Appliances"
+  | "Grocery & Food"
+  | "Clothing & Fashion"
+  | "Furniture & Home"
+  | "Travel & Transport"
+  | "Health & Personal Care"
+  | "Automotive"
+  | "Other";
+
+function inferPurchaseCategory(extractedData: Record<string, unknown>): PurchaseCategory {
+  const text = [
+    extractedData.shopName,
+    extractedData.rawText,
+    ...(Array.isArray(extractedData.items)
+      ? extractedData.items.map((item) =>
+          item && typeof item === "object"
+            ? (item as Record<string, unknown>).productName
+            : "",
+        )
+      : []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  const rules: Array<[PurchaseCategory, string[]]> = [
+    ["Mobile & Accessories", ["iphone", "mobile", "smartphone", "phone", "airpods", "earbuds", "charger", "power bank", "oneplus", "samsung galaxy", "pixel"]],
+    ["Computers & Electronics", ["laptop", "macbook", "computer", "monitor", "keyboard", "mouse", "printer", "tablet", "television", "tv", "camera", "ssd", "hard disk", "electronics"]],
+    ["Home Appliances", ["refrigerator", "fridge", "washing machine", "microwave", "air conditioner", "ac ", "cooler", "mixer", "grinder", "oven", "vacuum", "appliance"]],
+    ["Grocery & Food", ["grocery", "supermarket", "mart", "food", "rice", "flour", "milk", "bread", "snacks", "vegetable", "fruit"]],
+    ["Clothing & Fashion", ["shirt", "jeans", "t-shirt", "tshirt", "dress", "jacket", "shoes", "sneakers", "clothing", "fashion", "garment"]],
+    ["Furniture & Home", ["sofa", "table", "chair", "bed", "mattress", "cabinet", "furniture", "home decor"]],
+    ["Travel & Transport", ["flight", "airline", "train", "railway", "hotel", "bus", "cab", "uber", "ola", "travel"]],
+    ["Health & Personal Care", ["pharmacy", "medicine", "medical", "clinic", "hospital", "cosmetic", "shampoo", "personal care"]],
+    ["Automotive", ["car", "bike", "motorcycle", "tyre", "tire", "engine", "automotive", "service center"]],
+  ];
+
+  return rules.find(([, keywords]) =>
+    keywords.some((keyword) => text.includes(keyword)),
+  )?.[0] ?? "Other";
+}
+
+function inferWarrantyStatus(extractedData: Record<string, unknown>) {
+  const expiry = extractedData.warrantyExpiry;
+  if (!expiry || typeof expiry !== "string") {
+    return { status: "unknown" as const, expiry: null as string | null };
+  }
+
+  const parsed = new Date(expiry);
+  if (Number.isNaN(parsed.getTime())) {
+    return { status: "unknown" as const, expiry };
+  }
+
+  return {
+    status: parsed.getTime() >= Date.now()
+      ? "active" as const
+      : "expired" as const,
+    expiry,
+  };
+}
+
+function withSmartIntelligence(extractedData: Record<string, unknown>) {
+  const warranty = inferWarrantyStatus(extractedData);
+
+  return {
+    ...extractedData,
+    intelligence: {
+      category: inferPurchaseCategory(extractedData),
+      warranty: warranty,
+    },
+  };
+}
+
 interface UploadedFileInput {
   buffer: Buffer;
   mimeType: string;
@@ -300,7 +378,7 @@ export async function createCustomerBillForUser(
         uploaded.sizeBytes,
       documentType,
       extractedData:
-        withBillQuality(extracted as unknown as Record<string, unknown>),
+        withSmartIntelligence(withBillQuality(extracted as unknown as Record<string, unknown>)),
       rawOcrText:
         extracted.rawText ?? "",
       contentHash,
@@ -395,7 +473,7 @@ export async function updateCustomerBillForUser(
   }
 
   const updatedData = data.extractedData
-    ? withBillQuality(data.extractedData)
+    ? withSmartIntelligence(withBillQuality(data.extractedData))
     : data.extractedData;
 
   const bill =
