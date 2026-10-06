@@ -3,6 +3,7 @@ import { useState } from "react";
 import {
   Bell,
   CreditCard,
+  FileArchive,
   LayoutDashboard,
   LogOut,
   PanelLeftClose,
@@ -35,6 +36,11 @@ const navigation = [
     label: "My Purchases",
     href: "/customer/invoices",
     icon: Receipt,
+  },
+  {
+    label: "My Bills",
+    href: "/customer/bills",
+    icon: FileArchive,
   },
   {
     label: "Payments",
