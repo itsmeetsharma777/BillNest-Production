@@ -91,7 +91,6 @@ export async function createCustomerBillForUser(
       await extractInvoiceDataFromImage({
         buffer: file.buffer,
         mimeType: file.mimeType,
-        documentType: "invoice",
       });
 
     const documentType =
