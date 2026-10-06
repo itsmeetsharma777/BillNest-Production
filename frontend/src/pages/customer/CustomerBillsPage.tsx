@@ -5,7 +5,6 @@ import {
   Upload,
   XCircle,
   Pencil,
-  Trash2,
 } from "lucide-react";
 import {
   useCallback,
@@ -220,45 +219,6 @@ export default function CustomerBillsPage() {
     }
   }
 
-  async function handleArchive(billId: string) {
-    const confirmed = window.confirm(
-      "Remove this bill from your BillNest vault? The original uploaded document will no longer appear in My Bills.",
-    );
-
-    if (!confirmed) return;
-
-    setError("");
-
-    try {
-      const response = await fetch(
-        `${API_URL}/customer/bills/${billId}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        },
-      );
-
-      const result = (await response.json()) as {
-        success: boolean;
-        message?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(
-          result.message ?? "Unable to remove this bill.",
-        );
-      }
-
-      await loadBills();
-    } catch (archiveError) {
-      setError(
-        archiveError instanceof Error
-          ? archiveError.message
-          : "Unable to remove this bill.",
-      );
-    }
-  }
-
   const filteredBills =
     useMemo(() => {
       const query =
@@ -442,6 +402,52 @@ export default function CustomerBillsPage() {
                     Original
                   </a>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const confirmed = window.confirm(
+                      "Remove this bill from your BillNest vault?",
+                    );
+
+                    if (!confirmed) return;
+
+                    setError("");
+
+                    try {
+                      const response = await fetch(
+                        `${API_URL}/customer/bills/${bill._id}`,
+                        {
+                          method: "DELETE",
+                          credentials: "include",
+                        },
+                      );
+
+                      const result = (await response.json()) as {
+                        success: boolean;
+                        message?: string;
+                      };
+
+                      if (!response.ok) {
+                        throw new Error(
+                          result.message ??
+                            "Unable to remove this bill.",
+                        );
+                      }
+
+                      await loadBills();
+                    } catch (archiveError) {
+                      setError(
+                        archiveError instanceof Error
+                          ? archiveError.message
+                          : "Unable to remove this bill.",
+                      );
+                    }
+                  }}
+                  className="mt-2 inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-destructive/30 text-sm font-semibold text-destructive transition hover:bg-destructive/10"
+                >
+                  Delete bill
+                </button>
               </div>
             </article>
           ))}
