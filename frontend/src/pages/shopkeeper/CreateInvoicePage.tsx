@@ -656,9 +656,33 @@ export default function CreateInvoicePage() {
       setDiscount(String(draft.discount || 0));
       setTax(String(draft.tax || 0));
       if (draft.invoiceDate) {
-        const parsedDate = new Date(draft.invoiceDate);
-        if (!Number.isNaN(parsedDate.getTime())) {
-          setInvoiceDate(parsedDate.toISOString().slice(0, 10));
+        const rawDate = draft.invoiceDate.trim();
+        let normalizedDate = "";
+
+        const isoMatch =
+          rawDate.match(/^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})$/);
+
+        const dayFirstMatch =
+          rawDate.match(/^(\\d{1,2})[./-](\\d{1,2})[./-](\\d{4})$/);
+
+        if (isoMatch) {
+          const [, year, month, day] = isoMatch;
+          normalizedDate =
+            `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+        } else if (dayFirstMatch) {
+          const [, day, month, year] = dayFirstMatch;
+          normalizedDate =
+            `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+        } else {
+          const parsedDate = new Date(rawDate);
+          if (!Number.isNaN(parsedDate.getTime())) {
+            normalizedDate =
+              parsedDate.toISOString().slice(0, 10);
+          }
+        }
+
+        if (normalizedDate) {
+          setInvoiceDate(normalizedDate);
         }
       }
       setNotes(draft.notes ?? '');
