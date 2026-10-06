@@ -46,6 +46,18 @@ interface OcrCharge {
   amount?: number | null;
 }
 
+type ConfidenceLevel = "high" | "medium" | "low";
+
+interface FieldConfidence {
+  level: ConfidenceLevel;
+  score?: number;
+  reason?: string;
+}
+
+interface OcrConfidence {
+  [key: string]: FieldConfidence | undefined;
+}
+
 interface ExtractedData {
   invoiceNumber?: string;
   invoiceDate?: string;
@@ -64,6 +76,7 @@ interface ExtractedData {
   warrantyPeriod?: string;
   warrantyExpiry?: string;
   rawText?: string;
+  confidence?: OcrConfidence;
   [key: string]: unknown;
 }
 
@@ -99,8 +112,54 @@ function asNumber(value: unknown) {
   return Number.isFinite(number) ? String(number) : "";
 }
 
-function inputClassName() {
-  return "mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20";
+function inputClassName(confidence?: FieldConfidence) {
+  const base =
+    "mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20";
+
+  if (confidence?.level === "low") {
+    return `${base} border-destructive/60 bg-destructive/5`;
+  }
+
+  if (confidence?.level === "medium") {
+    return `${base} border-amber-500/60 bg-amber-500/5`;
+  }
+
+  if (confidence?.level === "high") {
+    return `${base} border-emerald-500/40`;
+  }
+
+  return base;
+}
+
+function ConfidenceBadge({
+  confidence,
+}: {
+  confidence?: FieldConfidence;
+}) {
+  if (!confidence) return null;
+
+  const classes =
+    confidence.level === "low"
+      ? "border-destructive/30 bg-destructive/10 text-destructive"
+      : confidence.level === "medium"
+        ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+        : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
+
+  const label =
+    confidence.level === "low"
+      ? "Verify"
+      : confidence.level === "medium"
+        ? "Check"
+        : "High confidence";
+
+  return (
+    <span
+      title={confidence.reason ?? undefined}
+      className={`ml-2 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${classes}`}
+    >
+      {label}
+    </span>
+  );
 }
 
 export default function CustomerBillReviewPage() {
@@ -179,10 +238,19 @@ export default function CustomerBillReviewPage() {
     value: unknown,
   ) {
     setSaved(false);
-    setData((current) => ({
-      ...current,
-      [field]: value,
-    }));
+    setData((current) => {
+      const nextConfidence = {
+        ...(current.confidence ?? {}),
+      };
+
+      delete nextConfidence[String(field)];
+
+      return {
+        ...current,
+        [field]: value,
+        confidence: nextConfidence,
+      };
+    });
   }
 
   function updateItem(
@@ -197,7 +265,17 @@ export default function CustomerBillReviewPage() {
         ...(items[index] ?? {}),
         [field]: value,
       };
-      return { ...current, items };
+      const confidence = {
+        ...(current.confidence ?? {}),
+      };
+
+      delete confidence.items;
+
+      return {
+        ...current,
+        items,
+        confidence,
+      };
     });
   }
 
@@ -239,7 +317,17 @@ export default function CustomerBillReviewPage() {
         ...(charges[index] ?? {}),
         [field]: value,
       };
-      return { ...current, charges };
+      const confidence = {
+        ...(current.confidence ?? {}),
+      };
+
+      delete confidence.charges;
+
+      return {
+        ...current,
+        charges,
+        confidence,
+      };
     });
   }
 
@@ -350,6 +438,12 @@ export default function CustomerBillReviewPage() {
 
   const items = data.items ?? [];
   const charges = data.charges ?? [];
+  const confidence = data.confidence ?? {};
+  const reviewFields = Object.values(confidence).filter(
+    (field) =>
+      field?.level === "low" ||
+      field?.level === "medium",
+  ).length;
 
   return (
     <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
@@ -429,11 +523,18 @@ export default function CustomerBillReviewPage() {
               or low-quality bills.
             </p>
           </div>
-          <span className="inline-flex w-fit rounded-full bg-background px-3 py-1 text-xs font-medium capitalize">
-            {bill.ocrStatus === "needs_review"
-              ? "Needs review"
-              : "AI extracted"}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {reviewFields > 0 && (
+              <span className="inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                {reviewFields} field{reviewFields === 1 ? "" : "s"} need verification
+              </span>
+            )}
+            <span className="inline-flex w-fit rounded-full bg-background px-3 py-1 text-xs font-medium capitalize">
+              {bill.ocrStatus === "needs_review"
+                ? "Needs review"
+                : "AI extracted"}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -454,7 +555,7 @@ export default function CustomerBillReviewPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium">
-                Document type
+                Document type<ConfidenceBadge confidence={confidence.documentType} />
                 <select
                   value={documentType}
                   onChange={(event) =>
@@ -473,61 +574,61 @@ export default function CustomerBillReviewPage() {
               </label>
 
               <label className="text-sm font-medium">
-                Bill / invoice number
+                Bill / invoice number<ConfidenceBadge confidence={confidence.invoiceNumber} />
                 <input
                   value={asString(data.invoiceNumber)}
                   onChange={(event) =>
                     updateField("invoiceNumber", event.target.value)
                   }
-                  className={inputClassName()}
+                  className={inputClassName(confidence.invoiceNumber)}
                   placeholder="Invoice number"
                 />
               </label>
 
               <label className="text-sm font-medium">
-                Bill date
+                Bill date<ConfidenceBadge confidence={confidence.invoiceDate} />
                 <input
                   value={asString(data.invoiceDate)}
                   onChange={(event) =>
                     updateField("invoiceDate", event.target.value)
                   }
-                  className={inputClassName()}
+                  className={inputClassName(confidence.invoiceDate)}
                   placeholder="DD/MM/YYYY"
                 />
               </label>
 
               <label className="text-sm font-medium">
-                Payment method
+                Payment method<ConfidenceBadge confidence={confidence.paymentMethod} />
                 <input
                   value={asString(data.paymentMethod)}
                   onChange={(event) =>
                     updateField("paymentMethod", event.target.value)
                   }
-                  className={inputClassName()}
+                  className={inputClassName(confidence.paymentMethod)}
                   placeholder="Cash, UPI, card..."
                 />
               </label>
 
               <label className="text-sm font-medium">
-                Store / merchant
+                Store / merchant<ConfidenceBadge confidence={confidence.shopName} />
                 <input
                   value={asString(data.shopName)}
                   onChange={(event) =>
                     updateField("shopName", event.target.value)
                   }
-                  className={inputClassName()}
+                  className={inputClassName(confidence.shopName)}
                   placeholder="Store name"
                 />
               </label>
 
               <label className="text-sm font-medium">
-                Store phone
+                Store phone<ConfidenceBadge confidence={confidence.shopPhone} />
                 <input
                   value={asString(data.shopPhone)}
                   onChange={(event) =>
                     updateField("shopPhone", event.target.value)
                   }
-                  className={inputClassName()}
+                  className={inputClassName(confidence.shopPhone)}
                   placeholder="Store phone"
                 />
               </label>
@@ -544,24 +645,24 @@ export default function CustomerBillReviewPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium">
-                Customer name
+                Customer name<ConfidenceBadge confidence={confidence.customerName} />
                 <input
                   value={asString(data.customerName)}
                   onChange={(event) =>
                     updateField("customerName", event.target.value)
                   }
-                  className={inputClassName()}
+                  className={inputClassName(confidence.customerName)}
                 />
               </label>
 
               <label className="text-sm font-medium">
-                Customer phone
+                Customer phone<ConfidenceBadge confidence={confidence.customerPhone} />
                 <input
                   value={asString(data.customerPhone)}
                   onChange={(event) =>
                     updateField("customerPhone", event.target.value)
                   }
-                  className={inputClassName()}
+                  className={inputClassName(confidence.customerPhone)}
                 />
               </label>
 
@@ -573,7 +674,7 @@ export default function CustomerBillReviewPage() {
                   onChange={(event) =>
                     updateField("customerEmail", event.target.value)
                   }
-                  className={inputClassName()}
+                  className={inputClassName(confidence.customerEmail)}
                 />
               </label>
             </div>
@@ -582,7 +683,10 @@ export default function CustomerBillReviewPage() {
           <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="font-semibold">Products / items</h2>
+                <h2 className="font-semibold">
+                Products / items
+                <ConfidenceBadge confidence={confidence.items} />
+              </h2>
                 <p className="text-xs text-muted-foreground">
                   Review product names, quantities, prices and identifiers.
                 </p>
@@ -697,7 +801,7 @@ export default function CustomerBillReviewPage() {
                       </label>
 
                       <label className="text-sm font-medium">
-                        Discount
+                        Discount<ConfidenceBadge confidence={confidence.discount} />
                         <input
                           type="number"
                           min="0"
@@ -771,7 +875,10 @@ export default function CustomerBillReviewPage() {
           <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="font-semibold">Charges / fees</h2>
+                <h2 className="font-semibold">
+                Charges / fees
+                <ConfidenceBadge confidence={confidence.charges} />
+              </h2>
                 <p className="text-xs text-muted-foreground">
                   Marketplace, delivery, handling and other non-product fees.
                 </p>
@@ -804,7 +911,7 @@ export default function CustomerBillReviewPage() {
                         onChange={(event) =>
                           updateCharge(index, "name", event.target.value)
                         }
-                        className={inputClassName()}
+                        className={inputClassName(confidence.charges)}
                       />
                     </label>
 
@@ -878,7 +985,7 @@ export default function CustomerBillReviewPage() {
               ))}
 
               <label className="text-sm font-medium">
-                Warranty period
+                Warranty period<ConfidenceBadge confidence={confidence.warrantyPeriod} />
                 <input
                   value={asString(data.warrantyPeriod)}
                   onChange={(event) =>
@@ -890,7 +997,7 @@ export default function CustomerBillReviewPage() {
               </label>
 
               <label className="text-sm font-medium">
-                Warranty expiry
+                Warranty expiry<ConfidenceBadge confidence={confidence.warrantyExpiry} />
                 <input
                   value={asString(data.warrantyExpiry)}
                   onChange={(event) =>
