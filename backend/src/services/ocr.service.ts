@@ -165,86 +165,92 @@ function normalizeOcrResult(
   ];
 
   const charges: OcrCharge[] = [];
-  const items: OcrItem[] = rawItems
-    .map((item) => {
-      if (!item || typeof item !== "object") {
-        return null;
-      }
+  const items: OcrItem[] = [];
 
-      const row = item as Record<string, unknown>;
-      const productName =
-        typeof row.productName === "string"
-          ? row.productName.trim()
-          : "";
-      const normalizedName = productName.toLowerCase();
-      const rawLineType =
-        typeof row.lineType === "string"
-          ? row.lineType.trim().toLowerCase()
-          : "";
-      const isCharge =
-        rawLineType === "charge" ||
-        excludedChargePatterns.some((pattern) =>
+  for (const item of rawItems) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+
+    const row = item as Record<string, unknown>;
+
+    const productName =
+      typeof row.productName === "string"
+        ? row.productName.trim()
+        : "";
+
+    if (!productName) {
+      continue;
+    }
+
+    const normalizedName =
+      productName.toLowerCase();
+
+    const rawLineType =
+      typeof row.lineType === "string"
+        ? row.lineType.trim().toLowerCase()
+        : "";
+
+    const isCharge =
+      rawLineType === "charge" ||
+      excludedChargePatterns.some(
+        (pattern) =>
           normalizedName.includes(pattern),
-        );
+      );
 
-      if (isCharge) {
-        const amount =
-          typeof row.unitPrice === "number" &&
-          Number.isFinite(row.unitPrice)
-            ? row.unitPrice
-            : null;
+    if (isCharge) {
+      const amount =
+        typeof row.unitPrice === "number" &&
+        Number.isFinite(row.unitPrice)
+          ? row.unitPrice
+          : null;
 
-        if (productName) {
-          charges.push({
-            name: productName,
-            amount,
-          });
-        }
+      charges.push({
+        name: productName,
+        amount,
+      });
 
-        return null;
-      }
+      continue;
+    }
 
-      const lineType: OcrLineType =
-        rawLineType === "service"
-          ? "service"
-          : "product";
+    const lineType: OcrLineType =
+      rawLineType === "service"
+        ? "service"
+        : "product";
 
-      return {
-        productName,
-        lineType,
-        quantity:
-          typeof row.quantity === "number" &&
-          Number.isFinite(row.quantity)
-            ? row.quantity
-            : null,
-        unitPrice:
-          typeof row.unitPrice === "number" &&
-          Number.isFinite(row.unitPrice)
-            ? row.unitPrice
-            : null,
-        discount:
-          typeof row.discount === "number" &&
-          Number.isFinite(row.discount)
-            ? row.discount
-            : null,
-        taxRate:
-          typeof row.taxRate === "number" &&
-          Number.isFinite(row.taxRate)
-            ? row.taxRate
-            : null,
-        serialNumber:
-          typeof row.serialNumber === "string"
-            ? row.serialNumber.trim()
-            : null,
-        sku:
-          typeof row.sku === "string"
-            ? row.sku.trim()
-            : null,
-      };
-    })
-    .filter((item): item is OcrItem =>
-      Boolean(item?.productName),
-    );
+    items.push({
+      productName,
+      lineType,
+      quantity:
+        typeof row.quantity === "number" &&
+        Number.isFinite(row.quantity)
+          ? row.quantity
+          : null,
+      unitPrice:
+        typeof row.unitPrice === "number" &&
+        Number.isFinite(row.unitPrice)
+          ? row.unitPrice
+          : null,
+      discount:
+        typeof row.discount === "number" &&
+        Number.isFinite(row.discount)
+          ? row.discount
+          : null,
+      taxRate:
+        typeof row.taxRate === "number" &&
+        Number.isFinite(row.taxRate)
+          ? row.taxRate
+          : null,
+      serialNumber:
+        typeof row.serialNumber === "string"
+          ? row.serialNumber.trim()
+          : null,
+      sku:
+        typeof row.sku === "string"
+          ? row.sku.trim()
+          : null,
+    });
+  }
 
   const rawCharges = Array.isArray(data.charges)
     ? data.charges
