@@ -91,6 +91,13 @@ interface ExtractedData {
   rawText?: string;
   confidence?: OcrConfidence;
   quality?: BillQuality;
+  intelligence?: {
+    category?: string;
+    warranty?: {
+      status?: "active" | "expired" | "unknown";
+      expiry?: string | null;
+    };
+  };
   [key: string]: unknown;
 }
 
@@ -559,6 +566,39 @@ export default function CustomerBillReviewPage() {
           </div>
         </div>
       </div>
+
+      {data.intelligence && (
+        <div className="mb-6 rounded-2xl border bg-card p-5 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold">Smart bill insights</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                BillNest automatically identifies the purchase category and warranty state.
+              </p>
+            </div>
+            <span className="inline-flex w-fit rounded-full border bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary">
+              {data.intelligence.category ?? "Other"}
+            </span>
+          </div>
+          {data.intelligence.warranty?.status !== "unknown" && (
+            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-muted/40 p-3 text-sm">
+              <span className="font-medium">Warranty</span>
+              <span className={
+                data.intelligence.warranty?.status === "active"
+                  ? "rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400"
+                  : "rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive"
+              }>
+                {data.intelligence.warranty?.status === "active" ? "Active" : "Expired"}
+              </span>
+              {data.intelligence.warranty?.expiry && (
+                <span className="text-xs text-muted-foreground">
+                  Expiry: {data.intelligence.warranty.expiry}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {quality && (
         <div className="mb-6 rounded-2xl border bg-card p-5 shadow-sm">
