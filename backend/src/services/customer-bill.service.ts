@@ -20,6 +20,7 @@ import {
 
 import {
   extractInvoiceDataFromImage,
+  answerQuestionAboutBill,
 } from "./ocr.service";
 
 import { ApiError } from "../utils/api-error";
@@ -399,6 +400,49 @@ export async function createCustomerBillForUser(
 
     throw error;
   }
+}
+
+
+export async function askCustomerBillQuestionForUser(
+  userId: string,
+  billId: string,
+  question: string,
+) {
+  const customer = await getCustomerForUser(userId);
+
+  if (!customer) {
+    throw new ApiError(
+      404,
+      "Customer profile not found.",
+      "CUSTOMER_PROFILE_NOT_FOUND",
+    );
+  }
+
+  const bill = await findCustomerBillById(
+    customer._id.toString(),
+    billId,
+  );
+
+  if (!bill) {
+    throw new ApiError(
+      404,
+      "Bill not found.",
+      "CUSTOMER_BILL_NOT_FOUND",
+    );
+  }
+
+  const extractedData =
+    bill.extractedData &&
+    typeof bill.extractedData === "object"
+      ? (bill.extractedData as Record<string, unknown>)
+      : {};
+
+  const answer = await answerQuestionAboutBill(
+    question,
+    extractedData,
+  );
+
+  return { answer };
 }
 
 export async function getCustomerBillsForUser(
