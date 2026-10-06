@@ -26,6 +26,37 @@ interface OcrCharge {
   amount: number | null;
 }
 
+export type OcrConfidenceLevel =
+  | "high"
+  | "medium"
+  | "low";
+
+export interface OcrFieldConfidence {
+  level: OcrConfidenceLevel;
+  score?: number;
+  reason?: string;
+}
+
+export interface OcrConfidence {
+  documentType?: OcrFieldConfidence;
+  invoiceNumber?: OcrFieldConfidence;
+  invoiceDate?: OcrFieldConfidence;
+  customerName?: OcrFieldConfidence;
+  customerPhone?: OcrFieldConfidence;
+  customerEmail?: OcrFieldConfidence;
+  shopName?: OcrFieldConfidence;
+  shopPhone?: OcrFieldConfidence;
+  items?: OcrFieldConfidence;
+  charges?: OcrFieldConfidence;
+  subtotal?: OcrFieldConfidence;
+  discount?: OcrFieldConfidence;
+  tax?: OcrFieldConfidence;
+  total?: OcrFieldConfidence;
+  paymentMethod?: OcrFieldConfidence;
+  warrantyPeriod?: OcrFieldConfidence;
+  warrantyExpiry?: OcrFieldConfidence;
+}
+
 export interface OcrResult {
   documentType:
     | "invoice"
@@ -51,6 +82,7 @@ export interface OcrResult {
   warrantyPeriod: string | null;
   warrantyExpiry: string | null;
   rawText: string | null;
+  confidence?: OcrConfidence;
 }
 
 interface GeminiPart {
@@ -124,6 +156,7 @@ function emptyOcrResult(): OcrResult {
     warrantyPeriod: null,
     warrantyExpiry: null,
     rawText: null,
+    confidence: {},
   };
 }
 
@@ -291,6 +324,80 @@ function normalizeOcrResult(
     }
   }
 
+  const rawConfidence =
+    data.confidence &&
+    typeof data.confidence === "object"
+      ? (data.confidence as Record<string, unknown>)
+      : {};
+
+  const normalizeConfidence = (
+    value: unknown,
+  ): OcrFieldConfidence | undefined => {
+    if (!value || typeof value !== "object") {
+      return undefined;
+    }
+
+    const row = value as Record<string, unknown>;
+    const level =
+      row.level === "high" ||
+      row.level === "medium" ||
+      row.level === "low"
+        ? row.level
+        : undefined;
+
+    if (!level) {
+      return undefined;
+    }
+
+    const rawScore =
+      typeof row.score === "number" &&
+      Number.isFinite(row.score)
+        ? row.score
+        : undefined;
+
+    return {
+      level,
+      ...(rawScore !== undefined && {
+        score: Math.min(1, Math.max(0, rawScore)),
+      }),
+      ...(typeof row.reason === "string" &&
+        row.reason.trim() && {
+          reason: row.reason.trim(),
+        }),
+    };
+  };
+
+  const confidence: OcrConfidence = {};
+  const confidenceFields = [
+    "documentType",
+    "invoiceNumber",
+    "invoiceDate",
+    "customerName",
+    "customerPhone",
+    "customerEmail",
+    "shopName",
+    "shopPhone",
+    "items",
+    "charges",
+    "subtotal",
+    "discount",
+    "tax",
+    "total",
+    "paymentMethod",
+    "warrantyPeriod",
+    "warrantyExpiry",
+  ] as const;
+
+  for (const field of confidenceFields) {
+    const normalized = normalizeConfidence(
+      rawConfidence[field],
+    );
+
+    if (normalized) {
+      confidence[field] = normalized;
+    }
+  }
+
   const documentType =
     typeof data.documentType === "string"
       ? data.documentType
@@ -371,6 +478,7 @@ function normalizeOcrResult(
       typeof data.rawText === "string"
         ? data.rawText.trim()
         : null,
+    confidence,
   };
 }
 
@@ -485,6 +593,10 @@ IMPORTANT RULES:
 19. For Amazon-style invoices, "Marketplace Fees" is a charge, NOT a product. The actual purchased product should be the only product item unless there are multiple genuine purchased products.
 20. Never duplicate a product because its name or details appear in multiple sections of the document. Count each purchased product line once.
 21. Quantity and unitPrice must come from the actual product line. Never use a fee or summary amount as a product price.
+22. For every extracted field listed in the confidence object, provide a confidence level based on how clearly that value is visible in the image. High means clearly readable and strongly supported; medium means readable but somewhat uncertain; low means blurry, partially visible, handwritten/ambiguous, or inferred from weak evidence. Do not use confidence to invent values.
+23. Use score from 0 to 1 as an approximate visual extraction confidence. The reason must be brief and explain the visual ambiguity when level is medium or low.
+24. Include confidence for important fields even when the extracted value is null if the document visibly contains an unclear version of that field. Do not create confidence entries for fields that are completely absent.
+25. Return confidence for invoice number, date, customer/shop details, items, charges, amounts, payment method, and warranty fields when applicable.
 22. If the same product appears in both an order-summary section and an item-details section, keep only the actual item-details line.
 23. The "charges" array should contain each meaningful non-product charge once, with its visible amount when available.
 
@@ -526,7 +638,14 @@ Return this exact structure:
   "paymentMethod": "string or null",
   "warrantyPeriod": "string or null",
   "warrantyExpiry": "YYYY-MM-DD or null",
-  "rawText": "string or null"
+  "rawText": "string or null",
+  "confidence": {
+    "invoiceNumber": {
+      "level": "high | medium | low",
+      "score": 0,
+      "reason": "short explanation based only on visual clarity"
+    }
+  }
 }
 `;
 
