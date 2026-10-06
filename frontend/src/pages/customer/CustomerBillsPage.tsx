@@ -4,6 +4,7 @@ import {
   Search,
   Upload,
   XCircle,
+  Pencil,
 } from "lucide-react";
 import {
   useCallback,
@@ -11,6 +12,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useNavigate } from "react-router-dom";
 
 const API_URL =
   import.meta.env.VITE_API_URL ??
@@ -81,6 +83,7 @@ function formatDate(value?: string) {
 }
 
 export default function CustomerBillsPage() {
+  const navigate = useNavigate();
   const [bills, setBills] =
     useState<CustomerBill[]>([]);
   const [search, setSearch] =
