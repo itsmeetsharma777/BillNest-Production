@@ -39,6 +39,7 @@ interface BillsResponse {
   success: boolean;
   data?: {
     bills?: CustomerBill[];
+    bill?: CustomerBill;
   };
   message?: string;
 }
@@ -197,6 +198,13 @@ export default function CustomerBillsPage() {
           result.message ??
             "Unable to process this bill.",
         );
+      }
+
+      const uploadedBill = result.data?.bill;
+
+      if (uploadedBill?._id) {
+        navigate(`/customer/bills/${uploadedBill._id}/review`);
+        return;
       }
 
       await loadBills();
@@ -370,15 +378,28 @@ export default function CustomerBillsPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 flex gap-2">
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        `/customer/bills/${bill._id}/review`,
+                      )
+                    }
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+                  >
+                    <Pencil className="size-4" />
+                    Review
+                  </button>
+
                   <a
                     href={bill.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border text-sm font-semibold transition hover:bg-muted"
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border text-sm font-semibold transition hover:bg-muted"
                   >
                     <FileText className="size-4" />
-                    Original bill
+                    Original
                   </a>
                 </div>
               </div>
