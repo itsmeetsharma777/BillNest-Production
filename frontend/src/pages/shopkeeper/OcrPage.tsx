@@ -29,12 +29,18 @@ type OcrDocumentType =
 
 interface OcrItem {
   productName?: string;
+  lineType?: "product" | "service";
   quantity?: number;
   unitPrice?: number;
   discount?: number;
   taxRate?: number;
   serialNumber?: string;
   sku?: string;
+}
+
+interface OcrCharge {
+  name?: string;
+  amount?: number | null;
 }
 
 interface OcrResult {
@@ -47,6 +53,7 @@ interface OcrResult {
   shopName?: string;
   shopPhone?: string;
   items?: OcrItem[];
+  charges?: OcrCharge[];
   subtotal?: number;
   discount?: number;
   tax?: number;
@@ -415,15 +422,7 @@ export default function OcrPage() {
       "discount",
     ];
 
-    const extractedCharges = (extracted.items ?? []).filter((item) => {
-      const name = item.productName?.trim().toLowerCase() ?? "";
-      return (
-        Boolean(name) &&
-        excludedChargePatterns.some((pattern) =>
-          name.includes(pattern),
-        )
-      );
-    });
+    const extractedCharges = extracted.charges ?? [];
 
     const items = (extracted.items ?? [])
       .filter((item) => {
@@ -467,7 +466,7 @@ export default function OcrPage() {
           ? "OCR charges detected (not products): " +
             extractedCharges
               .map((charge) =>
-                `${charge.productName.trim()} ₹${Number(charge.unitPrice || 0).toFixed(2)}`,
+                `${charge.name?.trim() || "Charge"} ₹${Number(charge.amount || 0).toFixed(2)}`,
               )
               .join(", ")
           : "",
@@ -795,6 +794,30 @@ export default function OcrPage() {
                       )}
                     </div>
                   ),
+                )}
+
+                {extracted.charges && extracted.charges.length > 0 && (
+                  <div className="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-sm font-semibold">Charges / Fees</h3>
+                      <span className="text-xs text-muted-foreground">
+                        {extracted.charges.length} charge{extracted.charges.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {extracted.charges.map((charge, index) => (
+                        <div key={index} className="flex items-center justify-between rounded-lg border bg-background px-3 py-2 text-sm">
+                          <span>{charge.name || "Charge"}</span>
+                          <span className="font-medium">
+                            ₹{Number(charge.amount || 0).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      These are excluded from inventory products and will not be added as invoice items.
+                    </p>
+                  </div>
                 )}
 
                 <div>
