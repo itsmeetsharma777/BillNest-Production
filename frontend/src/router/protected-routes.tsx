@@ -8,6 +8,7 @@ import { ShopkeeperLayout } from "@/components/layout/ShopkeeperLayout";
 
 import CustomerDashboardPage from "@/pages/customer/CustomerDashboardPage";
 import CustomerInvoiceDetailsPage from "@/pages/customer/CustomerInvoiceDetailsPage";
+import CustomerBillsPage from "@/pages/customer/CustomerBillsPage";
 import CustomerInvoicesPage from "@/pages/customer/CustomerInvoicesPage";
 import CustomerNotificationsPage from "@/pages/customer/CustomerNotificationsPage";
 import CustomerPaymentsPage from "@/pages/customer/CustomerPaymentsPage";
@@ -225,6 +226,13 @@ export function ProtectedRoutes() {
             path="/customer/invoices"
             element={
               <CustomerInvoicesPage />
+            }
+          />
+
+          <Route
+            path="/customer/bills"
+            element={
+              <CustomerBillsPage />
             }
           />
 
