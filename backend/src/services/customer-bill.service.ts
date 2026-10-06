@@ -126,7 +126,7 @@ export async function createCustomerBillForUser(
       rawOcrText:
         extracted.rawText ?? "",
       contentHash,
-      ocrStatus: "processed",
+      ocrStatus: "needs_review",
     });
   } catch (error) {
     try {
