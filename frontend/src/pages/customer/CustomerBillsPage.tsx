@@ -1,7 +1,6 @@
 import {
   FileText,
   Loader2,
-  Plus,
   Search,
   Upload,
   XCircle,
