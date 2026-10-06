@@ -73,3 +73,25 @@ export async function updateCustomerBillForCustomer(
     },
   ).lean();
 }
+
+
+export async function deactivateCustomerBillForCustomer(
+  customerId: string,
+  billId: string,
+) {
+  return CustomerBillModel.findOneAndUpdate(
+    {
+      _id: billId,
+      customerId,
+      isActive: true,
+    },
+    {
+      $set: {
+        isActive: false,
+      },
+    },
+    {
+      new: true,
+    },
+  ).lean();
+}
