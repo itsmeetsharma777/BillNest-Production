@@ -37,6 +37,12 @@ type InvoiceStatus =
   | "PARTIALLY_PAID"
   | "CANCELLED";
 
+type InvoiceSort =
+  | "DATE_DESC"
+  | "DATE_ASC"
+  | "AMOUNT_DESC"
+  | "AMOUNT_ASC";
+
 interface Invoice {
   id: string;
   invoiceNo: string;
@@ -369,6 +375,13 @@ export default function InvoicesPage() {
   ] = useState("");
 
   const [
+    sortBy,
+    setSortBy,
+  ] = useState<InvoiceSort>(
+    "DATE_DESC",
+  );
+
+  const [
     actionInvoiceId,
     setActionInvoiceId,
   ] = useState<string | null>(
@@ -451,8 +464,9 @@ export default function InvoicesPage() {
           .trim()
           .toLowerCase();
 
-      return invoices.filter(
-        (invoice) => {
+      const matchingInvoices =
+        invoices.filter(
+          (invoice) => {
           const matchesStatus =
             statusFilter ===
               "ALL" ||
@@ -546,6 +560,74 @@ export default function InvoicesPage() {
                   .toLowerCase()
                   .includes(query),
             );
+          },
+        );
+
+      return matchingInvoices.sort(
+        (first, second) => {
+          if (
+            sortBy ===
+              "AMOUNT_DESC" ||
+            sortBy ===
+              "AMOUNT_ASC"
+          ) {
+            const difference =
+              first.total -
+              second.total;
+
+            return sortBy ===
+              "AMOUNT_DESC"
+              ? -difference
+              : difference;
+          }
+
+          const firstTime =
+            first.date
+              ? new Date(
+                  first.date,
+                ).getTime()
+              : NaN;
+
+          const secondTime =
+            second.date
+              ? new Date(
+                  second.date,
+                ).getTime()
+              : NaN;
+
+          const firstValid =
+            Number.isFinite(
+              firstTime,
+            );
+
+          const secondValid =
+            Number.isFinite(
+              secondTime,
+            );
+
+          if (
+            !firstValid &&
+            !secondValid
+          ) {
+            return 0;
+          }
+
+          if (!firstValid) {
+            return 1;
+          }
+
+          if (!secondValid) {
+            return -1;
+          }
+
+          const difference =
+            firstTime -
+            secondTime;
+
+          return sortBy ===
+            "DATE_DESC"
+            ? -difference
+            : difference;
         },
       );
     }, [
@@ -556,6 +638,7 @@ export default function InvoicesPage() {
       dateTo,
       amountMin,
       amountMax,
+      sortBy,
     ]);
 
   const totalSales =
@@ -1220,6 +1303,35 @@ export default function InvoicesPage() {
 
             <option value="CANCELLED">
               Cancelled
+            </option>
+          </select>
+
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        </div>
+
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(event) =>
+              setSortBy(
+                event.target
+                  .value as InvoiceSort,
+              )
+            }
+            className="h-10 w-full appearance-none rounded-xl border bg-background px-3 pr-9 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 lg:w-52"
+            aria-label="Sort invoices"
+          >
+            <option value="DATE_DESC">
+              Date: Newest first
+            </option>
+            <option value="DATE_ASC">
+              Date: Oldest first
+            </option>
+            <option value="AMOUNT_DESC">
+              Amount: High to low
+            </option>
+            <option value="AMOUNT_ASC">
+              Amount: Low to high
             </option>
           </select>
 
