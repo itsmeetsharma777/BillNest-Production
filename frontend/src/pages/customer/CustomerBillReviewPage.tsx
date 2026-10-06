@@ -561,7 +561,15 @@ export default function CustomerBillReviewPage() {
                   onChange={(event) =>
                     setDocumentType(
                       event.target.value as DocumentType,
-                    )
+                    );
+                    setData((current) => ({
+                      ...current,
+                      confidence: {
+                        ...(current.confidence ?? {}),
+                        documentType: undefined,
+                      },
+                    }));
+                    setSaved(false)
                   }
                   className={inputClassName()}
                 >
@@ -667,7 +675,7 @@ export default function CustomerBillReviewPage() {
               </label>
 
               <label className="text-sm font-medium sm:col-span-2">
-                Customer email
+                Customer email<ConfidenceBadge confidence={confidence.customerEmail} />
                 <input
                   type="email"
                   value={asString(data.customerEmail)}
@@ -801,7 +809,7 @@ export default function CustomerBillReviewPage() {
                       </label>
 
                       <label className="text-sm font-medium">
-                        Discount<ConfidenceBadge confidence={confidence.discount} />
+                        Discount
                         <input
                           type="number"
                           min="0"
@@ -966,6 +974,9 @@ export default function CustomerBillReviewPage() {
               ].map(([field, label]) => (
                 <label key={field} className="text-sm font-medium">
                   {label}
+                  <ConfidenceBadge
+                    confidence={confidence[field]}
+                  />
                   <input
                     type="number"
                     min="0"
@@ -979,7 +990,9 @@ export default function CustomerBillReviewPage() {
                           : Number(event.target.value),
                       )
                     }
-                    className={inputClassName()}
+                    className={inputClassName(
+                      confidence[field],
+                    )}
                   />
                 </label>
               ))}
