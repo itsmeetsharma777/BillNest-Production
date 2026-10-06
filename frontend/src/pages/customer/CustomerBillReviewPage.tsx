@@ -558,7 +558,7 @@ export default function CustomerBillReviewPage() {
                 Document type<ConfidenceBadge confidence={confidence.documentType} />
                 <select
                   value={documentType}
-                  onChange={(event) =>
+                  onChange={(event) => {
                     setDocumentType(
                       event.target.value as DocumentType,
                     );
@@ -569,8 +569,8 @@ export default function CustomerBillReviewPage() {
                         documentType: undefined,
                       },
                     }));
-                    setSaved(false)
-                  }
+                    setSaved(false);
+                  }}
                   className={inputClassName()}
                 >
                   <option value="invoice">Invoice</option>
