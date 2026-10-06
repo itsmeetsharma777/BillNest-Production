@@ -5,6 +5,7 @@ import {
   Upload,
   XCircle,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import {
   useCallback,
@@ -216,6 +217,45 @@ export default function CustomerBillsPage() {
       );
     } finally {
       setIsUploading(false);
+    }
+  }
+
+  async function handleArchive(billId: string) {
+    const confirmed = window.confirm(
+      "Remove this bill from your BillNest vault? The original uploaded document will no longer appear in My Bills.",
+    );
+
+    if (!confirmed) return;
+
+    setError("");
+
+    try {
+      const response = await fetch(
+        `${API_URL}/customer/bills/${billId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
+
+      const result = (await response.json()) as {
+        success: boolean;
+        message?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(
+          result.message ?? "Unable to remove this bill.",
+        );
+      }
+
+      await loadBills();
+    } catch (archiveError) {
+      setError(
+        archiveError instanceof Error
+          ? archiveError.message
+          : "Unable to remove this bill.",
+      );
     }
   }
 
