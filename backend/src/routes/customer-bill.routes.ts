@@ -6,6 +6,7 @@ import {
   getCustomerBill,
   updateCustomerBill,
   archiveCustomerBill,
+  askCustomerBillQuestion,
 } from "../controllers/customer-bill.controller";
 
 import { requireAuth } from "../middleware/auth.middleware";
@@ -31,6 +32,11 @@ router.get(
 router.patch(
   "/:billId",
   asyncHandler(updateCustomerBill),
+);
+
+router.post(
+  "/:billId/ask",
+  asyncHandler(askCustomerBillQuestion),
 );
 
 router.delete(
