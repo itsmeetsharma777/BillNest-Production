@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  Bot,
   Check,
   ExternalLink,
   FileText,
@@ -201,6 +202,9 @@ export default function CustomerBillReviewPage() {
     useState("");
   const [saved, setSaved] =
     useState(false);
+  const [assistantQuestion, setAssistantQuestion] = useState("");
+  const [assistantAnswer, setAssistantAnswer] = useState("");
+  const [isAskingAssistant, setIsAskingAssistant] = useState(false);
 
   const loadBill = useCallback(async () => {
     if (!billId) {
@@ -1135,6 +1139,126 @@ export default function CustomerBillReviewPage() {
             </details>
           </section>
         </div>
+
+        <aside className="space-y-4 h-fit xl:sticky xl:top-24">
+          <div className="rounded-2xl border bg-card p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <Bot className="size-5 text-primary" />
+              <div>
+                <h2 className="font-semibold">Ask about this bill</h2>
+                <p className="text-xs text-muted-foreground">
+                  Ask questions using only information found on this bill.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <textarea
+                value={assistantQuestion}
+                onChange={(event) => setAssistantQuestion(event.target.value)}
+                placeholder="e.g. Is this bill under warranty?"
+                maxLength={500}
+                rows={3}
+                disabled={isAskingAssistant}
+                className="w-full resize-none rounded-xl border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+              />
+
+              <button
+                type="button"
+                disabled={!assistantQuestion.trim() || isAskingAssistant}
+                onClick={async () => {
+                  if (!billId || !assistantQuestion.trim()) return;
+
+                  setIsAskingAssistant(true);
+                  setAssistantAnswer("");
+                  setError("");
+
+                  try {
+                    const response = await fetch(
+                      `${API_URL}/customer/bills/${billId}/ask`,
+                      {
+                        method: "POST",
+                        credentials: "include",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                          question: assistantQuestion.trim(),
+                        }),
+                      },
+                    );
+
+                    const result = (await response.json()) as {
+                      message?: string;
+                      data?: {
+                        answer?: string;
+                      };
+                    };
+
+                    if (!response.ok || !result.data?.answer) {
+                      throw new Error(
+                        result.message ??
+                          "Unable to answer this question.",
+                      );
+                    }
+
+                    setAssistantAnswer(result.data.answer);
+                  } catch (assistantError) {
+                    setError(
+                      assistantError instanceof Error
+                        ? assistantError.message
+                        : "Unable to answer this question.",
+                    );
+                  } finally {
+                    setIsAskingAssistant(false);
+                  }
+                }}
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isAskingAssistant ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Thinking...
+                  </>
+                ) : (
+                  <>
+                    <Bot className="size-4" />
+                    Ask BillNest AI
+                  </>
+                )}
+              </button>
+
+              {assistantAnswer ? (
+                <div className="rounded-xl border bg-muted/30 p-4">
+                  <p className="mb-2 text-xs font-semibold text-muted-foreground">
+                    BillNest AI
+                  </p>
+                  <p className="whitespace-pre-wrap text-sm leading-6">
+                    {assistantAnswer}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap gap-2">
+                {[
+                  "What is the total amount?",
+                  "What did I buy?",
+                  "What is the invoice number?",
+                  "Is this bill under warranty?",
+                ].map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    disabled={isAskingAssistant}
+                    onClick={() => setAssistantQuestion(suggestion)}
+                    className="rounded-full border px-3 py-1.5 text-xs font-medium transition hover:bg-muted"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
         <aside className="h-fit xl:sticky xl:top-24">
           <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
