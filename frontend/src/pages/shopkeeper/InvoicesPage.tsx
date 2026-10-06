@@ -75,6 +75,7 @@ interface InvoiceApiRecord {
 
   date?: string;
   invoiceDate?: string;
+  issueDate?: string;
 
   status?: string;
 
@@ -145,8 +146,9 @@ function normalizeInvoice(
         : [],
 
     date:
-      invoice.date ??
+      invoice.issueDate ??
       invoice.invoiceDate ??
+      invoice.date ??
       invoice.createdAt ??
       "",
 
