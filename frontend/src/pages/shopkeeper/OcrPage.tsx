@@ -67,6 +67,7 @@ interface OcrResult {
 
 interface OcrInvoiceDraft {
   sourceInvoiceNumber?: string;
+  invoiceDate?: string;
   customerName?: string;
   customerPhone?: string;
   customerEmail?: string;
@@ -451,6 +452,7 @@ export default function OcrPage() {
 
     const draft: OcrInvoiceDraft = {
       sourceInvoiceNumber: extracted.invoiceNumber?.trim() || undefined,
+      invoiceDate: extracted.invoiceDate?.trim() || undefined,
       customerName: extracted.customerName?.trim() || undefined,
       customerPhone: extracted.customerPhone?.trim() || undefined,
       customerEmail: extracted.customerEmail?.trim() || undefined,
