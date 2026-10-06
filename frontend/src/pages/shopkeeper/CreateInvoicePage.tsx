@@ -139,6 +139,7 @@ interface InvoiceItem {
   description: string;
   quantity: string;
   unitPrice: string;
+  serialNumber?: string;
   productId?: string;
   variantId?: string;
   variantName?: string;
@@ -149,6 +150,7 @@ interface InvoiceItem {
 
 interface OcrInvoiceDraft {
   sourceInvoiceNumber?: string;
+  invoiceDate?: string;
   customerName?: string;
   customerPhone?: string;
   customerEmail?: string;
@@ -454,6 +456,11 @@ export default function CreateInvoicePage() {
   ] = useState("0");
 
   const [
+    invoiceDate,
+    setInvoiceDate,
+  ] = useState("");
+
+  const [
     tax,
     setTax,
   ] = useState("0");
@@ -644,9 +651,16 @@ export default function CreateInvoicePage() {
         quantity: String(item.quantity || 1),
         unitPrice: String(item.unitPrice || 0),
         sku: item.sku,
+        serialNumber: item.serialNumber,
       })));
       setDiscount(String(draft.discount || 0));
       setTax(String(draft.tax || 0));
+      if (draft.invoiceDate) {
+        const parsedDate = new Date(draft.invoiceDate);
+        if (!Number.isNaN(parsedDate.getTime())) {
+          setInvoiceDate(parsedDate.toISOString().slice(0, 10));
+        }
+      }
       setNotes(draft.notes ?? '');
       const payment = draft.paymentMethod?.toLowerCase();
       if (payment === 'cash') setPaymentMethod('CASH');
@@ -1780,6 +1794,10 @@ export default function CreateInvoicePage() {
                 customerId:
                   selectedCustomerId,
 
+                ...(invoiceDate && {
+                  invoiceDate,
+                }),
+
                 items: items.map(
                   (item) => ({
                     productId:
@@ -1794,6 +1812,8 @@ export default function CreateInvoicePage() {
                       item.sku,
                     barcode:
                       item.barcode,
+                    serialNumber:
+                      item.serialNumber,
                     productName:
                       item.description.trim(),
 
@@ -2552,6 +2572,22 @@ export default function CreateInvoicePage() {
             </section>
           )}
 
+          {/* Invoice Date */}
+          <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+            <div className="mb-4">
+              <h2 className="font-semibold">Invoice Date</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                OCR imports the original invoice date when available.
+              </p>
+            </div>
+            <input
+              type="date"
+              value={invoiceDate}
+              onChange={(event) => setInvoiceDate(event.target.value)}
+              className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
+          </section>
+
           {/* Invoice Items */}
           <section className="rounded-2xl border bg-card shadow-sm">
             <div className="flex items-center justify-between border-b p-5 sm:p-6">
@@ -2612,6 +2648,30 @@ export default function CreateInvoicePage() {
                     </div>
 
                     <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_110px_140px]">
+                      <label className="block sm:col-span-3">
+                        <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                          Serial / IMEI
+                        </span>
+                        <input
+                          type="text"
+                          value={item.serialNumber ?? ""}
+                          onChange={(event) =>
+                            setItems((currentItems) =>
+                              currentItems.map((currentItem) =>
+                                currentItem.id === item.id
+                                  ? {
+                                      ...currentItem,
+                                      serialNumber: event.target.value,
+                                    }
+                                  : currentItem,
+                              ),
+                            )
+                          }
+                          placeholder="Optional serial number or IMEI"
+                          maxLength={150}
+                          className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        />
+                      </label>
                       <ProductSelector
                         value={
                           item.description
