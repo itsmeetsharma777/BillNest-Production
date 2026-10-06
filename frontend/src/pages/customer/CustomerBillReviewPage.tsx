@@ -1259,6 +1259,7 @@ export default function CustomerBillReviewPage() {
               </div>
             </div>
           </div>
+        </aside>
 
         <aside className="h-fit xl:sticky xl:top-24">
           <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
