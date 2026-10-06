@@ -6,6 +6,7 @@ import {
   getCustomerBillForUser,
   updateCustomerBillForUser,
   archiveCustomerBillForUser,
+  askCustomerBillQuestionForUser,
 } from "../services/customer-bill.service";
 
 import { ApiError } from "../utils/api-error";
@@ -167,6 +168,51 @@ export async function updateCustomerBill(
   });
 }
 
+
+
+export async function askCustomerBillQuestion(
+  request: AuthenticatedRequest,
+  response: Response,
+) {
+  const billId =
+    typeof request.params.billId === "string"
+      ? request.params.billId
+      : "";
+
+  if (!billId) {
+    throw new ApiError(
+      400,
+      "Bill ID is required.",
+      "BILL_ID_REQUIRED",
+    );
+  }
+
+  const question =
+    request.body &&
+    typeof request.body.question === "string"
+      ? request.body.question
+      : "";
+
+  if (!question.trim()) {
+    throw new ApiError(
+      400,
+      "Question is required.",
+      "BILL_QUESTION_REQUIRED",
+    );
+  }
+
+  const result =
+    await askCustomerBillQuestionForUser(
+      getUserId(request),
+      billId,
+      question,
+    );
+
+  response.status(200).json({
+    success: true,
+    data: result,
+  });
+}
 
 export async function archiveCustomerBill(
   request: AuthenticatedRequest,
