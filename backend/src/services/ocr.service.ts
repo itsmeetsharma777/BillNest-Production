@@ -8,14 +8,22 @@ interface OcrInput {
   originalName: string;
 }
 
+type OcrLineType = "product" | "service" | "charge";
+
 interface OcrItem {
   productName: string;
+  lineType: OcrLineType;
   quantity: number | null;
   unitPrice: number | null;
   discount: number | null;
   taxRate: number | null;
   serialNumber: string | null;
   sku: string | null;
+}
+
+interface OcrCharge {
+  name: string;
+  amount: number | null;
 }
 
 export interface OcrResult {
@@ -34,6 +42,7 @@ export interface OcrResult {
   shopName: string | null;
   shopPhone: string | null;
   items: OcrItem[];
+  charges: OcrCharge[];
   subtotal: number | null;
   discount: number | null;
   tax: number | null;
@@ -106,6 +115,7 @@ function emptyOcrResult(): OcrResult {
     shopName: null,
     shopPhone: null,
     items: [],
+    charges: [],
     subtotal: null,
     discount: null,
     tax: null,
@@ -130,28 +140,78 @@ function normalizeOcrResult(
     ? data.items
     : [];
 
+  const excludedChargePatterns = [
+    "marketplace fee",
+    "marketplace fees",
+    "platform fee",
+    "platform fees",
+    "shipping fee",
+    "shipping fees",
+    "shipping charge",
+    "delivery fee",
+    "delivery fees",
+    "delivery charge",
+    "handling fee",
+    "handling charge",
+    "convenience fee",
+    "payment processing fee",
+    "processing fee",
+    "service charge",
+    "gst",
+    "tax",
+    "subtotal",
+    "total amount",
+    "discount",
+  ];
+
+  const charges: OcrCharge[] = [];
   const items: OcrItem[] = rawItems
-    .map(
-      (item) => {
+    .map((item) => {
       if (!item || typeof item !== "object") {
-        return {
-          productName: "",
-          quantity: null,
-          unitPrice: null,
-          discount: null,
-          taxRate: null,
-          serialNumber: null,
-          sku: null,
-        };
+        return null;
       }
 
       const row = item as Record<string, unknown>;
+      const productName =
+        typeof row.productName === "string"
+          ? row.productName.trim()
+          : "";
+      const normalizedName = productName.toLowerCase();
+      const rawLineType =
+        typeof row.lineType === "string"
+          ? row.lineType.trim().toLowerCase()
+          : "";
+      const isCharge =
+        rawLineType === "charge" ||
+        excludedChargePatterns.some((pattern) =>
+          normalizedName.includes(pattern),
+        );
+
+      if (isCharge) {
+        const amount =
+          typeof row.unitPrice === "number" &&
+          Number.isFinite(row.unitPrice)
+            ? row.unitPrice
+            : null;
+
+        if (productName) {
+          charges.push({
+            name: productName,
+            amount,
+          });
+        }
+
+        return null;
+      }
+
+      const lineType: OcrLineType =
+        rawLineType === "service"
+          ? "service"
+          : "product";
 
       return {
-        productName:
-          typeof row.productName === "string"
-            ? row.productName.trim()
-            : "",
+        productName,
+        lineType,
         quantity:
           typeof row.quantity === "number" &&
           Number.isFinite(row.quantity)
@@ -181,33 +241,49 @@ function normalizeOcrResult(
             ? row.sku.trim()
             : null,
       };
-    },
-  )
-    .filter((item) => {
-      const name = item.productName.toLowerCase();
-      const excludedChargePatterns = [
-        "marketplace fee",
-        "platform fee",
-        "shipping fee",
-        "delivery fee",
-        "handling fee",
-        "convenience fee",
-        "payment processing fee",
-        "service charge",
-        "gst",
-        "tax",
-        "subtotal",
-        "total amount",
-        "discount",
-      ];
+    })
+    .filter((item): item is OcrItem =>
+      Boolean(item?.productName),
+    );
 
-      return (
-        Boolean(item.productName) &&
-        !excludedChargePatterns.some((pattern) =>
-          name.includes(pattern),
-        )
-      );
-    });
+  const rawCharges = Array.isArray(data.charges)
+    ? data.charges
+    : [];
+
+  for (const charge of rawCharges) {
+    if (!charge || typeof charge !== "object") {
+      continue;
+    }
+
+    const row = charge as Record<string, unknown>;
+    const name =
+      typeof row.name === "string"
+        ? row.name.trim()
+        : "";
+
+    if (!name) {
+      continue;
+    }
+
+    const amount =
+      typeof row.amount === "number" &&
+      Number.isFinite(row.amount)
+        ? row.amount
+        : null;
+
+    if (
+      !charges.some(
+        (existing) =>
+          existing.name.toLowerCase() ===
+          name.toLowerCase(),
+      )
+    ) {
+      charges.push({
+        name,
+        amount,
+      });
+    }
+  }
 
   const documentType =
     typeof data.documentType === "string"
@@ -252,6 +328,7 @@ function normalizeOcrResult(
         ? data.shopPhone.trim()
         : null,
     items,
+    charges,
     subtotal:
       typeof data.subtotal === "number" &&
       Number.isFinite(data.subtotal)
@@ -396,12 +473,14 @@ IMPORTANT RULES:
 14. Do not add explanations outside the JSON.
 15. Return ONLY valid JSON.
 
-16. The "items" array must contain ONLY actual products or billable services that are clearly listed as invoice line items.
-17. Do NOT create an item from marketplace fees, platform fees, shipping fees, delivery charges, handling charges, convenience fees, payment-processing fees, taxes/GST, discounts, subtotals, totals, order summaries, or other summary/fee rows.
-18. For Amazon-style invoices, treat labels such as "Marketplace Fees" as a charge/summary component, NOT as a product. Do not put them in the items array.
-19. If there is one actual product purchased, return exactly one item for that product. Never duplicate the same product because it appears in multiple sections of the document.
-20. Prefer the product description from the actual item/order line over text from totals, fee, payment, or summary sections.
-21. Quantity and unitPrice must come from the actual product line. Do not use a fee amount as a product price.
+16. The "items" array must contain ONLY actual purchased products or clearly billable services. Never put a fee or summary row in "items".
+17. Use "lineType": "product" for a physical product, "service" for a genuine billable service, and "charge" ONLY for a non-product fee or adjustment.
+18. Put marketplace fees, platform fees, shipping, delivery, handling, convenience fees, payment-processing fees, taxes/GST, discounts, subtotals, totals, order summaries, and similar charges in the separate "charges" array instead of "items".
+19. For Amazon-style invoices, "Marketplace Fees" is a charge, NOT a product. The actual purchased product should be the only product item unless there are multiple genuine purchased products.
+20. Never duplicate a product because its name or details appear in multiple sections of the document. Count each purchased product line once.
+21. Quantity and unitPrice must come from the actual product line. Never use a fee or summary amount as a product price.
+22. If the same product appears in both an order-summary section and an item-details section, keep only the actual item-details line.
+23. The "charges" array should contain each meaningful non-product charge once, with its visible amount when available.
 
 Return ONLY valid JSON.
 
@@ -419,12 +498,19 @@ Return this exact structure:
   "items": [
     {
       "productName": "string",
+      "lineType": "product | service",
       "quantity": 0,
       "unitPrice": 0,
       "discount": 0,
       "taxRate": 0,
       "serialNumber": "string or null",
       "sku": "string or null"
+    }
+  ],
+  "charges": [
+    {
+      "name": "string",
+      "amount": 0
     }
   ],
   "subtotal": 0,
