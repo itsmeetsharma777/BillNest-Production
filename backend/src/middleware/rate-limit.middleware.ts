@@ -9,7 +9,8 @@ const standardMessage = {
 
 export const loginRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: 20,
+  skipSuccessfulRequests: true,
   standardHeaders: "draft-8",
   legacyHeaders: false,
   message: standardMessage,
