@@ -1103,28 +1103,28 @@ function App() {
               </div>
 
               <nav aria-label="Footer navigation" className="grid grid-cols-2 gap-x-5 gap-y-4 text-sm">
-                <button type="button" onClick={() => scrollTo("features")} className="group/link inline-flex items-center gap-2.5 text-left text-muted-foreground transition-colors hover:text-blue-500 focus-visible:outline-none focus-visible:text-blue-500">
-                  <Settings className="size-4 shrink-0 text-blue-500/80 transition-colors group-hover/link:text-blue-500" />
+                <button type="button" onClick={() => scrollTo("features")} className="group/link inline-flex items-center gap-2.5 text-left text-white/90 transition-colors hover:text-sky-300 focus-visible:outline-none focus-visible:text-sky-300">
+                  <Settings className="size-4 shrink-0 text-blue-400 transition-colors group-hover/link:text-sky-300" />
                   Features
                 </button>
-                <button type="button" onClick={() => scrollTo("how-it-works")} className="group/link inline-flex items-center gap-2.5 text-left text-muted-foreground transition-colors hover:text-blue-500 focus-visible:outline-none focus-visible:text-blue-500">
-                  <BookOpen className="size-4 shrink-0 text-blue-500/80 transition-colors group-hover/link:text-blue-500" />
+                <button type="button" onClick={() => scrollTo("how-it-works")} className="group/link inline-flex items-center gap-2.5 text-left text-white/90 transition-colors hover:text-sky-300 focus-visible:outline-none focus-visible:text-sky-300">
+                  <BookOpen className="size-4 shrink-0 text-blue-400 transition-colors group-hover/link:text-sky-300" />
                   How it works
                 </button>
-                <button type="button" onClick={() => scrollTo("about")} className="group/link inline-flex items-center gap-2.5 text-left text-muted-foreground transition-colors hover:text-blue-500 focus-visible:outline-none focus-visible:text-blue-500">
-                  <UserRound className="size-4 shrink-0 text-blue-500/80 transition-colors group-hover/link:text-blue-500" />
+                <button type="button" onClick={() => scrollTo("about")} className="group/link inline-flex items-center gap-2.5 text-left text-white/90 transition-colors hover:text-sky-300 focus-visible:outline-none focus-visible:text-sky-300">
+                  <UserRound className="size-4 shrink-0 text-blue-400 transition-colors group-hover/link:text-sky-300" />
                   About
                 </button>
-                <a href="mailto:itsmeetsharma@gmail.com" className="group/link inline-flex items-center gap-2.5 text-left text-muted-foreground transition-colors hover:text-blue-500 focus-visible:outline-none focus-visible:text-blue-500">
-                  <Mail className="size-4 shrink-0 text-blue-500/80 transition-colors group-hover/link:text-blue-500" />
+                <a href="mailto:itsmeetsharma@gmail.com" className="group/link inline-flex items-center gap-2.5 text-left text-white/90 transition-colors hover:text-sky-300 focus-visible:outline-none focus-visible:text-sky-300">
+                  <Mail className="size-4 shrink-0 text-blue-400 transition-colors group-hover/link:text-sky-300" />
                   Contact
                 </a>
               </nav>
 
               <div className="border-t border-border/80 pt-5 sm:border-l sm:border-t-0 sm:py-1 sm:pl-6">
-                <p className="text-xs text-muted-foreground">Developed by</p>
-                <p className="mt-1.5 text-base font-semibold tracking-tight">Meet Sharma</p>
-                <a href="mailto:itsmeetsharma@gmail.com" className="mt-2 inline-flex items-center gap-2 break-all text-xs text-muted-foreground transition-colors hover:text-blue-500">
+                <p className="text-xs font-medium text-slate-300">Developed by</p>
+                <p className="mt-1.5 text-base font-semibold tracking-tight text-white">Meet Sharma</p>
+                <a href="mailto:itsmeetsharma@gmail.com" className="mt-2 inline-flex items-center gap-2 break-all text-xs text-slate-200 transition-colors hover:text-sky-300">
                   <Mail className="size-3.5 shrink-0" />
                   itsmeetsharma@gmail.com
                 </a>
@@ -1132,7 +1132,7 @@ function App() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 py-4 text-xs text-slate-300 sm:flex-row sm:items-center sm:justify-between">
             <span>© {new Date().getFullYear()} BillNest. All rights reserved.</span>
             <span>Built with <span aria-label="love" role="img">❤️</span> by Meet Sharma</span>
           </div>
