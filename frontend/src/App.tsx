@@ -1052,23 +1052,23 @@ function App() {
 
         <section
           aria-labelledby="footer-cta-title"
-          className="group relative isolate mt-2 overflow-hidden rounded-2xl border border-blue-500/40 bg-slate-950 px-5 py-6 shadow-[0_18px_70px_rgba(2,8,23,0.24)] sm:px-7 sm:py-7 dark:bg-[#050b1b]"
+          className="group relative isolate mt-2 overflow-hidden rounded-xl border border-blue-500/40 bg-slate-950 px-4 py-4 shadow-[0_10px_36px_rgba(2,8,23,0.18)] sm:px-5 sm:py-5 dark:bg-[#050b1b]"
         >
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_18%_50%,rgba(0,111,255,0.16),transparent_48%),linear-gradient(115deg,transparent_52%,rgba(0,70,255,0.16)_52%,rgba(0,70,255,0.06))]" />
           <div className="pointer-events-none absolute -right-20 -top-28 -z-10 size-72 rounded-full bg-blue-600/15 blur-3xl transition-opacity duration-500 group-hover:bg-blue-500/25" />
           <div className="pointer-events-none absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-white/[0.03]" />
 
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between sm:gap-7">
-            <div className="flex min-w-0 items-center gap-4 sm:gap-5">
-              <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 via-blue-500 to-blue-600 text-white shadow-[0_8px_28px_rgba(37,99,235,0.38)] ring-1 ring-white/20 sm:size-[68px]">
-                <FileText className="size-7 sm:size-8" strokeWidth={1.8} />
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              <div className="flex size-11 shrink-0 sm:size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 via-blue-500 to-blue-600 text-white shadow-[0_8px_28px_rgba(37,99,235,0.38)] ring-1 ring-white/20 sm:size-12">
+                <FileText className="size-6 sm:size-6" strokeWidth={1.8} />
               </div>
               <div className="min-w-0">
-                <p className="text-[14px] font-bold uppercase tracking-[0.28em] text-sky-400">BillNest</p>
-                <h2 id="footer-cta-title" className="mt-1.5 max-w-2xl text-lg font-bold leading-snug tracking-tight text-white sm:text-xl lg:text-2xl">
+                <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-sky-400">BillNest</p>
+                <h2 id="footer-cta-title" className="mt-1 max-w-2xl text-base font-bold leading-snug tracking-tight text-white sm:text-lg">
                   Ready to take control of your bills and warranties?
                 </h2>
-                <p className="mt-2 max-w-xl text-xs leading-5 text-slate-300 sm:text-sm">
+                <p className="mt-1.5 max-w-xl text-xs leading-5 text-slate-300">
                   Join now and experience a simpler, smarter way to stay organized.
                 </p>
               </div>
@@ -1076,7 +1076,7 @@ function App() {
             <button
               type="button"
               onClick={() => scrollTo("top")}
-              className="inline-flex min-h-12 w-full shrink-0 items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(37,99,235,0.3)] transition duration-200 hover:-translate-y-0.5 hover:from-blue-400 hover:to-blue-500 hover:shadow-[0_12px_32px_rgba(37,99,235,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 sm:w-auto sm:min-w-[190px]"
+              className="inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-3 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(37,99,235,0.3)] transition duration-200 hover:-translate-y-0.5 hover:from-blue-400 hover:to-blue-500 hover:shadow-[0_12px_32px_rgba(37,99,235,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 sm:w-auto sm:min-w-[160px]"
             >
               Get started now
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
@@ -1088,9 +1088,9 @@ function App() {
             FOOTER — bottom section only
         ======================================================= */}
 
-        <footer id="contact" className="mt-5">
-          <div className="border-y border-border/80 py-6 sm:py-7">
-            <div className="grid gap-7 sm:grid-cols-[1.1fr_1.2fr_1fr] sm:items-center sm:gap-6">
+        <footer id="contact" className="mt-4">
+          <div className="border-y border-border/80 py-4 sm:py-5">
+            <div className="grid gap-5 sm:grid-cols-[1fr_1.2fr_1fr] sm:items-center sm:gap-5">
               <div className="flex items-center sm:items-start">
                 <button
                   type="button"
@@ -1098,11 +1098,11 @@ function App() {
                   className="inline-flex rounded-lg transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                   aria-label="Go to BillNest home"
                 >
-                  <BillNestLogo variant="full" size={88} className="h-[82px] w-[82px] object-contain sm:h-[88px] sm:w-[88px]" />
+                  <BillNestLogo variant="full" size={64} className="h-16 w-16 object-contain sm:h-[68px] sm:w-[68px]" />
                 </button>
               </div>
 
-              <nav aria-label="Footer navigation" className="grid grid-cols-2 gap-x-5 gap-y-4 text-sm">
+              <nav aria-label="Footer navigation" className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                 <button type="button" onClick={() => scrollTo("features")} className="group/link inline-flex items-center gap-2.5 text-left text-slate-700 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:text-blue-700 dark:text-white/90 dark:hover:text-sky-300 dark:focus-visible:text-sky-300">
                   <Settings className="size-4 shrink-0 text-blue-600 transition-colors group-hover/link:text-blue-700 dark:text-blue-400 dark:group-hover/link:text-sky-300" />
                   Features
@@ -1123,7 +1123,7 @@ function App() {
 
               <div className="border-t border-border/80 pt-5 sm:border-l sm:border-t-0 sm:py-1 sm:pl-6">
                 <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Developed by</p>
-                <p className="mt-1.5 text-base font-semibold tracking-tight text-slate-900 dark:text-white">Meet Sharma</p>
+                <p className="mt-1.5 text-sm font-semibold tracking-tight text-slate-900 dark:text-white">Meet Sharma</p>
                 <a href="mailto:itsmeetsharma@gmail.com" className="mt-2 inline-flex items-center gap-2 break-all text-xs text-slate-700 transition-colors hover:text-blue-700 dark:text-slate-200 dark:hover:text-sky-300">
                   <Mail className="size-3.5 shrink-0" />
                   itsmeetsharma@gmail.com
@@ -1132,7 +1132,7 @@ function App() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 py-4 text-xs text-slate-600 dark:text-slate-300 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 py-3 text-xs text-slate-600 dark:text-slate-300 sm:flex-row sm:items-center sm:justify-between">
             <span>© {new Date().getFullYear()} BillNest. All rights reserved.</span>
             <span>Built with <span aria-label="love" role="img">❤️</span> by Meet Sharma</span>
           </div>
