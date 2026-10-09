@@ -96,11 +96,11 @@ function RoleCard({
     <button
       type="button"
       onClick={onClick}
-      className="group block h-[300px] w-full text-left"
+      className="group block h-[340px] w-full text-left sm:h-[350px]"
     >
       <div
         className={[
-          "relative h-full overflow-hidden rounded-xl border p-4",
+          "relative h-full overflow-hidden rounded-xl border p-4 sm:p-5",
           "transition-all duration-300",
           "hover:-translate-y-1",
           isShopkeeper
@@ -151,7 +151,7 @@ function RoleCard({
           {/* Label */}
           <p
             className={[
-              "mt-3 text-[13px] font-bold uppercase tracking-[0.2em]",
+              "mt-3 text-[13px] font-bold uppercase tracking-[0.2em] sm:mt-4",
               isShopkeeper
                 ? "text-blue-500"
                 : "text-violet-500",
@@ -163,17 +163,17 @@ function RoleCard({
           </p>
 
           {/* Title */}
-          <h2 className="mt-1 text-[19px] font-bold">
+          <h2 className="mt-1 text-[19px] font-bold sm:mt-2">
             {title}
           </h2>
 
           {/* Description */}
-          <p className="mt-1 max-w-[310px] text-[13px] leading-5 text-muted-foreground">
+          <p className="mt-2 max-w-[310px] text-[13px] leading-5 text-muted-foreground sm:mt-3">
             {description}
           </p>
 
           {/* Features */}
-          <div className="mt-3 space-y-1.5">
+          <div className="mt-3 space-y-2 sm:mt-4">
             {features.map((feature) => (
               <div
                 key={feature}
@@ -198,7 +198,7 @@ function RoleCard({
           {/* Role button */}
           <div
             className={[
-              "absolute bottom-0 left-0 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[12px] font-semibold text-white shadow-lg",
+              "absolute bottom-1 left-0 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[12px] font-semibold text-white shadow-lg sm:bottom-2",
               isShopkeeper
                 ? "bg-blue-500 shadow-blue-500/15"
                 : "bg-violet-500 shadow-violet-500/15",
