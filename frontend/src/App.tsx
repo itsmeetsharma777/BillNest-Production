@@ -1,11 +1,13 @@
 import {
   ArrowRight,
+  BookOpen,
   Check,
   Cloud,
   FileText,
   Heart,
   Mail,
   Monitor,
+  Settings,
   ShieldCheck,
   Sparkles,
   Store,
@@ -1045,177 +1047,95 @@ function App() {
         </section>
 
         {/* =======================================================
-            CTA
+            CTA — bottom section only
         ======================================================= */}
 
-        <section className="relative overflow-hidden rounded-xl border border-blue-500/40 bg-blue-500/[0.06] px-4 py-4 dark:bg-blue-950/30">
+        <section
+          aria-labelledby="footer-cta-title"
+          className="group relative isolate mt-2 overflow-hidden rounded-2xl border border-blue-500/40 bg-slate-950 px-5 py-6 shadow-[0_18px_70px_rgba(2,8,23,0.24)] sm:px-7 sm:py-7 dark:bg-[#050b1b]"
+        >
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_18%_50%,rgba(0,111,255,0.16),transparent_48%),linear-gradient(115deg,transparent_52%,rgba(0,70,255,0.16)_52%,rgba(0,70,255,0.06))]" />
+          <div className="pointer-events-none absolute -right-20 -top-28 -z-10 size-72 rounded-full bg-blue-600/15 blur-3xl transition-opacity duration-500 group-hover:bg-blue-500/25" />
+          <div className="pointer-events-none absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-white/[0.03]" />
 
-          <div className="absolute right-[-60px] top-[-80px] h-[200px] w-[500px] rotate-[-15deg] border-t border-blue-500/20 bg-blue-500/[0.04]" />
-
-          <div className="relative flex items-center justify-between gap-4">
-
-            <div className="flex items-center gap-4">
-
-              <div className="hidden size-12 items-center justify-center rounded-xl bg-blue-500 text-white shadow-lg shadow-blue-500/20 sm:flex">
-                <FileText className="size-6" />
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between sm:gap-7">
+            <div className="flex min-w-0 items-center gap-4 sm:gap-5">
+              <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 via-blue-500 to-blue-600 text-white shadow-[0_8px_28px_rgba(37,99,235,0.38)] ring-1 ring-white/20 sm:size-[68px]">
+                <FileText className="size-7 sm:size-8" strokeWidth={1.8} />
               </div>
-
-              <div>
-
-                <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-blue-500">
-                  BillNest
-                </p>
-
-                <h2 className="mt-1 text-[17px] font-bold">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-sky-400">BillNest</p>
+                <h2 id="footer-cta-title" className="mt-1.5 max-w-2xl text-lg font-bold leading-snug tracking-tight text-white sm:text-xl lg:text-2xl">
                   Ready to take control of your bills and warranties?
                 </h2>
-
-                <p className="mt-1 text-[10px] text-muted-foreground">
-                  Join now and experience a simpler, smarter way
-                  to stay organized.
+                <p className="mt-2 max-w-xl text-xs leading-5 text-slate-300 sm:text-sm">
+                  Join now and experience a simpler, smarter way to stay organized.
                 </p>
-
               </div>
-
             </div>
-
             <button
               type="button"
-              onClick={() =>
-                scrollTo("top")
-              }
-              className="hidden shrink-0 items-center gap-2 rounded-lg bg-blue-500 px-5 py-3 text-[10px] font-bold text-white shadow-lg shadow-blue-500/20 hover:bg-blue-600 sm:inline-flex"
+              onClick={() => scrollTo("top")}
+              className="inline-flex min-h-12 w-full shrink-0 items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(37,99,235,0.3)] transition duration-200 hover:-translate-y-0.5 hover:from-blue-400 hover:to-blue-500 hover:shadow-[0_12px_32px_rgba(37,99,235,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 sm:w-auto sm:min-w-[190px]"
             >
               Get started now
-
-              <ArrowRight className="size-3.5" />
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </button>
-
           </div>
-
         </section>
 
         {/* =======================================================
-            FOOTER
+            FOOTER — bottom section only
         ======================================================= */}
 
-        <footer
-          id="contact"
-          className="mt-4"
-        >
-
-          <div className="border-t border-border py-4">
-
-            <div className="grid gap-6 sm:grid-cols-[1.3fr_1fr_1fr]">
-
-              {/* BRAND */}
-
-              <div>
-
+        <footer id="contact" className="mt-5">
+          <div className="border-y border-border/80 py-6 sm:py-7">
+            <div className="grid gap-7 sm:grid-cols-[1.1fr_1.2fr_1fr] sm:items-center sm:gap-6">
+              <div className="flex items-center sm:items-start">
                 <button
                   type="button"
-                  onClick={() =>
-                    scrollTo("top")
-                  }
-                  className="flex items-center"
+                  onClick={() => scrollTo("top")}
+                  className="inline-flex rounded-lg transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                   aria-label="Go to BillNest home"
                 >
-                  <BillNestLogo
-                    variant="full"
-                    size={72}
-                    className="h-[72px] w-[72px]"
-                  />
+                  <BillNestLogo variant="full" size={88} className="h-[82px] w-[82px] object-contain sm:h-[88px] sm:w-[88px]" />
                 </button>
-
               </div>
 
-              {/* FOOTER NAV */}
-
-              <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-[9px] text-muted-foreground">
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    scrollTo("features")
-                  }
-                  className="text-left hover:text-foreground"
-                >
+              <nav aria-label="Footer navigation" className="grid grid-cols-2 gap-x-5 gap-y-4 text-sm">
+                <button type="button" onClick={() => scrollTo("features")} className="group/link inline-flex items-center gap-2.5 text-left text-muted-foreground transition-colors hover:text-blue-500 focus-visible:outline-none focus-visible:text-blue-500">
+                  <Settings className="size-4 shrink-0 text-blue-500/80 transition-colors group-hover/link:text-blue-500" />
                   Features
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    scrollTo("how-it-works")
-                  }
-                  className="text-left hover:text-foreground"
-                >
+                <button type="button" onClick={() => scrollTo("how-it-works")} className="group/link inline-flex items-center gap-2.5 text-left text-muted-foreground transition-colors hover:text-blue-500 focus-visible:outline-none focus-visible:text-blue-500">
+                  <BookOpen className="size-4 shrink-0 text-blue-500/80 transition-colors group-hover/link:text-blue-500" />
                   How it works
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    scrollTo("about")
-                  }
-                  className="text-left hover:text-foreground"
-                >
+                <button type="button" onClick={() => scrollTo("about")} className="group/link inline-flex items-center gap-2.5 text-left text-muted-foreground transition-colors hover:text-blue-500 focus-visible:outline-none focus-visible:text-blue-500">
+                  <UserRound className="size-4 shrink-0 text-blue-500/80 transition-colors group-hover/link:text-blue-500" />
                   About
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    scrollTo("contact")
-                  }
-                  className="text-left hover:text-foreground"
-                >
+                <a href="mailto:itsmeetsharma@gmail.com" className="group/link inline-flex items-center gap-2.5 text-left text-muted-foreground transition-colors hover:text-blue-500 focus-visible:outline-none focus-visible:text-blue-500">
+                  <Mail className="size-4 shrink-0 text-blue-500/80 transition-colors group-hover/link:text-blue-500" />
                   Contact
-                </button>
+                </a>
+              </nav>
 
-              </div>
-
-              {/* DEVELOPER */}
-
-              <div className="border-l border-border pl-5">
-
-                <p className="text-[8px] text-muted-foreground">
-                  Developed by
-                </p>
-
-                <p className="mt-1 text-[11px] font-semibold">
-                  Meet Sharma
-                </p>
-
-                <a
-                  href="mailto:itsmeetsharma@gmail.com"
-                  className="mt-1 flex items-center gap-1.5 text-[8px] text-muted-foreground hover:text-foreground"
-                >
-                  <Mail className="size-3" />
-
+              <div className="border-t border-border/80 pt-5 sm:border-l sm:border-t-0 sm:py-1 sm:pl-6">
+                <p className="text-xs text-muted-foreground">Developed by</p>
+                <p className="mt-1.5 text-base font-semibold tracking-tight">Meet Sharma</p>
+                <a href="mailto:itsmeetsharma@gmail.com" className="mt-2 inline-flex items-center gap-2 break-all text-xs text-muted-foreground transition-colors hover:text-blue-500">
+                  <Mail className="size-3.5 shrink-0" />
                   itsmeetsharma@gmail.com
                 </a>
-
               </div>
-
             </div>
-
           </div>
 
-          {/* COPYRIGHT */}
-
-          <div className="flex flex-col gap-2 border-t border-border py-3 text-[8px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-
-            <span>
-              © 2026 BillNest. All rights reserved.
-            </span>
-
-            <span>
-              Built with ❤️ by Meet Sharma
-            </span>
-
+          <div className="flex flex-col gap-2 py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span>© {new Date().getFullYear()} BillNest. All rights reserved.</span>
+            <span>Built with <span aria-label="love" role="img">❤️</span> by Meet Sharma</span>
           </div>
-
         </footer>
 
       </div>
