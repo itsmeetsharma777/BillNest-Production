@@ -151,7 +151,7 @@ function RoleCard({
           {/* Label */}
           <p
             className={[
-              "mt-3 text-[9px] font-bold uppercase tracking-[0.2em]",
+              "mt-3 text-[13px] font-bold uppercase tracking-[0.2em]",
               isShopkeeper
                 ? "text-blue-500"
                 : "text-violet-500",
@@ -163,12 +163,12 @@ function RoleCard({
           </p>
 
           {/* Title */}
-          <h2 className="mt-1 text-[17px] font-bold">
+          <h2 className="mt-1 text-[19px] font-bold">
             {title}
           </h2>
 
           {/* Description */}
-          <p className="mt-1 max-w-[310px] text-[11px] leading-5 text-muted-foreground">
+          <p className="mt-1 max-w-[310px] text-[13px] leading-5 text-muted-foreground">
             {description}
           </p>
 
@@ -177,7 +177,7 @@ function RoleCard({
             {features.map((feature) => (
               <div
                 key={feature}
-                className="flex items-center gap-2 text-[10px]"
+                className="flex items-center gap-2 text-[12px]"
               >
                 <span
                   className={[
@@ -198,7 +198,7 @@ function RoleCard({
           {/* Role button */}
           <div
             className={[
-              "absolute bottom-0 left-0 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[10px] font-semibold text-white shadow-lg",
+              "absolute bottom-0 left-0 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[12px] font-semibold text-white shadow-lg",
               isShopkeeper
                 ? "bg-blue-500 shadow-blue-500/15"
                 : "bg-violet-500 shadow-violet-500/15",
@@ -391,7 +391,7 @@ function App() {
   </button>
 
   <div className="flex items-center gap-5">
-    <nav className="hidden items-center gap-7 text-[12px] text-muted-foreground md:flex">
+    <nav className="hidden items-center gap-7 text-[14px] text-muted-foreground md:flex">
       <button
         type="button"
         onClick={() => scrollTo("features")}
@@ -445,7 +445,7 @@ function App() {
 
             <div className="pt-2">
 
-              <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-blue-500">
+              <div className="mb-3 flex items-center gap-2 text-[14px] font-bold uppercase tracking-[0.22em] text-blue-500">
 
                 <Sparkles className="size-3.5" />
 
@@ -453,7 +453,7 @@ function App() {
 
               </div>
 
-              <h1 className="max-w-[620px] text-[38px] font-bold leading-[1.04] tracking-[-0.035em] sm:text-[45px]">
+              <h1 className="max-w-[620px] text-[40px] font-bold leading-[1.04] tracking-[-0.035em] sm:text-[48px]">
 
                 Billing and warranty
                 <br />
@@ -467,7 +467,7 @@ function App() {
 
               </h1>
 
-              <p className="mt-4 max-w-[590px] text-[13px] leading-6 text-muted-foreground">
+              <p className="mt-4 max-w-[590px] text-[14px] leading-6 text-muted-foreground">
                 BillNest helps businesses manage invoices and
                 customers while giving customers one place to
                 keep purchases, bills, and warranties.
@@ -479,7 +479,7 @@ function App() {
 
             <div className="relative hidden h-[190px] lg:block">
 
-              <div className="absolute left-2 top-4 rotate-[-6deg] text-center text-[11px] italic leading-4 text-blue-500">
+              <div className="absolute left-2 top-4 rotate-[-6deg] text-center text-[14px] italic leading-4 text-blue-500">
 
                 <span className="block">
                   Organize today
@@ -593,11 +593,11 @@ function App() {
 
                   <div>
 
-                    <h3 className="text-[11px] font-bold">
+                    <h3 className="text-[14px] font-bold">
                       {item.title}
                     </h3>
 
-                    <p className="mt-0.5 text-[9px] leading-4 text-muted-foreground">
+                    <p className="mt-0.5 text-[14px] leading-4 text-muted-foreground">
                       {item.text}
                     </p>
 
@@ -624,11 +624,11 @@ function App() {
 
             <div>
 
-              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-blue-500">
+              <p className="text-[14px] font-bold uppercase tracking-[0.2em] text-blue-500">
                 How it works
               </p>
 
-              <h2 className="mt-2 text-[24px] font-bold leading-[1.1]">
+              <h2 className="mt-2 text-[26px] font-bold leading-[1.1]">
 
                 Get started in
                 <br />
@@ -675,7 +675,7 @@ function App() {
 
                     <div className="flex items-center gap-2">
 
-                      <div className="flex size-9 items-center justify-center rounded-full border border-blue-500 bg-blue-500/5 text-[13px] font-bold text-blue-500">
+                      <div className="flex size-9 items-center justify-center rounded-full border border-blue-500 bg-blue-500/5 text-[14px] font-bold text-blue-500">
                         {step.number}
                       </div>
 
@@ -691,11 +691,11 @@ function App() {
 
                       <div>
 
-                        <h3 className="text-[11px] font-semibold">
+                        <h3 className="text-[14px] font-semibold">
                           {step.title}
                         </h3>
 
-                        <p className="mt-1 text-[9px] leading-4 text-muted-foreground">
+                        <p className="mt-1 text-[14px] leading-4 text-muted-foreground">
                           {step.text}
                         </p>
 
@@ -726,17 +726,17 @@ function App() {
 
             <div className="relative z-10">
 
-              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-blue-500">
+              <p className="text-[14px] font-bold uppercase tracking-[0.2em] text-blue-500">
                 For shopkeepers
               </p>
 
-              <h2 className="mt-2 text-[22px] font-bold leading-[1.05]">
+              <h2 className="mt-2 text-[26px] font-bold leading-[1.05]">
                 Run your billing
                 <br />
                 without the clutter.
               </h2>
 
-              <p className="mt-3 max-w-[270px] text-[10px] leading-5 text-muted-foreground">
+              <p className="mt-3 max-w-[270px] text-[14px] leading-5 text-muted-foreground">
                 BillNest gives shopkeepers a central place to
                 manage invoices, customers and warranties
                 without keeping everything scattered across
@@ -753,7 +753,7 @@ function App() {
                 ].map((item) => (
                   <div
                     key={item}
-                    className="flex items-center gap-2 text-[10px]"
+                    className="flex items-center gap-2 text-[14px]"
                   >
 
                     <span className="flex size-5 items-center justify-center rounded-full bg-blue-500/10 text-blue-500">
@@ -774,7 +774,7 @@ function App() {
                     "/shopkeeper/learn-more",
                   )
                 }
-                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-500/10 px-3.5 py-2 text-[10px] font-semibold text-blue-500 transition hover:bg-blue-500/15"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-500/10 px-3.5 py-2 text-[14px] font-semibold text-blue-500 transition hover:bg-blue-500/15"
               >
                 Learn more
 
@@ -845,17 +845,17 @@ function App() {
 
             <div className="relative z-10">
 
-              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-violet-500">
+              <p className="text-[14px] font-bold uppercase tracking-[0.2em] text-violet-500">
                 For customers
               </p>
 
-              <h2 className="mt-2 text-[22px] font-bold leading-[1.05]">
+              <h2 className="mt-2 text-[26px] font-bold leading-[1.05]">
                 Keep every purchase
                 <br />
                 within reach.
               </h2>
 
-              <p className="mt-3 max-w-[270px] text-[10px] leading-5 text-muted-foreground">
+              <p className="mt-3 max-w-[270px] text-[14px] leading-5 text-muted-foreground">
                 Instead of searching through old messages or
                 paper bills, keep your purchase information
                 and warranties organized in BillNest.
@@ -871,7 +871,7 @@ function App() {
                 ].map((item) => (
                   <div
                     key={item}
-                    className="flex items-center gap-2 text-[10px]"
+                    className="flex items-center gap-2 text-[14px]"
                   >
 
                     <span className="flex size-5 items-center justify-center rounded-full bg-violet-500/10 text-violet-500">
@@ -892,7 +892,7 @@ function App() {
                     "/customer/learn-more",
                   )
                 }
-                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-violet-500/10 px-3.5 py-2 text-[10px] font-semibold text-violet-500 transition hover:bg-violet-500/15"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-violet-500/10 px-3.5 py-2 text-[14px] font-semibold text-violet-500 transition hover:bg-violet-500/15"
               >
                 Learn more
 
@@ -966,15 +966,15 @@ function App() {
 
             <div>
 
-              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-blue-500">
+              <p className="text-[14px] font-bold uppercase tracking-[0.2em] text-blue-500">
                 Why BillNest
               </p>
 
-              <h2 className="mt-2 text-[25px] font-bold">
+              <h2 className="mt-2 text-[27px] font-bold">
                 More than just billing.
               </h2>
 
-              <p className="mt-1 text-[11px] text-muted-foreground">
+              <p className="mt-1 text-[14px] text-muted-foreground">
                 Built to make everyday management simple,
                 secure and stress-free.
               </p>
@@ -1030,11 +1030,11 @@ function App() {
                     <Icon className="size-4" />
                   </div>
 
-                  <h3 className="mt-3 text-[11px] font-bold">
+                  <h3 className="mt-3 text-[14px] font-bold">
                     {item.title}
                   </h3>
 
-                  <p className="mt-1 text-[9px] leading-4 text-muted-foreground">
+                  <p className="mt-1 text-[14px] leading-4 text-muted-foreground">
                     {item.text}
                   </p>
 
@@ -1064,7 +1064,7 @@ function App() {
                 <FileText className="size-7 sm:size-8" strokeWidth={1.8} />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-sky-400">BillNest</p>
+                <p className="text-[14px] font-bold uppercase tracking-[0.28em] text-sky-400">BillNest</p>
                 <h2 id="footer-cta-title" className="mt-1.5 max-w-2xl text-lg font-bold leading-snug tracking-tight text-white sm:text-xl lg:text-2xl">
                   Ready to take control of your bills and warranties?
                 </h2>
