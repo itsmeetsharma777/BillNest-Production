@@ -22,7 +22,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { downloadCsvTemplate, parseCsvRows } from "@/utils/csvImport";
+import { downloadCsv, parseCsvRows } from "@/utils/csvImport";
 import CustomerForm from "./CustomerForm";
 import type { CustomerFormValues } from "./CustomerForm";
 
@@ -699,7 +699,7 @@ export default function CustomersPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => downloadCsvTemplate("billnest-customers-template.csv", ["name", "phone", "email", "gstin", "addressLine1", "addressLine2", "city", "state", "postalCode", "country", "notes"], ["Meet Sharma", "9876543210", "meet@example.com", "", "Main road", "", "Damoh", "Madhya Pradesh", "470661", "India", "Customer notes"])} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium hover:bg-muted"><Download className="size-4" />Download CSV</button>
+          <button type="button" onClick={() => downloadCsv("billnest-customers.csv", ["name", "phone", "email", "gstin", "addressLine1", "addressLine2", "city", "state", "postalCode", "country", "notes"], customers.map((item) => [item.name, item.phone ?? "", item.email ?? "", "", item.address?.line1 ?? "", item.address?.line2 ?? "", item.address?.city ?? "", item.address?.state ?? "", item.address?.postalCode ?? "", item.address?.country ?? "", ""]))} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium hover:bg-muted"><Download className="size-4" />Download CSV</button>
           <button type="button" onClick={() => csvInputRef.current?.click()} disabled={csvImporting} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium hover:bg-muted disabled:opacity-60"><Upload className="size-4" />{csvImporting ? "Uploading..." : "Upload CSV"}</button>
           <input ref={csvInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCustomersCsv(file); }} />
           <button
