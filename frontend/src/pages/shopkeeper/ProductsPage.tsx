@@ -884,9 +884,10 @@ export default function ProductsPage() {
       const report = failed
         ? "CSV import report\\n\\nImported: " + imported + "\\nFailed: " + failed + (errorDetails ? "\\n\\n" + errorDetails + moreErrors : "\\n\\nNo row-level details were returned.")
         : "CSV import completed successfully.\\nImported: " + imported + " products.";
+      // Refresh data first: loadProducts clears the page error state.
+      await Promise.all([loadProducts(true), loadCatalogAnalytics()]);
       setError(report);
       window.alert(report);
-      await Promise.all([loadProducts(true), loadCatalogAnalytics()]);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to import products.";
       setError("CSV import failed: " + message);
