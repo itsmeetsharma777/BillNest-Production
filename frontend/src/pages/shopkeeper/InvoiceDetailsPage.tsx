@@ -57,6 +57,16 @@ interface InvoiceItem {
   total?: number;
 }
 
+interface InvoiceWarranty {
+  productName: string;
+  serialNumber?: string;
+  warrantyPeriodMonths: number;
+  startDate: string;
+  expiryDate: string;
+  status: "active" | "expiring_soon" | "expired" | "no_warranty";
+  terms?: string;
+}
+
 interface InvoiceCustomer {
   id?: string;
   _id?: string;
@@ -597,7 +607,7 @@ export default function InvoiceDetailsPage() {
     }
   }
 
-  function shareInvoiceOnWhatsApp() {
+  async function shareInvoiceOnWhatsApp() {
     if (!invoice?.customer?.phone) {
       setError("This customer does not have a phone number saved.");
       return;
@@ -615,22 +625,121 @@ export default function InvoiceDetailsPage() {
       return;
     }
 
-    const message = [
-      `Hello ${invoice.customer.name || "there"},`,
-      "",
-      `Your BillNest invoice ${invoiceNumber} is ready.`,
-      `Invoice total: ${formatCurrency(total)}`,
-      `Amount paid: ${formatCurrency(amountPaid)}`,
-      `Balance due: ${formatCurrency(amountDue)}`,
-      `Status: ${getStatusLabel(status)}`,
-      "",
-      "Please contact the shop if you have any questions.",
-      "— Shared via BillNest",
-    ].join("\\n");
+    setIsPdfLoading(true);
+    setError("");
+    setSuccessMessage("");
 
-    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
-    setSuccessMessage("WhatsApp opened with the invoice summary. Download the PDF using Print and attach it in the WhatsApp chat if you want to share the full invoice.");
+    try {
+      const [pdfResponse, warrantyResponse] = await Promise.all([
+        fetch(`${API_URL}/invoices/${invoiceId}/pdf`, {
+          method: "GET",
+          credentials: "include",
+        }),
+        fetch(`${API_URL}/invoices/${invoiceId}/warranties`, {
+          method: "GET",
+          credentials: "include",
+        }),
+      ]);
+
+      if (!pdfResponse.ok) {
+        throw new Error("Unable to generate invoice PDF for WhatsApp sharing.");
+      }
+
+      const pdfBlob = await pdfResponse.blob();
+      if (!pdfBlob.size) {
+        throw new Error("Generated invoice PDF is empty.");
+      }
+
+      let warranties: InvoiceWarranty[] = [];
+      if (warrantyResponse.ok) {
+        const warrantyResult = (await warrantyResponse.json()) as {
+          success: boolean;
+          data?: { warranties?: InvoiceWarranty[] };
+        };
+        warranties = warrantyResult.data?.warranties ?? [];
+      }
+
+      const warrantyLines = warranties.length
+        ? [
+            "",
+            "🛡️ WARRANTY DETAILS",
+            ...warranties.flatMap((warranty, index) => [
+              `${index + 1}. Product: ${warranty.productName}`,
+              ...(warranty.serialNumber ? [`Serial Number: ${warranty.serialNumber}`] : []),
+              `Warranty Period: ${warranty.warrantyPeriodMonths} Months`,
+              `Warranty Start Date: ${formatDate(warranty.startDate)}`,
+              `Warranty Expiry Date: ${formatDate(warranty.expiryDate)}`,
+              `Warranty Status: ${warranty.status.replace(/_/g, " ").replace(/\\b\\w/g, (letter) => letter.toUpperCase())}`,
+              ...(warranty.terms ? [`Terms: ${warranty.terms}`] : []),
+              ...(index < warranties.length - 1 ? [""] : []),
+            ]),
+          ]
+        : [];
+
+      const message = [
+        `Hello ${invoice.customer.name || "there"},`,
+        "",
+        `Thank you for shopping with ${"our shop"}!`,
+        "",
+        "🧾 INVOICE DETAILS",
+        `Invoice No: ${invoiceNumber}`,
+        `Invoice Total: ${formatCurrency(total)}`,
+        `Amount Paid: ${formatCurrency(amountPaid)}`,
+        `Balance Due: ${formatCurrency(amountDue)}`,
+        `Payment Status: ${getStatusLabel(status)}`,
+        ...warrantyLines,
+        "",
+        "📎 Invoice PDF: Attached",
+        "",
+        "Thank you for shopping with us!",
+        "We appreciate your trust.",
+        "Please visit again! 😊",
+        "",
+        "Regards,",
+        "BillNest",
+      ].join("\\n");
+
+      const fileName = `${invoiceNumber}.pdf`;
+      const pdfFile = new File([pdfBlob], fileName, {
+        type: "application/pdf",
+      });
+
+      const shareNavigator = navigator as Navigator & {
+        canShare?: (data?: ShareData) => boolean;
+        share?: (data?: ShareData) => Promise<void>;
+      };
+
+      if (
+        shareNavigator.share &&
+        shareNavigator.canShare?.({ files: [pdfFile] })
+      ) {
+        await shareNavigator.share({
+          title: `Invoice ${invoiceNumber}`,
+          text: message,
+          files: [pdfFile],
+        });
+        setSuccessMessage("Invoice PDF and message are ready to share. Select WhatsApp in the share sheet.");
+        return;
+      }
+
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message.replace("📎 Invoice PDF: Attached", "📎 Invoice PDF: Please attach the downloaded PDF"))}`;
+      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+
+      const downloadUrl = URL.createObjectURL(pdfBlob);
+      const anchor = document.createElement("a");
+      anchor.href = downloadUrl;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
+
+      setSuccessMessage("WhatsApp opened with the formatted message. The invoice PDF is downloading; attach it to the WhatsApp chat before sending.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to prepare WhatsApp invoice sharing.");
+    } finally {
+      setIsPdfLoading(false);
+    }
   }
 
   async function recordPayment() {
