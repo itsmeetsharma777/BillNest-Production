@@ -233,10 +233,11 @@ export async function getInvoiceDashboardSummary(
 }
 
 export async function countActiveCustomers(
-  shopId: string,
+  _shopId: string,
 ): Promise<number> {
+  // Customer records are global in BillNest (the Customer schema intentionally
+  // has no shopId). Counting by shopId always returned zero, even after imports.
   return CustomerModel.countDocuments({
-    shopId: toObjectId(shopId),
     isActive: true,
   });
 }
