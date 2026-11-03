@@ -92,6 +92,9 @@ export async function createInvoice(
     subtotal: number;
     discount: number;
     tax: number;
+    cgst: number;
+    sgst: number;
+    igst: number;
     total: number;
     amountPaid: number;
     amountDue: number;
@@ -631,6 +634,9 @@ export async function createInvoiceItems(
     unitPrice: number;
     discount: number;
     taxRate: number;
+    cgst: number;
+    sgst: number;
+    igst: number;
     lineSubtotal: number;
     lineTax: number;
     lineTotal: number;
@@ -684,6 +690,9 @@ export async function createInvoiceItems(
       unitPrice: item.unitPrice,
       discount: item.discount,
       taxRate: item.taxRate,
+      cgst: item.cgst,
+      sgst: item.sgst,
+      igst: item.igst,
       lineSubtotal: item.lineSubtotal,
       lineTax: item.lineTax,
       lineTotal: item.lineTotal,
