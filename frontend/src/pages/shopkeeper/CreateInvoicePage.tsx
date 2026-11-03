@@ -705,7 +705,15 @@ export default function CreateInvoicePage() {
         sku: item.sku,
         serialNumber: item.serialNumber,
       })));
-      setDiscount(String(draft.discount || 0));
+      const ocrItemsSubtotal = invoiceItems.reduce(
+        (sum, item) => sum + Math.max(0, Number(item.quantity) || 0) * Math.max(0, Number(item.unitPrice) || 0),
+        0,
+      );
+      setDiscount(
+        ocrItemsSubtotal > 0
+          ? String(Math.min(100, (Number(draft.discount || 0) / ocrItemsSubtotal) * 100))
+          : "0",
+      );
       setTax(String(draft.tax || 0));
       if (draft.invoiceDate) {
         const rawDate = draft.invoiceDate.trim();
@@ -1225,9 +1233,11 @@ export default function CreateInvoicePage() {
       [items],
     );
 
+  // Discount is entered as a percentage; convert it to a currency amount
+  // for invoice totals and the API payload.
   const safeDiscount =
     Math.min(
-      parseAmount(discount),
+      subtotal * Math.max(0, parseAmount(discount)) / 100,
       subtotal,
     );
 
@@ -1737,7 +1747,7 @@ export default function CreateInvoicePage() {
     }
 
     const parsedDiscount =
-      parseAmount(discount);
+      safeDiscount;
 
     const parsedTax =
       shopGstSettings.gstEnabled && !ocrDraft
@@ -2980,12 +2990,12 @@ export default function CreateInvoicePage() {
               {/* Discount */}
               <label className="block">
                 <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Discount
+                  Discount (%)
                 </span>
 
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                    ₹
+                    %
                   </span>
 
                   <input
@@ -3011,7 +3021,7 @@ export default function CreateInvoicePage() {
                         );
                       }
                     }}
-                    placeholder="0.00"
+                    placeholder="0"
                     className="h-10 w-full rounded-lg border bg-background pl-7 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
@@ -3020,12 +3030,12 @@ export default function CreateInvoicePage() {
               {/* Tax */}
               <label className="block">
                 <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Tax
+                  Tax (%)
                 </span>
 
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                    ₹
+                    %
                   </span>
 
                   <input
@@ -3033,7 +3043,15 @@ export default function CreateInvoicePage() {
                     inputMode="decimal"
                     value={
                       shopGstSettings.gstEnabled && !ocrDraft
-                        ? autoGstAmount.toFixed(2)
+                        ? (subtotal > 0
+                            ? items.reduce((sum, item) => {
+                                const line = Math.max(0, parseAmount(item.quantity)) * Math.max(0, parseAmount(item.unitPrice));
+                                const rate = Number(item.taxRate ?? 0) > 0
+                                  ? Number(item.taxRate)
+                                  : Number(shopGstSettings.defaultGstRate ?? 0);
+                                return sum + line * rate;
+                              }, 0) / subtotal
+                            ).toFixed(2)
                         : tax
                     }
                     readOnly={shopGstSettings.gstEnabled && !ocrDraft}
@@ -3046,10 +3064,15 @@ export default function CreateInvoicePage() {
                         setTax(value);
                       }
                     }}
-                    placeholder="0.00"
+                    placeholder="0"
                     className="h-10 w-full rounded-lg border bg-background pl-7 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
+                {shopGstSettings.gstEnabled && !ocrDraft && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    GST amount: {formatCurrency(autoGstAmount)} (calculated automatically)
+                  </p>
+                )}
               </label>
 
               {/* Payment */}
