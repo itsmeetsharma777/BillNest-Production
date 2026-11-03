@@ -164,11 +164,29 @@ export default function RoleAuthPage({
 
     setError("");
 
+    // Safari can autofill controlled inputs without dispatching React's
+    // onChange event. Read the submitted DOM values as the source of truth
+    // for login so saved credentials aren't silently lost from React state.
+    const formData = new FormData(event.currentTarget);
+    const submittedEmail =
+      isLogin
+        ? String(formData.get("email") ?? email)
+        : email;
+    const submittedPassword =
+      isLogin
+        ? String(formData.get("password") ?? password)
+        : password;
+
     const normalizedEmail =
-      email.trim().toLowerCase();
+      submittedEmail.trim().toLowerCase();
 
     const normalizedPhone =
       phone.trim();
+
+    if (isLogin) {
+      setEmail(normalizedEmail);
+      setPassword(submittedPassword);
+    }
 
     if (!normalizedEmail) {
       setError(
@@ -178,7 +196,7 @@ export default function RoleAuthPage({
       return;
     }
 
-    if (!password) {
+    if (!submittedPassword) {
       setError(
         "Please enter your password.",
       );
@@ -262,7 +280,8 @@ export default function RoleAuthPage({
           ? {
               email:
                 normalizedEmail,
-              password,
+              password:
+                submittedPassword,
             }
           : {
               name:
