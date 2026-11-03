@@ -77,6 +77,8 @@ export async function createProduct(
     unit?: string;
     purchasePrice: number;
     sellingPrice: number;
+    gstRate?: number;
+    hsnCode?: string;
     stockQuantity: number;
     lowStockThreshold: number;
     warrantyPeriodMonths: number;
@@ -154,6 +156,8 @@ export async function updateProductByIdForShop(
     unit: string;
     purchasePrice: number;
     sellingPrice: number;
+    gstRate: number;
+    hsnCode: string;
     stockQuantity: number;
     lowStockThreshold: number;
     warrantyPeriodMonths: number;
