@@ -1951,15 +1951,11 @@ export default function CreateInvoicePage() {
                       ),
 
                     taxRate:
-                      item.taxRate !== undefined ? item.taxRate : Number.isFinite(
-                        itemTaxRate,
-                      )
-                        ? Number(
-                            itemTaxRate.toFixed(
-                              4,
-                            ),
-                          )
-                        : 0,
+                      item.taxRate !== undefined
+                        ? item.taxRate
+                        : ocrDraft && Number.isFinite(itemTaxRate)
+                          ? Number(itemTaxRate.toFixed(4))
+                          : 0,
                     hsnCode: item.hsnCode,
                   }),
                 ),
