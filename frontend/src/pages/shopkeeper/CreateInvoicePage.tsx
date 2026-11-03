@@ -1284,6 +1284,22 @@ export default function CreateInvoicePage() {
     }, 0));
   }, [items, safeDiscount, shopGstSettings, ocrDraft]);
 
+  const autoGstRatePercent = useMemo(() => {
+    if (subtotal <= 0) return 0;
+
+    const weightedRate = items.reduce((sum, item) => {
+      const line = Math.max(0, parseAmount(item.quantity)) *
+        Math.max(0, parseAmount(item.unitPrice));
+      const productRate = Number(item.taxRate ?? 0);
+      const rate = productRate > 0
+        ? productRate
+        : Number(shopGstSettings.defaultGstRate ?? 0);
+      return sum + line * Math.max(0, rate);
+    }, 0);
+
+    return weightedRate / subtotal;
+  }, [items, subtotal, shopGstSettings.defaultGstRate]);
+
   const safeTax =
     shopGstSettings.gstEnabled && !ocrDraft
       ? autoGstAmount
@@ -3047,15 +3063,7 @@ export default function CreateInvoicePage() {
                     inputMode="decimal"
                     value={
                       shopGstSettings.gstEnabled && !ocrDraft
-                        ? (subtotal > 0
-                            ? items.reduce((sum, item) => {
-                                const line = Math.max(0, parseAmount(item.quantity)) * Math.max(0, parseAmount(item.unitPrice));
-                                const rate = Number(item.taxRate ?? 0) > 0
-                                  ? Number(item.taxRate)
-                                  : Number(shopGstSettings.defaultGstRate ?? 0);
-                                return sum + line * rate;
-                              }, 0) / subtotal
-                            ).toFixed(2)
+                        ? autoGstRatePercent.toFixed(2)
                         : tax
                     }
                     readOnly={shopGstSettings.gstEnabled && !ocrDraft}
