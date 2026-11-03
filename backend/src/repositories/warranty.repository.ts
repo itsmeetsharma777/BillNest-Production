@@ -288,3 +288,16 @@ export async function updateWarrantyByIdForShop(
     CUSTOMER_FIELDS,
   );
 }
+export async function findWarrantiesByInvoiceForShop(
+  invoiceId: string,
+  shopId: string,
+) {
+  return WarrantyModel.find({
+    invoiceId: new Types.ObjectId(invoiceId),
+    shopId: new Types.ObjectId(shopId),
+    isActive: true,
+    warrantyPeriodMonths: { $gt: 0 },
+  })
+    .populate("customerId", CUSTOMER_FIELDS)
+    .sort({ productName: 1 });
+}
