@@ -630,12 +630,16 @@ export default function InvoiceDetailsPage() {
     setSuccessMessage("");
 
     try {
-      const [pdfResponse, warrantyResponse] = await Promise.all([
+      const [pdfResponse, warrantyResponse, shopResponse] = await Promise.all([
         fetch(`${API_URL}/invoices/${invoiceId}/pdf`, {
           method: "GET",
           credentials: "include",
         }),
         fetch(`${API_URL}/invoices/${invoiceId}/warranties`, {
+          method: "GET",
+          credentials: "include",
+        }),
+        fetch(`${API_URL}/shops/me`, {
           method: "GET",
           credentials: "include",
         }),
@@ -659,6 +663,14 @@ export default function InvoiceDetailsPage() {
         warranties = warrantyResult.data?.warranties ?? [];
       }
 
+      let shopName = "our shop";
+      if (shopResponse.ok) {
+        const shopResult = (await shopResponse.json()) as {
+          data?: { shop?: { name?: string } };
+        };
+        shopName = shopResult.data?.shop?.name?.trim() || shopName;
+      }
+
       const warrantyLines = warranties.length
         ? [
             "",
@@ -679,7 +691,7 @@ export default function InvoiceDetailsPage() {
       const message = [
         `Hello ${invoice.customer.name || "there"},`,
         "",
-        "Thank you for shopping with your shop!",
+        `Thank you for shopping with ${shopName}!`,
         "",
         "🧾 INVOICE DETAILS",
         `Invoice No: ${invoiceNumber}`,
@@ -696,7 +708,7 @@ export default function InvoiceDetailsPage() {
         "Please visit again! 😊",
         "",
         "Regards,",
-        "BillNest",
+        shopName,\n        "Powered by BillNest",
       ].join("\n");
 
       const fileName = `${invoiceNumber}.pdf`;
