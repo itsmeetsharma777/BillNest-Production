@@ -385,8 +385,37 @@ export function ShopkeeperDashboard() {
     [],
   );
 
+  // Dashboard metrics are fetched on entry, periodically, and whenever
+  // the user returns to this tab so updates from invoices/customers/warranties
+  // appear without requiring a manual refresh.
   useEffect(() => {
     void loadDashboard();
+
+    const refreshDashboard = () => {
+      if (document.visibilityState === "visible") {
+        void loadDashboard(true);
+      }
+    };
+
+    const intervalId = window.setInterval(
+      refreshDashboard,
+      30_000,
+    );
+
+    window.addEventListener("focus", refreshDashboard);
+    document.addEventListener(
+      "visibilitychange",
+      refreshDashboard,
+    );
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshDashboard);
+      document.removeEventListener(
+        "visibilitychange",
+        refreshDashboard,
+      );
+    };
   }, [loadDashboard]);
 
   const overview = data?.overview;
