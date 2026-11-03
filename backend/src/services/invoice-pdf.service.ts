@@ -29,6 +29,10 @@ type PdfItem = {
   discount: number;
   taxRate: number;
   lineTax: number;
+  cgst?: number;
+  sgst?: number;
+  igst?: number;
+  hsnCode?: string;
   lineTotal: number;
 };
 
@@ -1143,7 +1147,7 @@ function drawItemsTable(
       width: 66,
     },
     {
-      label: "Amount",
+      label: "Tax / Amount",
       width:
         CONTENT_WIDTH -
         426,
@@ -1262,9 +1266,7 @@ function drawItemsTable(
           item.discount,
         ),
 
-        money(
-          item.lineTotal,
-        ),
+        `${money(item.lineTotal)}\nGST ${item.taxRate}%`,
       ];
 
       x = MARGIN;
@@ -1332,6 +1334,9 @@ function drawTotals(
     subtotal: number;
     discount: number;
     tax: number;
+    cgst?: number;
+    sgst?: number;
+    igst?: number;
     total: number;
     amountPaid: number;
     amountDue: number;
@@ -1476,10 +1481,12 @@ function drawTotals(
     },
 
     {
-      label: "Tax",
-      value:
-        invoice.tax,
+      label: "GST Tax",
+      value: invoice.tax,
     },
+    ...(invoice.cgst !== undefined && invoice.cgst > 0 ? [{ label: "CGST", value: invoice.cgst }] : []),
+    ...(invoice.sgst !== undefined && invoice.sgst > 0 ? [{ label: "SGST", value: invoice.sgst }] : []),
+    ...(invoice.igst !== undefined && invoice.igst > 0 ? [{ label: "IGST", value: invoice.igst }] : []),
   ];
 
   rows.forEach(
@@ -2012,6 +2019,10 @@ export async function generateInvoicePdf(
 
         lineTax:
           item.lineTax,
+        cgst: item.cgst,
+        sgst: item.sgst,
+        igst: item.igst,
+        hsnCode: (item as PdfItem & { hsnCode?: string }).hsnCode,
 
         lineTotal:
           item.lineTotal,
@@ -2067,6 +2078,9 @@ export async function generateInvoicePdf(
 
         tax:
           invoice.tax,
+        cgst: invoice.cgst,
+        sgst: invoice.sgst,
+        igst: invoice.igst,
 
         total:
           invoice.total,
