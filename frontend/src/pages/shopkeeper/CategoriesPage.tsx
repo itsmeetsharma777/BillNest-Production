@@ -4,8 +4,13 @@ import {
   useState,
 } from "react";
 
+import { downloadCsvTemplate, parseCsvRows } from "@/utils/csvImport";
+import { useRef } from "react";
+
 import {
   FolderTree,
+  Download,
+  Upload,
   Loader2,
   Pencil,
   Plus,
@@ -106,6 +111,36 @@ export default function CategoriesPage() {
     formError,
     setFormError,
   ] = useState("");
+  const [csvImporting, setCsvImporting] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function importCategoriesCsv(file: File) {
+    setCsvImporting(true);
+    setError("");
+    try {
+      const rows = parseCsvRows(await file.text());
+      let imported = 0;
+      const failures: string[] = [];
+      for (let index = 0; index < rows.length; index += 1) {
+        const row = rows[index];
+        if (!row.name) { failures.push("Row " + (index + 2) + ": category name is required."); continue; }
+        try {
+          const response = await fetch(API_URL + "/categories", {
+            method: "POST", credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: row.name, description: row.description || undefined }),
+          });
+          const data = await response.json().catch(() => null);
+          if (!response.ok) throw new Error(data?.message || "Import failed.");
+          imported += 1;
+        } catch (err) { failures.push("Row " + (index + 2) + ": " + (err instanceof Error ? err.message : "Import failed.")); }
+      }
+      setError(failures.length ? "Imported " + imported + "; " + failures.length + " failed. " + failures.slice(0, 3).join(" ") : "");
+      await loadCategories(true);
+    } catch (err) { setError(err instanceof Error ? err.message : "CSV import failed."); }
+    finally { setCsvImporting(false); if (csvInputRef.current) csvInputRef.current.value = ""; }
+  }
+
 
   async function loadCategories(
     showRefresh = false,
@@ -454,7 +489,10 @@ export default function CategoriesPage() {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => downloadCsvTemplate("billnest-categories-template.csv", ["name", "description"], ["Electronics", "Devices and accessories"])} className="inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium hover:bg-muted"><Download className="size-4" />Download CSV</button>
+          <button type="button" onClick={() => csvInputRef.current?.click()} disabled={csvImporting} className="inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium hover:bg-muted disabled:opacity-60"><Upload className="size-4" />{csvImporting ? "Uploading..." : "Upload CSV"}</button>
+          <input ref={csvInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCategoriesCsv(file); }} />
           <button
             type="button"
             onClick={() =>
