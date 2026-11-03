@@ -17,9 +17,7 @@ import { useNavigate } from "react-router-dom";
 import { ThemeSelector } from "@/components/common/theme-selector";
 import { useAuth } from "@/context/AuthContext";
 
-const API_URL =
-  import.meta.env.VITE_API_URL ??
-  "http://localhost:5001/api";
+const API_URL = import.meta.env.PROD ? "/api" : (import.meta.env.VITE_API_URL ?? "http://localhost:5001/api");
 
 interface CreateShopResponse {
   success?: boolean;
