@@ -946,6 +946,33 @@ export default function SettingsPage() {
               </p>
             </div>
 
+            <div className="space-y-3 sm:col-span-2 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <label htmlFor="gst-enabled" className="text-sm font-medium">Enable GST</label>
+                  <p className="text-xs text-muted-foreground">Apply GST to invoices created by this shop.</p>
+                </div>
+                <input id="gst-enabled" type="checkbox" checked={form.gstEnabled} onChange={(event) => updateField("gstEnabled", event.target.checked)} className="size-4 accent-primary" />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <label htmlFor="gst-price-mode" className="text-sm font-medium">GST price mode</label>
+                  <select id="gst-price-mode" value={form.gstPriceMode} onChange={(event) => updateField("gstPriceMode", event.target.value as "inclusive" | "exclusive")} className={selectClassName}>
+                    <option value="exclusive">GST exclusive</option>
+                    <option value="inclusive">GST inclusive</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="default-gst-rate" className="text-sm font-medium">Default GST rate (%)</label>
+                  <input id="default-gst-rate" type="number" min="0" max="100" step="0.01" value={form.defaultGstRate} onChange={(event) => updateField("defaultGstRate", event.target.value)} className={inputClassName} />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="gst-state-code" className="text-sm font-medium">GST state code</label>
+                  <input id="gst-state-code" value={form.gstStateCode} onChange={handleTextChange("gstStateCode")} placeholder="e.g. 23 for MP" maxLength={2} inputMode="numeric" className={inputClassName} />
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <label
                 htmlFor="shop-phone"
