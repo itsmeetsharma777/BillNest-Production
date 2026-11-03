@@ -34,6 +34,10 @@ interface UpdateShopInput {
   email?: string;
   address?: ShopAddressInput;
   taxId?: string;
+  gstEnabled?: boolean;
+  gstPriceMode?: 'exclusive' | 'inclusive';
+  defaultGstRate?: number;
+  gstStateCode?: string;
   logoUrl?: string;
 }
 
