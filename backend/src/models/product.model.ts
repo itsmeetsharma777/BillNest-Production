@@ -325,13 +325,13 @@ productSchema.index({
  * no SKU at all.
  */
 productSchema.index(
+  { shopId: 1, sku: 1 },
   {
-    shopId: 1,
-    sku: 1,
-  },
-  {
+    name: "shop_sku_nonempty_unique",
     unique: true,
-    sparse: true,
+    partialFilterExpression: {
+      sku: { $type: "string", $gt: "" },
+    },
   },
 );
 
@@ -345,13 +345,13 @@ productSchema.index(
  * sparse = true allows products without barcodes.
  */
 productSchema.index(
+  { shopId: 1, barcode: 1 },
   {
-    shopId: 1,
-    barcode: 1,
-  },
-  {
+    name: "shop_barcode_nonempty_unique",
     unique: true,
-    sparse: true,
+    partialFilterExpression: {
+      barcode: { $type: "string", $gt: "" },
+    },
   },
 );
 
