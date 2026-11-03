@@ -887,7 +887,11 @@ export default function ProductsPage() {
       setError(report);
       window.alert(report);
       await Promise.all([loadProducts(true), loadCatalogAnalytics()]);
-    } catch (err) { setError(err instanceof Error ? err.message : "Unable to import products."); }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to import products.";
+      setError("CSV import failed: " + message);
+      window.alert("CSV import failed:\\n" + message);
+    }
     finally { setImporting(false); if (importInputRef.current) importInputRef.current.value = ""; }
   }
   /*
