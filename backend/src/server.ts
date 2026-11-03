@@ -8,6 +8,7 @@ import rateLimit from "express-rate-limit";
 
 import { env } from "./config/env";
 import { connectDatabase } from "./config/database";
+import { ProductModel } from "./models/product.model";
 
 import authRoutes from "./routes/auth.routes";
 import passwordResetRoutes from "./routes/password-reset.routes";
@@ -497,8 +498,56 @@ function startWarrantyNotificationScheduler() {
  * database connection succeeds.
  */
 
+ /**
+ * Migrate product uniqueness indexes so empty/missing SKU and barcode
+ * values are not treated as duplicate identifiers. Existing legacy
+ * sparse indexes include empty strings, which caused CSV imports to fail.
+ */
+async function ensureProductIdentifierIndexes() {
+  const collection = ProductModel.collection;
+  const indexes = await collection.listIndexes().toArray();
+
+  for (const index of indexes) {
+    const key = index.key as Record<string, unknown> | undefined;
+    const isLegacySkuIndex = key?.shopId === 1 && key?.sku === 1;
+    const isLegacyBarcodeIndex = key?.shopId === 1 && key?.barcode === 1;
+    if ((isLegacySkuIndex || isLegacyBarcodeIndex) && index.name) {
+      await collection.dropIndex(index.name);
+    }
+  }
+
+  await collection.updateMany(
+    { sku: "" },
+    { $unset: { sku: "" } },
+  );
+  await collection.updateMany(
+    { barcode: "" },
+    { $unset: { barcode: "" } },
+  );
+
+  await collection.createIndex(
+    { shopId: 1, sku: 1 },
+    {
+      name: "shop_sku_nonempty_unique",
+      unique: true,
+      partialFilterExpression: { sku: { $type: "string", $gt: "" } },
+    },
+  );
+  await collection.createIndex(
+    { shopId: 1, barcode: 1 },
+    {
+      name: "shop_barcode_nonempty_unique",
+      unique: true,
+      partialFilterExpression: { barcode: { $type: "string", $gt: "" } },
+    },
+  );
+
+  console.log("[Product Index Migration] Empty identifiers normalized; partial unique indexes ready.");
+}
+
 async function startServer() {
   await connectDatabase();
+  await ensureProductIdentifierIndexes();
 
   startWarrantyNotificationScheduler();
 
