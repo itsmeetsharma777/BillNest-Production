@@ -254,6 +254,7 @@ export async function getDashboardForOwner(
 
   const [
     invoiceSummary,
+    allTimeInvoiceSummary,
     totalCustomers,
     warrantySummary,
     recentInvoices,
@@ -269,6 +270,8 @@ export async function getDashboardForOwner(
         endDate,
       },
     ),
+
+    getInvoiceDashboardSummary(shopId),
 
     countActiveCustomers(
       shopId,
@@ -334,19 +337,19 @@ export async function getDashboardForOwner(
 
     overview: {
       totalInvoices:
-        invoiceSummary.totalInvoices,
+        allTimeInvoiceSummary.totalInvoices,
 
       paidInvoices:
-        invoiceSummary.paidInvoices,
+        allTimeInvoiceSummary.paidInvoices,
 
       partiallyPaidInvoices:
-        invoiceSummary.partiallyPaidInvoices,
+        allTimeInvoiceSummary.partiallyPaidInvoices,
 
       draftInvoices:
-        invoiceSummary.draftInvoices,
+        allTimeInvoiceSummary.draftInvoices,
 
       cancelledInvoices:
-        invoiceSummary.cancelledInvoices,
+        allTimeInvoiceSummary.cancelledInvoices,
 
       totalSales:
         roundMoney(
