@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { downloadCsv } from "@/utils/csvImport";
 import { ArrowLeft, Boxes, Download, Loader2, Minus, Plus, Save, Trash2, Upload, X } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -75,17 +76,17 @@ export default function ProductVariantsPage() {
 
   function downloadVariantCsvTemplate() {
     const headers = ["attributes", "sku", "barcode", "purchasePrice", "sellingPrice", "stockQuantity", "lowStockThreshold", "warrantyPeriodMonths"];
-    const sample = ['"{""RAM"":""16 GB"",""Storage"":""512 GB"",""Color"":""Black""}"', "SKU-001", "8901234567890", "140000", "150000", "10", "5", "12"];
-    const csv = [headers.join(","), sample.join(",")].join("\\r\\n");
-    const blob = new Blob(["\\uFEFF", csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "billnest-product-variants-template.csv";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    const rows = variants.map((variant) => [
+      JSON.stringify(variant.attributes ?? {}),
+      variant.sku ?? "",
+      variant.barcode ?? "",
+      variant.purchasePrice,
+      variant.sellingPrice,
+      variant.stockQuantity,
+      variant.lowStockThreshold,
+      variant.warrantyPeriodMonths,
+    ]);
+    downloadCsv("billnest-product-variants.csv", headers, rows);
   }
 
   async function importVariantsCsv(file: File) {
