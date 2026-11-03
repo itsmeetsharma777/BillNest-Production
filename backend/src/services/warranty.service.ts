@@ -4,6 +4,7 @@ import {
   findWarrantiesByShopId,
   findWarrantiesExpiringSoon,
   updateWarrantyByIdForShop,
+  findWarrantiesByInvoiceForShop,
 } from "../repositories/warranty.repository";
 
 import {
@@ -792,5 +793,24 @@ export async function getExpiringWarrantiesForOwner(
     shop._id.toString(),
     startDate,
     endDate,
+  );
+}
+export async function getWarrantiesForInvoiceOwner(
+  ownerId: string,
+  invoiceId: string,
+) {
+  const shop = await getShopForOwner(ownerId);
+  const invoice = await findInvoiceByIdForShop(
+    invoiceId,
+    shop._id.toString(),
+  );
+
+  if (!invoice) {
+    throw new ApiError(404, "Invoice not found.", "INVOICE_NOT_FOUND");
+  }
+
+  return findWarrantiesByInvoiceForShop(
+    invoice._id.toString(),
+    shop._id.toString(),
   );
 }
