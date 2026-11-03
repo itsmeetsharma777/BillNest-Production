@@ -135,8 +135,8 @@ export default function CategoriesPage() {
           imported += 1;
         } catch (err) { failures.push("Row " + (index + 2) + ": " + (err instanceof Error ? err.message : "Import failed.")); }
       }
-      setError(failures.length ? "Imported " + imported + "; " + failures.length + " failed. " + failures.slice(0, 3).join(" ") : "");
       await loadCategories(true);
+      setError(failures.length ? "Imported " + imported + "; " + failures.length + " failed. " + failures.slice(0, 3).join(" ") : "");
     } catch (err) { setError(err instanceof Error ? err.message : "CSV import failed."); }
     finally { setCsvImporting(false); if (csvInputRef.current) csvInputRef.current.value = ""; }
   }
