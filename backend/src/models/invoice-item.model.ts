@@ -73,6 +73,8 @@ const invoiceItemSchema = new Schema(
       maxlength: 100,
     },
 
+    hsnCode: { type: String, trim: true, maxlength: 8 },
+
     serialNumber: {
       type: String,
       trim: true,
