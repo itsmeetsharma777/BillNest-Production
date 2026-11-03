@@ -1246,11 +1246,7 @@ function drawItemsTable(
       const values = [
         String(index + 1),
 
-        item.sku
-          ? `${item.productName}${item.variantName ? `\n${item.variantName}` : ""}\nSKU: ${item.sku}`
-          : item.variantName
-            ? `${item.productName}\n${item.variantName}`
-            : item.productName,
+        `${item.productName}${item.variantName ? `\n${item.variantName}` : ""}${item.sku ? `\nSKU: ${item.sku}` : ""}${item.hsnCode ? `\nHSN: ${item.hsnCode}` : ""}`,
 
         item.sku ??
           "-",
