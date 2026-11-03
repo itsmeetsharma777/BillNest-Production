@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { ArrowLeft, Boxes, Loader2, Minus, Plus, Save, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { ArrowLeft, Boxes, Download, Loader2, Minus, Plus, Save, Trash2, Upload, X } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5001/api";
@@ -70,6 +70,86 @@ export default function ProductVariantsPage() {
   const [stockType, setStockType] = useState<"in" | "out">("in");
   const [stockQuantity, setStockQuantity] = useState("1");
   const [stockReason, setStockReason] = useState("");
+  const [csvImporting, setCsvImporting] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
+
+  function downloadVariantCsvTemplate() {
+    const headers = ["attributes", "sku", "barcode", "purchasePrice", "sellingPrice", "stockQuantity", "lowStockThreshold", "warrantyPeriodMonths"];
+    const sample = ['"{""RAM"":""16 GB"",""Storage"":""512 GB"",""Color"":""Black""}"', "SKU-001", "8901234567890", "140000", "150000", "10", "5", "12"];
+    const csv = [headers.join(","), sample.join(",")].join("\\r\\n");
+    const blob = new Blob(["\\uFEFF", csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "billnest-product-variants-template.csv";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function importVariantsCsv(file: File) {
+    if (!productId) return;
+    setCsvImporting(true);
+    setError("");
+    try {
+      const text = (await file.text()).replace(/^\\uFEFF/, "");
+      const rows: string[][] = [];
+      let row: string[] = [];
+      let cell = "";
+      let quoted = false;
+      for (let i = 0; i < text.length; i += 1) {
+        const ch = text[i];
+        if (ch === '"') {
+          if (quoted && text[i + 1] === '"') { cell += '"'; i += 1; }
+          else quoted = !quoted;
+        } else if (ch === "," && !quoted) { row.push(cell); cell = ""; }
+        else if ((ch === "\\n" || ch === "\\r") && !quoted) {
+          if (ch === "\\r" && text[i + 1] === "\\n") i += 1;
+          row.push(cell);
+          if (row.some((value) => value.trim())) rows.push(row);
+          row = []; cell = "";
+        } else cell += ch;
+      }
+      row.push(cell);
+      if (row.some((value) => value.trim())) rows.push(row);
+      if (rows.length < 2) throw new Error("CSV must contain a header and at least one variant row.");
+      const headers = rows[0].map((value) => value.trim().toLowerCase());
+      let imported = 0;
+      const failures: string[] = [];
+      for (let index = 1; index < rows.length; index += 1) {
+        const record: Record<string, string> = {};
+        headers.forEach((header, column) => { record[header] = (rows[index][column] ?? "").trim(); });
+        try {
+          let attributes: Record<string, string>;
+          try { attributes = JSON.parse(record.attributes || "{}"); }
+          catch { throw new Error('attributes must be valid JSON, e.g. {"RAM":"16 GB","Color":"Black"}.'); }
+          if (!attributes || typeof attributes !== "object" || Array.isArray(attributes) || !Object.keys(attributes).length) throw new Error("At least one variant attribute is required.");
+          const payload = {
+            attributes,
+            sku: record.sku || undefined,
+            barcode: record.barcode || undefined,
+            purchasePrice: Number(record.purchaseprice ?? 0),
+            sellingPrice: Number(record.sellingprice ?? 0),
+            stockQuantity: Number(record.stockquantity ?? 0),
+            lowStockThreshold: Number(record.lowstockthreshold ?? 5),
+            warrantyPeriodMonths: Number(record.warrantyperiodmonths ?? 0),
+          };
+          if (![payload.purchasePrice, payload.sellingPrice, payload.stockQuantity, payload.lowStockThreshold, payload.warrantyPeriodMonths].every(Number.isFinite)) throw new Error("Numeric fields contain invalid values.");
+          const response = await fetch(API_URL + "/product-variants/" + productId, {
+            method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+          });
+          const result = await response.json().catch(() => null);
+          if (!response.ok) throw new Error(result?.message ?? "Variant import failed.");
+          imported += 1;
+        } catch (err) { failures.push("Row " + (index + 1) + ": " + (err instanceof Error ? err.message : "Import failed.")); }
+      }
+      await loadVariants();
+      setError(failures.length ? "CSV import: " + imported + " imported, " + failures.length + " failed. " + failures.slice(0, 3).join(" ") : "Successfully imported " + imported + " variants.");
+    } catch (err) { setError(err instanceof Error ? err.message : "CSV import failed."); }
+    finally { setCsvImporting(false); if (csvInputRef.current) csvInputRef.current.value = ""; }
+  }
+
 
   async function loadVariants() {
     if (!productId) return;
@@ -234,7 +314,12 @@ export default function ProductVariantsPage() {
             <p className="mt-1 text-sm text-muted-foreground">Manage SKU, barcode, pricing and stock independently for every variant.</p>
           </div>
         </div>
-        <button type="button" onClick={openCreate} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"><Plus className="size-4" />Add variant</button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={downloadVariantCsvTemplate} className="inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium hover:bg-muted"><Download className="size-4" />Download CSV</button>
+          <button type="button" onClick={() => csvInputRef.current?.click()} disabled={csvImporting} className="inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium hover:bg-muted disabled:opacity-60"><Upload className="size-4" />{csvImporting ? "Uploading..." : "Upload CSV"}</button>
+          <input ref={csvInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importVariantsCsv(file); }} />
+          <button type="button" onClick={openCreate} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"><Plus className="size-4" />Add variant</button>
+        </div>
       </div>
 
       {error && <div className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
