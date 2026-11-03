@@ -12,6 +12,8 @@ export interface Product {
   barcode?: string | null;
   unit?: string | null;
   sellingPrice: number;
+  gstRate?: number;
+  hsnCode?: string;
   stockQuantity: number;
   isActive: boolean;
   productId?: string;
