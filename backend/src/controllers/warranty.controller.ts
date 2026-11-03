@@ -8,6 +8,7 @@ import {
   updateWarrantyForOwner,
   deactivateWarrantyForOwner,
   getExpiringWarrantiesForOwner,
+  getWarrantiesForInvoiceOwner,
 } from "../services/warranty.service";
 
 import {
@@ -196,5 +197,24 @@ export async function getExpiringWarranties(
     data: {
       warranties,
     },
+  });
+}
+export async function getInvoiceWarranties(
+  req: AuthenticatedRequest,
+  res: Response,
+) {
+  const invoiceId = req.params.invoiceId;
+  if (typeof invoiceId !== "string" || !mongoose.isValidObjectId(invoiceId)) {
+    throw new ApiError(400, "Invalid invoice ID.", "INVALID_INVOICE_ID");
+  }
+
+  const warranties = await getWarrantiesForInvoiceOwner(
+    req.user.id,
+    invoiceId,
+  );
+
+  res.status(200).json({
+    success: true,
+    data: { warranties },
   });
 }
