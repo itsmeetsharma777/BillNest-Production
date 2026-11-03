@@ -9,6 +9,8 @@ import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   CheckCircle2,
+  Download,
+  Upload,
   Loader2,
   Mail,
   MoreHorizontal,
@@ -19,6 +21,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { downloadCsvTemplate, parseCsvRows } from "@/utils/csvImport";
 import CustomerForm from "./CustomerForm";
 import type { CustomerFormValues } from "./CustomerForm";
 
@@ -186,6 +189,42 @@ export default function CustomersPage() {
 
   const [openMenuId, setOpenMenuId] =
     useState<string | null>(null);
+  const [csvImporting, setCsvImporting] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function importCustomersCsv(file: File) {
+    setCsvImporting(true);
+    setError("");
+    setSuccessMessage("");
+    try {
+      const rows = parseCsvRows(await file.text());
+      let imported = 0;
+      const failures: string[] = [];
+      for (let index = 0; index < rows.length; index += 1) {
+        const row = rows[index];
+        if (!row.name || !row.phone) { failures.push("Row " + (index + 2) + ": name and phone are required."); continue; }
+        try {
+          const response = await fetch(API_URL + "/customers", {
+            method: "POST", credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: row.name, phone: row.phone, email: row.email || undefined, gstin: row.gstin || undefined,
+              address: { line1: row.addressline1 || undefined, line2: row.addressline2 || undefined, city: row.city || undefined, state: row.state || undefined, postalCode: row.postalcode || undefined, country: row.country || undefined },
+              notes: row.notes || undefined,
+            }),
+          });
+          const data = await response.json().catch(() => null);
+          if (!response.ok) throw new Error(data?.message || "Import failed.");
+          imported += 1;
+        } catch (err) { failures.push("Row " + (index + 2) + ": " + (err instanceof Error ? err.message : "Import failed.")); }
+      }
+      setSuccessMessage("Imported/matched " + imported + " customers" + (failures.length ? "; " + failures.length + " rows failed." : "."));
+      if (failures.length) setError(failures.slice(0, 3).join(" "));
+      await loadCustomers();
+    } catch (err) { setError(err instanceof Error ? err.message : "CSV import failed."); }
+    finally { setCsvImporting(false); if (csvInputRef.current) csvInputRef.current.value = ""; }
+  }
+
 
   const [menuPosition, setMenuPosition] =
     useState<MenuPosition | null>(null);
@@ -658,14 +697,19 @@ export default function CustomersPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openCreateForm}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-        >
-          <Plus className="size-4" />
-          Add Customer
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => downloadCsvTemplate("billnest-customers-template.csv", ["name", "phone", "email", "gstin", "addressLine1", "addressLine2", "city", "state", "postalCode", "country", "notes"], ["Meet Sharma", "9876543210", "meet@example.com", "", "Main road", "", "Damoh", "Madhya Pradesh", "470661", "India", "Customer notes"])} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium hover:bg-muted"><Download className="size-4" />Download CSV</button>
+          <button type="button" onClick={() => csvInputRef.current?.click()} disabled={csvImporting} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium hover:bg-muted disabled:opacity-60"><Upload className="size-4" />{csvImporting ? "Uploading..." : "Upload CSV"}</button>
+          <input ref={csvInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCustomersCsv(file); }} />
+          <button
+            type="button"
+            onClick={openCreateForm}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+          >
+            <Plus className="size-4" />
+            Add Customer
+          </button>
+        </div>
       </div>
 
       {/* Success */}
