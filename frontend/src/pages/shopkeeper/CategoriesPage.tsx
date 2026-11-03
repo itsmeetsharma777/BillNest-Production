@@ -4,7 +4,7 @@ import {
   useState,
 } from "react";
 
-import { downloadCsvTemplate, parseCsvRows } from "@/utils/csvImport";
+import { downloadCsv, parseCsvRows } from "@/utils/csvImport";
 import { useRef } from "react";
 
 import {
@@ -490,7 +490,7 @@ export default function CategoriesPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => downloadCsvTemplate("billnest-categories-template.csv", ["name", "description"], ["Electronics", "Devices and accessories"])} className="inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium hover:bg-muted"><Download className="size-4" />Download CSV</button>
+          <button type="button" onClick={() => downloadCsv("billnest-categories.csv", ["name", "description"], categories.map((item) => [item.name, item.description ?? ""]))} className="inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium hover:bg-muted"><Download className="size-4" />Download CSV</button>
           <button type="button" onClick={() => csvInputRef.current?.click()} disabled={csvImporting} className="inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium hover:bg-muted disabled:opacity-60"><Upload className="size-4" />{csvImporting ? "Uploading..." : "Upload CSV"}</button>
           <input ref={csvInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCategoriesCsv(file); }} />
           <button
