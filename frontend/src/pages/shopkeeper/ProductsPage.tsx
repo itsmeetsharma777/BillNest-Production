@@ -53,6 +53,8 @@ interface Product {
   category?: string | null;
   brand?: string | null;
   barcode?: string | null;
+  gstRate?: number;
+  hsnCode?: string | null;
   unit?: string | null;
   purchasePrice: number;
   sellingPrice: number;
@@ -96,6 +98,8 @@ interface ProductForm {
   category: string;
   brand: string;
   barcode: string;
+  gstRate: string;
+  hsnCode: string;
   unit: string;
   purchasePrice: string;
   sellingPrice: string;
@@ -117,6 +121,8 @@ const emptyForm: ProductForm = {
   category: "",
   brand: "",
   barcode: "",
+  gstRate: "0",
+  hsnCode: "",
   unit: "",
   purchasePrice: "0",
   sellingPrice: "0",
@@ -304,6 +310,8 @@ function createForm(
     brand: product.brand ?? "",
     barcode:
       product.barcode ?? "",
+    gstRate: String(product.gstRate ?? 0),
+    hsnCode: product.hsnCode ?? "",
     unit: product.unit ?? "",
     purchasePrice: String(
       product.purchasePrice,
@@ -1090,6 +1098,9 @@ export default function ProductsPage() {
 
         barcode:
           barcode || undefined,
+
+        gstRate: Number(form.gstRate || 0),
+        hsnCode: form.hsnCode.trim() || undefined,
 
         unit:
           form.unit.trim() ||
@@ -2281,6 +2292,25 @@ export default function ProductsPage() {
                         : "Select brand"
                   }
                   emptyLabel="No brand"
+                />
+
+                <Field
+                  label="GST Rate (%)"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={form.gstRate}
+                  onChange={(value) => updateForm("gstRate", value)}
+                />
+
+                <Field
+                  label="HSN Code"
+                  value={form.hsnCode}
+                  onChange={(value) => updateForm("hsnCode", value)}
+                  placeholder="Enter 4–8 digit HSN code"
+                  inputMode="numeric"
+                  maxLength={8}
                 />
 
                 <ProductUnitSelect
