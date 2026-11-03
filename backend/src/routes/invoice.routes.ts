@@ -17,6 +17,7 @@ import {
 import {
   downloadInvoicePdf,
 } from "../controllers/invoice-pdf.controller";
+import { getGstSummary } from "../controllers/gst-report.controller";
 
 import {
   createRazorpayOrder,
@@ -52,6 +53,8 @@ router.get(
   "/",
   asyncHandler(getInvoices),
 );
+
+router.get("/gst-summary", asyncHandler(getGstSummary));
 
 router.get(
   "/:invoiceId",
