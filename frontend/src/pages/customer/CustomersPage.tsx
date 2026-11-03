@@ -26,8 +26,7 @@ import { downloadCsv, parseCsvRows } from "@/utils/csvImport";
 import CustomerForm from "./CustomerForm";
 import type { CustomerFormValues } from "./CustomerForm";
 
-const API_URL =
-  import.meta.env.VITE_API_URL ?? "http://localhost:5001/api";
+const API_URL = import.meta.env.PROD ? "/api" : (import.meta.env.VITE_API_URL ?? "http://localhost:5001/api");
 
 interface Customer {
   id: string;
