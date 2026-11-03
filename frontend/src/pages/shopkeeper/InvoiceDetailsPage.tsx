@@ -679,7 +679,7 @@ export default function InvoiceDetailsPage() {
       const message = [
         `Hello ${invoice.customer.name || "there"},`,
         "",
-        `Thank you for shopping with ${"our shop"}!`,
+        "Thank you for shopping with your shop!",
         "",
         "🧾 INVOICE DETAILS",
         `Invoice No: ${invoiceNumber}`,
@@ -697,7 +697,7 @@ export default function InvoiceDetailsPage() {
         "",
         "Regards,",
         "BillNest",
-      ].join("\\n");
+      ].join("\n");
 
       const fileName = `${invoiceNumber}.pdf`;
       const pdfFile = new File([pdfBlob], fileName, {
