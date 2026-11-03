@@ -237,9 +237,8 @@ export async function countActiveCustomers(
 ): Promise<number> {
   // Customer records are global in BillNest (the Customer schema intentionally
   // has no shopId). Counting by shopId always returned zero, even after imports.
-  return CustomerModel.countDocuments({
-    isActive: true,
-  });
+  // Full customer record count (includes inactive customer records).
+  return CustomerModel.countDocuments({});
 }
 
 export async function getWarrantyDashboardSummary(
@@ -252,7 +251,6 @@ export async function getWarrantyDashboardSummary(
       {
         $match: {
           shopId: toObjectId(shopId),
-          isActive: true,
         },
       },
       {
@@ -267,9 +265,9 @@ export async function getWarrantyDashboardSummary(
             $sum: {
               $cond: [
                 {
-                  $eq: [
-                    "$warrantyPeriodMonths",
-                    0,
+                  $and: [
+                    { $eq: ["$warrantyPeriodMonths", 0] },
+                    { $eq: ["$isActive", true] },
                   ],
                 },
                 1,
@@ -283,18 +281,9 @@ export async function getWarrantyDashboardSummary(
               $cond: [
                 {
                   $and: [
-                    {
-                      $gt: [
-                        "$warrantyPeriodMonths",
-                        0,
-                      ],
-                    },
-                    {
-                      $lte: [
-                        "$expiryDate",
-                        now,
-                      ],
-                    },
+                    { $eq: ["$isActive", true] },
+                    { $gt: ["$warrantyPeriodMonths", 0] },
+                    { $lte: ["$expiryDate", now] },
                   ],
                 },
                 1,
@@ -308,24 +297,10 @@ export async function getWarrantyDashboardSummary(
               $cond: [
                 {
                   $and: [
-                    {
-                      $gt: [
-                        "$warrantyPeriodMonths",
-                        0,
-                      ],
-                    },
-                    {
-                      $gt: [
-                        "$expiryDate",
-                        now,
-                      ],
-                    },
-                    {
-                      $lte: [
-                        "$expiryDate",
-                        expiringSoonUntil,
-                      ],
-                    },
+                    { $eq: ["$isActive", true] },
+                    { $gt: ["$warrantyPeriodMonths", 0] },
+                    { $gt: ["$expiryDate", now] },
+                    { $lte: ["$expiryDate", expiringSoonUntil] },
                   ],
                 },
                 1,
@@ -339,18 +314,9 @@ export async function getWarrantyDashboardSummary(
               $cond: [
                 {
                   $and: [
-                    {
-                      $gt: [
-                        "$warrantyPeriodMonths",
-                        0,
-                      ],
-                    },
-                    {
-                      $gt: [
-                        "$expiryDate",
-                        expiringSoonUntil,
-                      ],
-                    },
+                    { $eq: ["$isActive", true] },
+                    { $gt: ["$warrantyPeriodMonths", 0] },
+                    { $gt: ["$expiryDate", expiringSoonUntil] },
                   ],
                 },
                 1,
