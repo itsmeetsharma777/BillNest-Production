@@ -98,7 +98,7 @@ export async function exportProductsForOwner(ownerId: string) {
   const rows = products.map((product) => [
     product.name, product.sku, product.category, product.brand, product.barcode,
     product.unit, product.gstRate ?? 0, product.hsnCode, product.purchasePrice, product.sellingPrice,
-    product.lowStockThreshold, product.warrantyPeriodMonths, product.description,
+    product.stockQuantity, product.lowStockThreshold, product.warrantyPeriodMonths, product.description,
     product.hasVariants ? "true" : "false",
   ].map(csvEscape).join(","));
   return [header, ...rows].join("\r\n");
