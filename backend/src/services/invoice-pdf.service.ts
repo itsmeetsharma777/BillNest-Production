@@ -33,7 +33,6 @@ type PdfItem = {
   cgst?: number;
   sgst?: number;
   igst?: number;
-  hsnCode?: string;
   lineTotal: number;
 };
 
