@@ -881,9 +881,11 @@ export default function ProductsPage() {
         "Row " + item.line + ": " + (item.message ?? "Import failed"),
       ).join("\\n");
       const moreErrors = rowErrors.length > 12 ? "\\n...and " + (rowErrors.length - 12) + " more errors." : "";
-      setError(failed
-        ? "CSV import: " + imported + " imported, " + failed + " failed." + (errorDetails ? "\\n" + errorDetails + moreErrors : " No row-level details were returned.")
-        : "CSV import completed successfully: " + imported + " products imported.");
+      const report = failed
+        ? "CSV import report\\n\\nImported: " + imported + "\\nFailed: " + failed + (errorDetails ? "\\n\\n" + errorDetails + moreErrors : "\\n\\nNo row-level details were returned.")
+        : "CSV import completed successfully.\\nImported: " + imported + " products.";
+      setError(report);
+      window.alert(report);
       await Promise.all([loadProducts(true), loadCatalogAnalytics()]);
     } catch (err) { setError(err instanceof Error ? err.message : "Unable to import products."); }
     finally { setImporting(false); if (importInputRef.current) importInputRef.current.value = ""; }
