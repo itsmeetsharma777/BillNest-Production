@@ -218,9 +218,9 @@ export default function CustomersPage() {
           imported += 1;
         } catch (err) { failures.push("Row " + (index + 2) + ": " + (err instanceof Error ? err.message : "Import failed.")); }
       }
+      await loadCustomers();
       setSuccessMessage("Imported/matched " + imported + " customers" + (failures.length ? "; " + failures.length + " rows failed." : "."));
       if (failures.length) setError(failures.slice(0, 3).join(" "));
-      await loadCustomers();
     } catch (err) { setError(err instanceof Error ? err.message : "CSV import failed."); }
     finally { setCsvImporting(false); if (csvInputRef.current) csvInputRef.current.value = ""; }
   }
