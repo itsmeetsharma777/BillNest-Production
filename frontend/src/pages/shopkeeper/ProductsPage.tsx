@@ -2310,7 +2310,6 @@ export default function ProductsPage() {
                   onChange={(value) => updateForm("hsnCode", value)}
                   placeholder="Enter 4–8 digit HSN code"
                   inputMode="numeric"
-                  maxLength={8}
                 />
 
                 <ProductUnitSelect
