@@ -4,7 +4,6 @@ import {
   useState,
   useRef,
 } from "react";
-import { downloadCsvTemplate } from "@/utils/csvImport";
 import ProductUnitSelect from "@/components/shopkeeper/ProductUnitSelect";
 import ProductImageManager from "@/components/shopkeeper/ProductImageManager";
 import { Link } from "react-router-dom";
@@ -1678,7 +1677,7 @@ export default function ProductsPage() {
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => setShowAdvancedFilters((value) => !value)} className="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold hover:bg-muted"><SlidersHorizontal className="size-3.5" />{showAdvancedFilters ? "Hide filters" : "Advanced filters"}</button>
-          <button type="button" onClick={() => downloadCsvTemplate("billnest-products-template.csv", ["name","sku","category","brand","barcode","unit","gstRate","hsnCode","purchasePrice","sellingPrice","stockQuantity","lowStockThreshold","warrantyPeriodMonths","description","hasVariants"], ["Samsung S26 Ultra","SKU-001","Smart phones","Samsung","8901234567890","piece","18","85171300","140000","150000","10","5","12","Example product","false"])} className="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold hover:bg-muted"><Download className="size-3.5" />Template</button>
+          <button type="button" onClick={() => void exportCatalog()} disabled={exporting} className="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold hover:bg-muted"><Download className="size-3.5" />Download CSV</button>
           <button type="button" onClick={() => void exportCatalog()} disabled={exporting} className="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold hover:bg-muted disabled:opacity-60"><Download className="size-3.5" />{exporting ? "Exporting..." : "Export CSV"}</button>
           <input ref={importInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCatalog(file); }} />
           <button type="button" onClick={() => importInputRef.current?.click()} disabled={importing} className="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold hover:bg-muted disabled:opacity-60"><Upload className="size-3.5" />{importing ? "Importing..." : "Import CSV"}</button>
