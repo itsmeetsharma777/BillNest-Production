@@ -155,8 +155,16 @@ function calculateItemTotals(
     item.discount ?? 0,
   );
 
-  const taxRate =
-    item.taxRate ?? 0;
+  // Use the product's specific GST rate when it is positive.
+  // Existing products often store 0 when no rate was configured;
+  // in that case inherit the shop default. GST is only applied when
+  // the shop has GST enabled.
+  const productGstRate = item.taxRate ?? 0;
+  const taxRate = gstEnabled
+    ? productGstRate > 0
+      ? productGstRate
+      : defaultGstRate
+    : 0;
 
   if (
     !Number.isFinite(unitPrice) ||
