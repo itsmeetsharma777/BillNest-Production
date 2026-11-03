@@ -28,6 +28,8 @@ const customerFormSchema = z.object({
     .email("Please enter a valid email address.")
     .or(z.literal("")),
 
+  gstin: z.string().trim().toUpperCase().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/, 'Enter a valid GSTIN.').or(z.literal('')),
+
   phone: z
     .string()
     .trim()
@@ -139,6 +141,7 @@ const defaultValues: CustomerFormValues = {
   name: "",
   email: "",
   phone: "",
+  gstin: "",
   line1: "",
   line2: "",
   city: "",

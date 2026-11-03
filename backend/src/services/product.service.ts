@@ -72,6 +72,8 @@ export async function createProductForOwner(
     lowStockThreshold: number;
     warrantyPeriodMonths: number;
     description?: string;
+    gstRate?: number;
+    hsnCode?: string;
   },
 ) {
   const shop =
@@ -125,6 +127,8 @@ export async function createProductForOwner(
 
                 sellingPrice:
                   input.sellingPrice,
+                gstRate: input.gstRate ?? shop.defaultGstRate ?? 0,
+                hsnCode: cleanOptionalText(input.hsnCode),
 
                 stockQuantity:
                   input.stockQuantity,
@@ -439,6 +443,8 @@ export async function updateProductForOwner(
     lowStockThreshold?: number;
     warrantyPeriodMonths?: number;
     description?: string;
+    gstRate?: number;
+    hsnCode?: string;
     isActive?: boolean;
   },
 ) {
@@ -519,11 +525,9 @@ export async function updateProductForOwner(
               input.purchasePrice,
           }),
 
-          ...(input.sellingPrice !==
-            undefined && {
-            sellingPrice:
-              input.sellingPrice,
-          }),
+          ...(input.sellingPrice !== undefined && { sellingPrice: input.sellingPrice }),
+          ...(input.gstRate !== undefined && { gstRate: input.gstRate }),
+          ...(input.hsnCode !== undefined && { hsnCode: cleanOptionalText(input.hsnCode) ?? "" }),
 
           ...(input.lowStockThreshold !==
             undefined && {

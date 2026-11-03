@@ -113,6 +113,8 @@ export const createCustomerSchema =
         "Phone number cannot exceed 30 characters.",
       ),
 
+    gstin: z.string().trim().toUpperCase().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/, 'Please provide a valid GSTIN.').optional().or(z.literal('')),
+
     address:
       addressSchema,
 
@@ -174,6 +176,8 @@ export const updateCustomerSchema =
         "Phone number cannot exceed 30 characters.",
       )
       .optional(),
+
+    gstin: z.string().trim().toUpperCase().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/, 'Please provide a valid GSTIN.').optional(),
 
     address:
       addressSchema,

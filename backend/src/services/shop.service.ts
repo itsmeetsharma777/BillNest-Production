@@ -21,6 +21,10 @@ interface CreateShopInput {
   email?: string;
   address?: ShopAddressInput;
   taxId?: string;
+  gstEnabled?: boolean;
+  gstPriceMode?: "exclusive" | "inclusive";
+  defaultGstRate?: number;
+  gstStateCode?: string;
   logoUrl?: string;
 }
 
@@ -30,6 +34,10 @@ interface UpdateShopInput {
   email?: string;
   address?: ShopAddressInput;
   taxId?: string;
+  gstEnabled?: boolean;
+  gstPriceMode?: 'exclusive' | 'inclusive';
+  defaultGstRate?: number;
+  gstStateCode?: string;
   logoUrl?: string;
 }
 
@@ -97,9 +105,11 @@ export async function createShopForOwner(
       },
     }),
 
-    ...(input.taxId?.trim() && {
-      taxId: input.taxId.trim(),
-    }),
+    ...(input.taxId?.trim() && { taxId: input.taxId.trim().toUpperCase() }),
+    ...(input.gstEnabled !== undefined && { gstEnabled: input.gstEnabled }),
+    ...(input.gstPriceMode !== undefined && { gstPriceMode: input.gstPriceMode }),
+    ...(input.defaultGstRate !== undefined && { defaultGstRate: input.defaultGstRate }),
+    ...(input.gstStateCode?.trim() && { gstStateCode: input.gstStateCode.trim() }),
 
     ...(input.logoUrl?.trim() && {
       logoUrl: input.logoUrl.trim(),
@@ -170,6 +180,10 @@ export async function updateShopForOwner(
     email?: string;
     address?: ShopAddressInput;
     taxId?: string;
+    gstEnabled?: boolean;
+    gstPriceMode?: "exclusive" | "inclusive";
+    defaultGstRate?: number;
+    gstStateCode?: string;
     logoUrl?: string;
   } = {};
 
@@ -214,8 +228,13 @@ export async function updateShopForOwner(
   }
 
   if (input.taxId !== undefined) {
-    updateData.taxId = input.taxId.trim();
+    updateData.taxId = input.taxId.trim().toUpperCase();
   }
+
+  if (input.gstEnabled !== undefined) updateData.gstEnabled = input.gstEnabled;
+  if (input.gstPriceMode !== undefined) updateData.gstPriceMode = input.gstPriceMode;
+  if (input.defaultGstRate !== undefined) updateData.defaultGstRate = input.defaultGstRate;
+  if (input.gstStateCode !== undefined) updateData.gstStateCode = input.gstStateCode.trim();
 
   if (input.logoUrl !== undefined) {
     updateData.logoUrl = input.logoUrl.trim();

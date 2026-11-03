@@ -61,11 +61,12 @@ export const createShopSchema = z.object({
 
   address: addressSchema,
 
-  taxId: z
-    .string()
-    .trim()
-    .max(50, "Tax ID cannot exceed 50 characters.")
-    .optional(),
+  taxId: z.string().trim().toUpperCase().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/, "Please provide a valid GSTIN.").optional(),
+
+  gstEnabled: z.boolean().optional(),
+  gstPriceMode: z.enum(["exclusive", "inclusive"]).optional(),
+  defaultGstRate: z.number().finite().min(0).max(100).optional(),
+  gstStateCode: z.string().trim().regex(/^[0-9]{2}$/, "GST state code must be 2 digits.").optional(),
 
   logoUrl: z
     .string()

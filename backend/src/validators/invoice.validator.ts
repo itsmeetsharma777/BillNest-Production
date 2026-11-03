@@ -69,6 +69,7 @@ const invoiceItemSchema = z.object({
     .default(0),
 
   barcode: z.string().trim().max(100).optional(),
+  hsnCode: z.string().trim().regex(/^[0-9]{4,8}$/, 'HSN code must contain 4 to 8 digits.').optional(),
 
   variantName: z.string().trim().max(500).optional(),
 

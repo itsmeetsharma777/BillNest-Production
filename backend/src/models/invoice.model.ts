@@ -72,6 +72,10 @@ const invoiceSchema = new Schema(
       default: 0,
     },
 
+    cgst: { type: Number, min: 0, default: 0 },
+    sgst: { type: Number, min: 0, default: 0 },
+    igst: { type: Number, min: 0, default: 0 },
+
     total: {
       type: Number,
       required: true,

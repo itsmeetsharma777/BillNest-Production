@@ -95,6 +95,10 @@ interface Shop {
     country?: string;
   };
   taxId?: string;
+  gstEnabled?: boolean;
+  gstPriceMode?: 'exclusive' | 'inclusive';
+  defaultGstRate?: number;
+  gstStateCode?: string;
   logoUrl?: string;
   isActive: boolean;
   createdAt: string;
@@ -106,6 +110,10 @@ interface ShopForm {
   phone: string;
   email: string;
   taxId: string;
+  gstEnabled: boolean;
+  gstPriceMode: 'exclusive' | 'inclusive';
+  defaultGstRate: string;
+  gstStateCode: string;
   address: ShopAddress;
 }
 
@@ -128,6 +136,10 @@ const EMPTY_FORM: ShopForm = {
   phone: "",
   email: "",
   taxId: "",
+  gstEnabled: false,
+  gstPriceMode: "exclusive",
+  defaultGstRate: "0",
+  gstStateCode: "",
   address: {
     line1: "",
     line2: "",
@@ -173,6 +185,10 @@ function normalizeShop(shop: Shop): ShopForm {
     phone: normalizePhoneForInput(shop.phone),
     email: shop.email ?? "",
     taxId: shop.taxId ?? "",
+    gstEnabled: shop.gstEnabled ?? false,
+    gstPriceMode: shop.gstPriceMode ?? "exclusive",
+    defaultGstRate: String(shop.defaultGstRate ?? 0),
+    gstStateCode: shop.gstStateCode ?? "",
     address: {
       line1: shop.address?.line1 ?? "",
       line2: shop.address?.line2 ?? "",
@@ -587,11 +603,9 @@ export default function SettingsPage() {
       }
     }
 
-    if (
-      form.taxId.trim().length > 50
-    ) {
-      return "GST Number cannot exceed 50 characters.";
-    }
+    if (form.taxId.trim() && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(form.taxId.trim().toUpperCase())) return "Please enter a valid 15-character GSTIN.";
+    const gstRate = Number(form.defaultGstRate);
+    if (!Number.isFinite(gstRate) || gstRate < 0 || gstRate > 100) return "Default GST rate must be between 0 and 100.";
 
     if (
       form.address.line1.trim()
@@ -675,8 +689,12 @@ export default function SettingsPage() {
           undefined,
 
         taxId:
-          form.taxId.trim() ||
+          form.taxId.trim().toUpperCase() ||
           undefined,
+        gstEnabled: form.gstEnabled,
+        gstPriceMode: form.gstPriceMode,
+        defaultGstRate: Number(form.defaultGstRate || 0),
+        gstStateCode: form.gstStateCode.trim() || undefined,
 
         address: {
           line1:

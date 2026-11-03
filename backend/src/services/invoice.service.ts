@@ -48,6 +48,7 @@ interface InvoiceItemInput {
   variantName?: string;
   variantAttributes?: Record<string, string>;
   barcode?: string;
+  hsnCode?: string;
   sku?: string;
   serialNumber?: string;
   quantity: number;
@@ -129,6 +130,9 @@ function validateDueDate(
 
 function calculateItemTotals(
   item: InvoiceItemInput,
+  gstEnabled = false,
+  gstPriceMode: 'exclusive' | 'inclusive' = 'exclusive',
+  defaultGstRate = 0,
 ) {
   const quantity = item.quantity;
 
@@ -205,11 +209,14 @@ function calculateItemTotals(
   );
 
   const lineTax = roundMoney(
-    taxableAmount * (taxRate / 100),
+    gstPriceMode === 'inclusive' && taxRate > 0
+      ? taxableAmount * taxRate / (100 + taxRate)
+      : taxableAmount * (taxRate / 100),
   );
 
+  const netTaxableAmount = gstPriceMode === 'inclusive' ? roundMoney(taxableAmount - lineTax) : taxableAmount;
   const lineTotal = roundMoney(
-    taxableAmount + lineTax,
+    gstPriceMode === 'inclusive' ? taxableAmount : taxableAmount + lineTax,
   );
 
   return {
@@ -217,7 +224,7 @@ function calculateItemTotals(
     unitPrice,
     discount,
     taxRate,
-    lineSubtotal,
+    lineSubtotal: gstPriceMode === 'inclusive' ? netTaxableAmount + discount : lineSubtotal,
     lineTax,
     lineTotal,
   };
@@ -454,6 +461,10 @@ export async function createInvoiceForOwner(
     input.dueDate,
   );
 
+  const shopState = shop.address?.state?.trim().toLocaleLowerCase();
+  const customerState = customer.address?.state?.trim().toLocaleLowerCase();
+  const isIntraState = Boolean(shopState && customerState && shopState === customerState);
+
   const calculatedItems =
     input.items.map((item) => {
       const productName =
@@ -482,10 +493,17 @@ export async function createInvoiceForOwner(
         calculateItemTotals({
           ...item,
           productName,
-        });
+        }, Boolean(shop.gstEnabled), shop.gstPriceMode ?? 'exclusive', shop.defaultGstRate ?? 0);
+
+      const cgst = isIntraState ? roundMoney(totals.lineTax / 2) : 0;
+      const sgst = isIntraState ? roundMoney(totals.lineTax - cgst) : 0;
+      const igst = isIntraState ? 0 : totals.lineTax;
 
       return {
         productName,
+        cgst,
+        sgst,
+        igst,
 
         ...(item.sku?.trim() && {
           sku: item.sku.trim(),
@@ -515,13 +533,10 @@ export async function createInvoiceForOwner(
     ),
   );
 
-  const tax = roundMoney(
-    calculatedItems.reduce(
-      (sum, item) =>
-        sum + item.lineTax,
-      0,
-    ),
-  );
+  const tax = roundMoney(calculatedItems.reduce((sum, item) => sum + item.lineTax, 0));
+  const cgst = roundMoney(calculatedItems.reduce((sum, item) => sum + item.cgst, 0));
+  const sgst = roundMoney(calculatedItems.reduce((sum, item) => sum + item.sgst, 0));
+  const igst = roundMoney(calculatedItems.reduce((sum, item) => sum + item.igst, 0));
 
   const total = roundMoney(
     calculatedItems.reduce(
@@ -620,6 +635,9 @@ export async function createInvoiceForOwner(
                 subtotal,
                 discount,
                 tax,
+                cgst,
+                sgst,
+                igst,
                 total,
 
                 amountPaid:
@@ -666,6 +684,7 @@ export async function createInvoiceForOwner(
                   ...(inputItem.variantName && { variantName: inputItem.variantName }),
                   ...(inputItem.variantAttributes && { variantAttributes: inputItem.variantAttributes }),
                   ...(inputItem.barcode && { barcode: inputItem.barcode }),
+                  ...(inputItem.hsnCode && { hsnCode: inputItem.hsnCode }),
                   productName: calculatedItems[index].productName,
 
                   ...(inputItem.sku?.trim() && { sku: inputItem.sku.trim() }),
@@ -676,6 +695,9 @@ export async function createInvoiceForOwner(
                   taxRate: calculatedItems[index].taxRate,
                   lineSubtotal: calculatedItems[index].lineSubtotal,
                   lineTax: calculatedItems[index].lineTax,
+                  cgst: calculatedItems[index].cgst,
+                  sgst: calculatedItems[index].sgst,
+                  igst: calculatedItems[index].igst,
                   lineTotal: calculatedItems[index].lineTotal,
                 })),
               session,

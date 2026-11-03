@@ -151,10 +151,9 @@ const productCatalogFields = {
 
   barcode: barcodeField,
 
-  unit: optionalText(
-    30,
-    "Unit cannot exceed 30 characters.",
-  ),
+  unit: optionalText(30, "Unit cannot exceed 30 characters."),
+  gstRate: z.number().finite().min(0).max(100).optional(),
+  hsnCode: z.string().trim().regex(/^[0-9]{4,8}$/, "HSN code must contain 4 to 8 digits.").optional(),
 };
 
 /*

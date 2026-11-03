@@ -30,6 +30,7 @@ interface CreateCustomerInput {
   name: string;
   email?: string;
   phone: string;
+  gstin?: string;
   address?: CustomerAddress;
   notes?: string;
 }
@@ -38,6 +39,7 @@ interface UpdateCustomerInput {
   name?: string;
   email?: string;
   phone?: string;
+  gstin?: string;
   address?: CustomerAddress;
   notes?: string;
 }
@@ -246,6 +248,7 @@ export async function createCustomerForOwner(
       }),
 
       phone,
+      ...(input.gstin?.trim() && { gstin: input.gstin.trim().toUpperCase() }),
 
       ...(input.address && {
         address:
@@ -542,6 +545,8 @@ export async function updateCustomerForOwner(
     updateData.phone =
       phone;
   }
+
+  if (input.gstin !== undefined) updateData.gstin = input.gstin.trim().toUpperCase();
 
   /*
    * Address.

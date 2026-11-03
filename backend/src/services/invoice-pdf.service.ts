@@ -22,6 +22,7 @@ type PdfAddress = {
 
 type PdfItem = {
   productName: string;
+  hsnCode?: string | null;
   variantName?: string | null;
   sku?: string | null;
   quantity: number;
@@ -29,6 +30,9 @@ type PdfItem = {
   discount: number;
   taxRate: number;
   lineTax: number;
+  cgst?: number;
+  sgst?: number;
+  igst?: number;
   lineTotal: number;
 };
 
@@ -42,6 +46,7 @@ type ShopPdfData = {
 
 type CustomerPdfData = {
   name: string;
+  gstin?: string | null;
   email?: string | null;
   phone?: string | null;
   address?: PdfAddress | null;
@@ -1068,7 +1073,7 @@ function drawCustomerSections(
 
   drawText(
     doc,
-    "-",
+    customer.gstin ?? "-",
     rightX + 94,
     y + 68,
     width - 108,
@@ -1143,7 +1148,7 @@ function drawItemsTable(
       width: 66,
     },
     {
-      label: "Amount",
+      label: "Tax / Amount",
       width:
         CONTENT_WIDTH -
         426,
@@ -1241,11 +1246,7 @@ function drawItemsTable(
       const values = [
         String(index + 1),
 
-        item.sku
-          ? `${item.productName}${item.variantName ? `\n${item.variantName}` : ""}\nSKU: ${item.sku}`
-          : item.variantName
-            ? `${item.productName}\n${item.variantName}`
-            : item.productName,
+        `${item.productName}${item.variantName ? `\n${item.variantName}` : ""}${item.sku ? `\nSKU: ${item.sku}` : ""}${item.hsnCode ? `\nHSN: ${item.hsnCode}` : ""}`,
 
         item.sku ??
           "-",
@@ -1262,9 +1263,7 @@ function drawItemsTable(
           item.discount,
         ),
 
-        money(
-          item.lineTotal,
-        ),
+        `${money(item.lineTotal)}\nGST ${item.taxRate}%`,
       ];
 
       x = MARGIN;
@@ -1332,6 +1331,9 @@ function drawTotals(
     subtotal: number;
     discount: number;
     tax: number;
+    cgst?: number;
+    sgst?: number;
+    igst?: number;
     total: number;
     amountPaid: number;
     amountDue: number;
@@ -1345,7 +1347,7 @@ function drawTotals(
     leftWidth -
     12;
 
-  const height = 112;
+  const height = 164;
 
   /*
    * AMOUNT IN WORDS
@@ -1476,10 +1478,12 @@ function drawTotals(
     },
 
     {
-      label: "Tax",
-      value:
-        invoice.tax,
+      label: "GST Tax",
+      value: invoice.tax,
     },
+    ...(invoice.cgst !== undefined && invoice.cgst > 0 ? [{ label: "CGST", value: invoice.cgst }] : []),
+    ...(invoice.sgst !== undefined && invoice.sgst > 0 ? [{ label: "SGST", value: invoice.sgst }] : []),
+    ...(invoice.igst !== undefined && invoice.igst > 0 ? [{ label: "IGST", value: invoice.igst }] : []),
   ];
 
   rows.forEach(
@@ -1523,7 +1527,7 @@ function drawTotals(
   doc
     .rect(
       totalsX,
-      y + 68,
+      y + 120,
       rightWidth,
       44,
     )
@@ -1536,7 +1540,7 @@ function drawTotals(
     doc,
     "TOTAL AMOUNT",
     totalsX + 14,
-    y + 81,
+    y + 133,
     rightWidth - 28,
     {
       size: 8.5,
@@ -1551,7 +1555,7 @@ function drawTotals(
     doc,
     money(invoice.total),
     totalsX + 14,
-    y + 80,
+    y + 132,
     rightWidth - 28,
     {
       size: 10,
@@ -1970,6 +1974,7 @@ export async function generateInvoicePdf(
       {
         name:
           customer.name,
+        gstin: customer.gstin,
 
         email:
           customer.email,
@@ -2012,6 +2017,10 @@ export async function generateInvoicePdf(
 
         lineTax:
           item.lineTax,
+        hsnCode: item.hsnCode,
+        cgst: item.cgst,
+        sgst: item.sgst,
+        igst: item.igst,
 
         lineTotal:
           item.lineTotal,
@@ -2067,6 +2076,9 @@ export async function generateInvoicePdf(
 
         tax:
           invoice.tax,
+        cgst: invoice.cgst,
+        sgst: invoice.sgst,
+        igst: invoice.igst,
 
         total:
           invoice.total,
