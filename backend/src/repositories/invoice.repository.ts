@@ -627,6 +627,7 @@ export async function createInvoiceItems(
     variantName?: string;
     variantAttributes?: Record<string, string>;
     barcode?: string;
+    hsnCode?: string;
     productName: string;
     sku?: string;
     serialNumber?: string;
@@ -683,6 +684,7 @@ export async function createInvoiceItems(
       ...(variantName && { variantName }),
       ...(variantAttributes && { variantAttributes }),
       ...(barcode && { barcode }),
+      ...(item.hsnCode && { hsnCode: item.hsnCode }),
       productName: item.productName,
       ...(sku && { sku }),
       ...(item.serialNumber && { serialNumber: item.serialNumber }),
