@@ -171,6 +171,13 @@ interface OcrInvoiceDraft {
   notes?: string;
 }
 
+interface ShopGstSettings {
+  gstEnabled?: boolean;
+  defaultGstRate?: number;
+  gstPriceMode?: "inclusive" | "exclusive";
+  gstStateCode?: string;
+}
+
 interface CreateInvoiceResponse {
   success: boolean;
   data?: {
@@ -466,6 +473,49 @@ export default function CreateInvoicePage() {
     tax,
     setTax,
   ] = useState("0");
+
+  const [shopGstSettings, setShopGstSettings] =
+    useState<ShopGstSettings>({
+      gstEnabled: false,
+      defaultGstRate: 0,
+      gstPriceMode: "exclusive",
+    });
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadShopGstSettings() {
+      try {
+        const response = await fetch(`${API_URL}/shops/me`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok) return;
+
+        const shop =
+          result?.data?.shop ??
+          result?.shop ??
+          result?.data;
+
+        if (active && shop) {
+          setShopGstSettings({
+            gstEnabled: Boolean(shop.gstEnabled),
+            defaultGstRate: Number(shop.defaultGstRate ?? 0),
+            gstPriceMode: shop.gstPriceMode === "inclusive" ? "inclusive" : "exclusive",
+            gstStateCode: shop.gstStateCode,
+          });
+        }
+      } catch {
+        // Keep GST disabled on settings-fetch failure; backend remains authoritative.
+      }
+    }
+
+    void loadShopGstSettings();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [
     paymentMethod,
@@ -1188,8 +1238,46 @@ export default function CreateInvoicePage() {
         safeDiscount,
     );
 
+  const autoGstAmount = useMemo(() => {
+    if (!shopGstSettings.gstEnabled || ocrDraft) {
+      return 0;
+    }
+
+    const itemSubtotalSum = items.reduce((sum, item) => {
+      const quantity = parseAmount(item.quantity);
+      const price = parseAmount(item.unitPrice);
+      return sum + quantity * price;
+    }, 0);
+
+    if (itemSubtotalSum <= 0) return 0;
+
+    return roundMoney(items.reduce((sum, item) => {
+      const quantity = parseAmount(item.quantity);
+      const price = parseAmount(item.unitPrice);
+      const lineSubtotal = quantity * price;
+      if (lineSubtotal <= 0) return sum;
+
+      const productRate = Number(item.taxRate ?? 0);
+      const rate = productRate > 0
+        ? productRate
+        : Number(shopGstSettings.defaultGstRate ?? 0);
+      if (!Number.isFinite(rate) || rate <= 0) return sum;
+
+      // Allocate invoice discount proportionally to each line.
+      const lineDiscount = safeDiscount * (lineSubtotal / itemSubtotalSum);
+      const taxable = Math.max(0, lineSubtotal - lineDiscount);
+      const lineTax = shopGstSettings.gstPriceMode === "inclusive"
+        ? taxable * rate / (100 + rate)
+        : taxable * rate / 100;
+
+      return sum + lineTax;
+    }, 0));
+  }, [items, safeDiscount, shopGstSettings, ocrDraft]);
+
   const safeTax =
-    parseAmount(tax);
+    shopGstSettings.gstEnabled && !ocrDraft
+      ? autoGstAmount
+      : parseAmount(tax);
 
   const total =
     roundMoney(
@@ -1652,7 +1740,9 @@ export default function CreateInvoicePage() {
       parseAmount(discount);
 
     const parsedTax =
-      parseAmount(tax);
+      shopGstSettings.gstEnabled && !ocrDraft
+        ? autoGstAmount
+        : parseAmount(tax);
 
     const parsedAmountPaid =
       parseAmount(amountPaid);
@@ -2945,24 +3035,19 @@ export default function CreateInvoicePage() {
                   <input
                     type="text"
                     inputMode="decimal"
-                    value={tax}
+                    value={
+                      shopGstSettings.gstEnabled && !ocrDraft
+                        ? autoGstAmount.toFixed(2)
+                        : tax
+                    }
+                    readOnly={shopGstSettings.gstEnabled && !ocrDraft}
                     onFocus={(event) =>
                       event.currentTarget.select()
                     }
                     onChange={(event) => {
-                      const value =
-                        event.target
-                          .value;
-
-                      if (
-                        value === "" ||
-                        /^\d*\.?\d{0,2}$/.test(
-                          value,
-                        )
-                      ) {
-                        setTax(
-                          value,
-                        );
+                      const value = event.target.value;
+                      if (value === "" || /^\d*\.?\d{0,2}$/.test(value)) {
+                        setTax(value);
                       }
                     }}
                     placeholder="0.00"
