@@ -1461,10 +1461,10 @@ export default function ProductsPage() {
 
           <div className="flex-1">
             <p className="font-medium">
-              Something went wrong
+              Product CSV import report
             </p>
 
-            <p className="mt-1">
+            <p className="mt-1 whitespace-pre-line">
               {error}
             </p>
           </div>
