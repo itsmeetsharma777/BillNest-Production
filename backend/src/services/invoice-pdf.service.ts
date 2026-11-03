@@ -47,6 +47,7 @@ type ShopPdfData = {
 
 type CustomerPdfData = {
   name: string;
+  gstin?: string | null;
   email?: string | null;
   phone?: string | null;
   address?: PdfAddress | null;
@@ -1073,7 +1074,7 @@ function drawCustomerSections(
 
   drawText(
     doc,
-    "-",
+    customer.gstin ?? "-",
     rightX + 94,
     y + 68,
     width - 108,
@@ -1978,6 +1979,7 @@ export async function generateInvoicePdf(
       {
         name:
           customer.name,
+        gstin: customer.gstin,
 
         email:
           customer.email,
