@@ -146,6 +146,8 @@ interface InvoiceItem {
   variantAttributes?: Record<string, string>;
   sku?: string;
   barcode?: string;
+  taxRate?: number;
+  hsnCode?: string;
 }
 
 interface OcrInvoiceDraft {
@@ -1859,7 +1861,7 @@ export default function CreateInvoicePage() {
                       ),
 
                     taxRate:
-                      Number.isFinite(
+                      item.taxRate !== undefined ? item.taxRate : Number.isFinite(
                         itemTaxRate,
                       )
                         ? Number(
@@ -1868,6 +1870,7 @@ export default function CreateInvoicePage() {
                             ),
                           )
                         : 0,
+                    hsnCode: item.hsnCode,
                   }),
                 ),
 
@@ -2718,6 +2721,8 @@ export default function CreateInvoicePage() {
                                     variantAttributes: product.variantAttributes,
                                     sku: product.sku ?? undefined,
                                     barcode: product.barcode ?? undefined,
+                                    taxRate: product.gstRate,
+                                    hsnCode: product.hsnCode,
                                   }
                                 : currentItem,
                             ),
