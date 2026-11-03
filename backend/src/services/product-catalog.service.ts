@@ -10,7 +10,7 @@ import { createProductForOwner } from "./product.service";
 import { ApiError } from "../utils/api-error";
 
 const HEADERS = [
-  "name","sku","category","brand","barcode","unit",
+  "name","sku","category","brand","barcode","unit","gstRate","hsnCode",
   "purchasePrice","sellingPrice","stockQuantity","lowStockThreshold",
   "warrantyPeriodMonths","description","hasVariants",
 ] as const;
@@ -97,7 +97,7 @@ export async function exportProductsForOwner(ownerId: string) {
   const header = HEADERS.join(",");
   const rows = products.map((product) => [
     product.name, product.sku, product.category, product.brand, product.barcode,
-    product.unit, product.purchasePrice, product.sellingPrice, product.stockQuantity,
+    product.unit, product.gstRate ?? 0, product.hsnCode, product.purchasePrice, product.sellingPrice,
     product.lowStockThreshold, product.warrantyPeriodMonths, product.description,
     product.hasVariants ? "true" : "false",
   ].map(csvEscape).join(","));
@@ -125,6 +125,8 @@ export async function importProductsForOwner(ownerId: string, csv: string) {
         brand: row.brand || undefined,
         barcode: row.barcode || undefined,
         unit: row.unit || undefined,
+        gstRate: row.gstrate ? numberField(row, "gstrate", line) : 0,
+        hsnCode: row.hsncode || undefined,
         purchasePrice: numberField(row, "purchaseprice", line),
         sellingPrice: numberField(row, "sellingprice", line),
         stockQuantity: numberField(row, "stockquantity", line),
