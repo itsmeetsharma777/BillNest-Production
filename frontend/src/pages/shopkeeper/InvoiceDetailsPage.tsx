@@ -9,6 +9,7 @@ import {
   XCircle,
   Plus,
   History,
+  MessageCircle,
 } from "lucide-react";
 
 import {
@@ -596,6 +597,42 @@ export default function InvoiceDetailsPage() {
     }
   }
 
+  function shareInvoiceOnWhatsApp() {
+    if (!invoice?.customer?.phone) {
+      setError("This customer does not have a phone number saved.");
+      return;
+    }
+
+    const rawPhone = invoice.customer.phone.replace(/\\D/g, "");
+    const phone = rawPhone.startsWith("91")
+      ? rawPhone
+      : rawPhone.length === 10
+        ? `91${rawPhone}`
+        : rawPhone;
+
+    if (phone.length < 11 || phone.length > 15) {
+      setError("Customer phone number is not a valid WhatsApp number.");
+      return;
+    }
+
+    const message = [
+      `Hello ${invoice.customer.name || "there"},`,
+      "",
+      `Your BillNest invoice ${invoiceNumber} is ready.`,
+      `Invoice total: ${formatCurrency(total)}`,
+      `Amount paid: ${formatCurrency(amountPaid)}`,
+      `Balance due: ${formatCurrency(amountDue)}`,
+      `Status: ${getStatusLabel(status)}`,
+      "",
+      "Please contact the shop if you have any questions.",
+      "— Shared via BillNest",
+    ].join("\\n");
+
+    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    setSuccessMessage("WhatsApp opened with the invoice summary. Download the PDF using Print and attach it in the WhatsApp chat if you want to share the full invoice.");
+  }
+
   async function recordPayment() {
     if (!invoiceId || !invoice) {
       return;
@@ -1019,6 +1056,17 @@ export default function InvoiceDetailsPage() {
           </div>
 
           <div className="flex flex-wrap gap-2 print:hidden">
+            <button
+              type="button"
+              onClick={shareInvoiceOnWhatsApp}
+              disabled={!invoice.customer?.phone || isActionLoading}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 px-4 text-sm font-semibold text-green-700 transition-colors hover:bg-green-500/15 disabled:cursor-not-allowed disabled:opacity-50 dark:text-green-400"
+              title={!invoice.customer?.phone ? "Add a customer phone number to share on WhatsApp" : "Share invoice summary on WhatsApp"}
+            >
+              <MessageCircle className="size-4" />
+              WhatsApp
+            </button>
+
             <button
               type="button"
               onClick={() =>
