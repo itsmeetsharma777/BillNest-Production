@@ -511,7 +511,12 @@ async function ensureProductIdentifierIndexes() {
     const key = index.key as Record<string, unknown> | undefined;
     const isLegacySkuIndex = key?.shopId === 1 && key?.sku === 1;
     const isLegacyBarcodeIndex = key?.shopId === 1 && key?.barcode === 1;
-    if ((isLegacySkuIndex || isLegacyBarcodeIndex) && index.name) {
+    if (
+      (isLegacySkuIndex || isLegacyBarcodeIndex) &&
+      index.name &&
+      index.name !== "shop_sku_nonempty_unique" &&
+      index.name !== "shop_barcode_nonempty_unique"
+    ) {
       await collection.dropIndex(index.name);
     }
   }
