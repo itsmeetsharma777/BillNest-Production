@@ -1351,7 +1351,7 @@ function drawTotals(
     leftWidth -
     12;
 
-  const height = 112;
+  const height = 164;
 
   /*
    * AMOUNT IN WORDS
@@ -1531,7 +1531,7 @@ function drawTotals(
   doc
     .rect(
       totalsX,
-      y + 68,
+      y + 120,
       rightWidth,
       44,
     )
@@ -1544,7 +1544,7 @@ function drawTotals(
     doc,
     "TOTAL AMOUNT",
     totalsX + 14,
-    y + 81,
+    y + 133,
     rightWidth - 28,
     {
       size: 8.5,
@@ -1559,7 +1559,7 @@ function drawTotals(
     doc,
     money(invoice.total),
     totalsX + 14,
-    y + 80,
+    y + 132,
     rightWidth - 28,
     {
       size: 10,
@@ -2024,7 +2024,6 @@ export async function generateInvoicePdf(
         cgst: item.cgst,
         sgst: item.sgst,
         igst: item.igst,
-        hsnCode: (item as PdfItem & { hsnCode?: string }).hsnCode,
 
         lineTotal:
           item.lineTotal,
