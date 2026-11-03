@@ -357,6 +357,7 @@ export function ShopkeeperDashboard() {
           {
             method: "GET",
             credentials: "include",
+            cache: "no-store",
           },
         );
 
@@ -399,7 +400,7 @@ export function ShopkeeperDashboard() {
 
     const intervalId = window.setInterval(
       refreshDashboard,
-      30_000,
+      10_000,
     );
 
     window.addEventListener("focus", refreshDashboard);
