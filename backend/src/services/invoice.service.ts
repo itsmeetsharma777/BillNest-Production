@@ -129,6 +129,9 @@ function validateDueDate(
 
 function calculateItemTotals(
   item: InvoiceItemInput,
+  gstEnabled = false,
+  gstPriceMode: 'exclusive' | 'inclusive' = 'exclusive',
+  defaultGstRate = 0,
 ) {
   const quantity = item.quantity;
 
@@ -205,11 +208,14 @@ function calculateItemTotals(
   );
 
   const lineTax = roundMoney(
-    taxableAmount * (taxRate / 100),
+    gstPriceMode === 'inclusive' && taxRate > 0
+      ? taxableAmount * taxRate / (100 + taxRate)
+      : taxableAmount * (taxRate / 100),
   );
 
+  const netTaxableAmount = gstPriceMode === 'inclusive' ? roundMoney(taxableAmount - lineTax) : taxableAmount;
   const lineTotal = roundMoney(
-    taxableAmount + lineTax,
+    gstPriceMode === 'inclusive' ? taxableAmount : taxableAmount + lineTax,
   );
 
   return {
@@ -217,7 +223,7 @@ function calculateItemTotals(
     unitPrice,
     discount,
     taxRate,
-    lineSubtotal,
+    lineSubtotal: gstPriceMode === 'inclusive' ? netTaxableAmount + discount : lineSubtotal,
     lineTax,
     lineTotal,
   };
@@ -486,7 +492,7 @@ export async function createInvoiceForOwner(
         calculateItemTotals({
           ...item,
           productName,
-        });
+        }, Boolean(shop.gstEnabled), shop.gstPriceMode ?? 'exclusive', shop.defaultGstRate ?? 0);
 
       const cgst = isIntraState ? roundMoney(totals.lineTax / 2) : 0;
       const sgst = isIntraState ? roundMoney(totals.lineTax - cgst) : 0;
