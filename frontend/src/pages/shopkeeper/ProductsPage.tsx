@@ -875,7 +875,15 @@ export default function ProductsPage() {
       const data = await response.json().catch(() => null);
       if (!response.ok && response.status !== 207) throw new Error(data?.message ?? "Unable to import products.");
       const failed = data?.data?.failedCount ?? 0;
-      setError(failed ? "Import finished with " + (data?.data?.importedCount ?? 0) + " imported and " + failed + " failed." : "");
+      const imported = data?.data?.importedCount ?? 0;
+      const rowErrors = Array.isArray(data?.data?.errors) ? data.data.errors : [];
+      const errorDetails = rowErrors.slice(0, 12).map((item: { line?: number; message?: string }) =>
+        "Row " + item.line + ": " + (item.message ?? "Import failed"),
+      ).join("\\n");
+      const moreErrors = rowErrors.length > 12 ? "\\n...and " + (rowErrors.length - 12) + " more errors." : "";
+      setError(failed
+        ? "CSV import: " + imported + " imported, " + failed + " failed." + (errorDetails ? "\\n" + errorDetails + moreErrors : " No row-level details were returned.")
+        : "CSV import completed successfully: " + imported + " products imported.");
       await Promise.all([loadProducts(true), loadCatalogAnalytics()]);
     } catch (err) { setError(err instanceof Error ? err.message : "Unable to import products."); }
     finally { setImporting(false); if (importInputRef.current) importInputRef.current.value = ""; }
