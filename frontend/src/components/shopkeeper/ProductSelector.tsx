@@ -1,7 +1,7 @@
 import { Barcode, Check, ChevronDown, Loader2, Search, ScanLine, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5001/api";
+const API_URL = import.meta.env.PROD ? "/api" : (import.meta.env.VITE_API_URL ?? "http://localhost:5001/api");
 
 export interface Product {
   _id: string;
