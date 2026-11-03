@@ -54,3 +54,21 @@ export function downloadCsvTemplate(filename: string, headers: string[], sample:
   anchor.remove();
   URL.revokeObjectURL(url);
 }
+
+
+export function downloadCsv(filename: string, headers: string[], rows: Array<Array<string | number | boolean | null | undefined>>) {
+  const escape = (value: string | number | boolean | null | undefined) => {
+    const text = value == null ? "" : String(value);
+    return /[",\n\r]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+  };
+  const csv = [headers, ...rows.map((row) => row.map(escape))].map((row) => row.join(",")).join("\r\n");
+  const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
