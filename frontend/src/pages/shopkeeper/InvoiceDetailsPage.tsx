@@ -613,7 +613,7 @@ export default function InvoiceDetailsPage() {
       return;
     }
 
-    const rawPhone = invoice.customer.phone.replace(/\\D/g, "");
+    const rawPhone = invoice.customer.phone.replace(/\D/g, "");
     const phone = rawPhone.startsWith("91")
       ? rawPhone
       : rawPhone.length === 10
@@ -669,7 +669,7 @@ export default function InvoiceDetailsPage() {
               `Warranty Period: ${warranty.warrantyPeriodMonths} Months`,
               `Warranty Start Date: ${formatDate(warranty.startDate)}`,
               `Warranty Expiry Date: ${formatDate(warranty.expiryDate)}`,
-              `Warranty Status: ${warranty.status.replace(/_/g, " ").replace(/\\b\\w/g, (letter) => letter.toUpperCase())}`,
+              `Warranty Status: ${warranty.status.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase())}`,
               ...(warranty.terms ? [`Terms: ${warranty.terms}`] : []),
               ...(index < warranties.length - 1 ? [""] : []),
             ]),
