@@ -4,8 +4,13 @@ import {
   useState,
 } from "react";
 
+import { downloadCsvTemplate, parseCsvRows } from "@/utils/csvImport";
+import { useRef } from "react";
+
 import {
   Building2,
+  Download,
+  Upload,
   Globe,
   Loader2,
   Pencil,
@@ -81,6 +86,36 @@ export default function BrandsPage() {
 
   const [formError, setFormError] =
     useState("");
+  const [csvImporting, setCsvImporting] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function importBrandsCsv(file: File) {
+    setCsvImporting(true);
+    setError("");
+    try {
+      const rows = parseCsvRows(await file.text());
+      let imported = 0;
+      const failures: string[] = [];
+      for (let index = 0; index < rows.length; index += 1) {
+        const row = rows[index];
+        if (!row.name) { failures.push("Row " + (index + 2) + ": brand name is required."); continue; }
+        try {
+          const response = await fetch(API_URL + "/brands", {
+            method: "POST", credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: row.name, manufacturer: row.manufacturer || undefined, website: row.website || undefined, description: row.description || undefined }),
+          });
+          const data = await response.json().catch(() => null);
+          if (!response.ok) throw new Error(data?.message || "Import failed.");
+          imported += 1;
+        } catch (err) { failures.push("Row " + (index + 2) + ": " + (err instanceof Error ? err.message : "Import failed.")); }
+      }
+      setError(failures.length ? "Imported " + imported + "; " + failures.length + " failed. " + failures.slice(0, 3).join(" ") : "");
+      await loadBrands(true);
+    } catch (err) { setError(err instanceof Error ? err.message : "CSV import failed."); }
+    finally { setCsvImporting(false); if (csvInputRef.current) csvInputRef.current.value = ""; }
+  }
+
 
   async function loadBrands(
     showRefresh = false,
@@ -416,7 +451,11 @@ export default function BrandsPage() {
 
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+
+          <button type="button" onClick={() => downloadCsvTemplate("billnest-brands-template.csv", ["name", "manufacturer", "website", "description"], ["Samsung", "Samsung Electronics", "https://www.samsung.com", "Electronics manufacturer"])} className="inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium hover:bg-muted"><Download className="size-4" />Download CSV</button>
+          <button type="button" onClick={() => csvInputRef.current?.click()} disabled={csvImporting} className="inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium hover:bg-muted disabled:opacity-60"><Upload className="size-4" />{csvImporting ? "Uploading..." : "Upload CSV"}</button>
+          <input ref={csvInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importBrandsCsv(file); }} />
 
           <button
             type="button"
