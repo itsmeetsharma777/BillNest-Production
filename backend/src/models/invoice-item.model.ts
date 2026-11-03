@@ -116,6 +116,10 @@ const invoiceItemSchema = new Schema(
       min: 0,
     },
 
+    cgst: { type: Number, min: 0, default: 0 },
+    sgst: { type: Number, min: 0, default: 0 },
+    igst: { type: Number, min: 0, default: 0 },
+
     lineTotal: {
       type: Number,
       required: true,
