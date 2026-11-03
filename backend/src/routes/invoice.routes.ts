@@ -17,6 +17,7 @@ import {
 import {
   downloadInvoicePdf,
 } from "../controllers/invoice-pdf.controller";
+import { getInvoiceWarranties } from "../controllers/warranty.controller";
 import { getGstSummary } from "../controllers/gst-report.controller";
 
 import {
@@ -55,6 +56,11 @@ router.get(
 );
 
 router.get("/gst-summary", asyncHandler(getGstSummary));
+
+router.get(
+  "/:invoiceId/warranties",
+  asyncHandler(getInvoiceWarranties),
+);
 
 router.get(
   "/:invoiceId",
