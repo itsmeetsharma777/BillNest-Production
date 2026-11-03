@@ -22,6 +22,7 @@ type PdfAddress = {
 
 type PdfItem = {
   productName: string;
+  hsnCode?: string | null;
   variantName?: string | null;
   sku?: string | null;
   quantity: number;
@@ -2019,6 +2020,7 @@ export async function generateInvoicePdf(
 
         lineTax:
           item.lineTax,
+        hsnCode: item.hsnCode,
         cgst: item.cgst,
         sgst: item.sgst,
         igst: item.igst,
