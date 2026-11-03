@@ -68,8 +68,15 @@ const shopSchema = new Schema(
     taxId: {
       type: String,
       trim: true,
-      maxlength: 50,
+      uppercase: true,
+      maxlength: 15,
+      validate: { validator: (value: string) => !value || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(value), message: 'Invalid GSTIN format.' },
     },
+
+    gstEnabled: { type: Boolean, default: false },
+    gstPriceMode: { type: String, enum: ['exclusive', 'inclusive'], default: 'exclusive' },
+    defaultGstRate: { type: Number, min: 0, max: 100, default: 0 },
+    gstStateCode: { type: String, trim: true, match: /^[0-9]{2}$/ },
 
     logoUrl: {
       type: String,
