@@ -144,6 +144,9 @@ const productSchema = new Schema(
       default: 0,
     },
 
+    gstRate: { type: Number, min: 0, max: 100, default: 0 },
+    hsnCode: { type: String, trim: true, maxlength: 8 },
+
     stockQuantity: {
       type: Number,
       required: true,
