@@ -1287,7 +1287,9 @@ export default function CreateInvoicePage() {
   const safeTax =
     shopGstSettings.gstEnabled && !ocrDraft
       ? autoGstAmount
-      : parseAmount(tax);
+      : ocrDraft
+        ? parseAmount(tax)
+        : roundMoney(taxableAmount * Math.max(0, parseAmount(tax)) / 100);
 
   const total =
     roundMoney(
@@ -1752,7 +1754,9 @@ export default function CreateInvoicePage() {
     const parsedTax =
       shopGstSettings.gstEnabled && !ocrDraft
         ? autoGstAmount
-        : parseAmount(tax);
+        : ocrDraft
+          ? parseAmount(tax)
+          : roundMoney(taxableAmount * Math.max(0, parseAmount(tax)) / 100);
 
     const parsedAmountPaid =
       parseAmount(amountPaid);
