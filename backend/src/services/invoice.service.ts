@@ -48,6 +48,7 @@ interface InvoiceItemInput {
   variantName?: string;
   variantAttributes?: Record<string, string>;
   barcode?: string;
+  hsnCode?: string;
   sku?: string;
   serialNumber?: string;
   quantity: number;
@@ -683,6 +684,7 @@ export async function createInvoiceForOwner(
                   ...(inputItem.variantName && { variantName: inputItem.variantName }),
                   ...(inputItem.variantAttributes && { variantAttributes: inputItem.variantAttributes }),
                   ...(inputItem.barcode && { barcode: inputItem.barcode }),
+                  ...(inputItem.hsnCode && { hsnCode: inputItem.hsnCode }),
                   productName: calculatedItems[index].productName,
 
                   ...(inputItem.sku?.trim() && { sku: inputItem.sku.trim() }),
