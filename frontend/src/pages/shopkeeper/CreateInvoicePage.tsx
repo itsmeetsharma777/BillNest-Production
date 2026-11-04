@@ -27,9 +27,12 @@ import {
   type RazorpayVerifyResponse,
 } from "@/lib/razorpay";
 
-const API_URL =
-  import.meta.env.VITE_API_URL ??
-  "http://localhost:5001/api";
+// Keep production API requests same-origin so the browser sends
+// BillNest's session cookie to the Vercel API proxy. In development,
+// use the configured backend URL (or the local default).
+const API_URL = import.meta.env.PROD
+  ? "/api"
+  : (import.meta.env.VITE_API_URL ?? "http://localhost:5001/api");
 
 const PINCODE_API_URL =
   "https://api.postalpincode.in/pincode";
