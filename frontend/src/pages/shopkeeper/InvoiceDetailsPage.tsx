@@ -625,6 +625,15 @@ export default function InvoiceDetailsPage() {
       return;
     }
 
+    // Open the WhatsApp tab immediately within the click gesture. Opening it
+    // after the PDF fetch can be blocked by popup protection or lose activation.
+    const whatsappTab = window.open("about:blank", "_blank");
+    if (whatsappTab) {
+      whatsappTab.document.title = "Preparing WhatsApp message";
+      whatsappTab.document.body.innerHTML =
+        '<p style="font-family:system-ui;padding:24px">Preparing your invoice and WhatsApp message…</p>';
+    }
+
     setIsPdfLoading(true);
     setError("");
     setSuccessMessage("");
@@ -713,31 +722,14 @@ export default function InvoiceDetailsPage() {
       ].join("\n");
 
       const fileName = `${invoiceNumber}.pdf`;
-      const pdfFile = new File([pdfBlob], fileName, {
-        type: "application/pdf",
-      });
+      const whatsappMessage = message.replace(
+        "📎 Invoice PDF: Attached",
+        "📎 Invoice PDF: Please attach the downloaded PDF",
+      );
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(whatsappMessage)}`;
 
-      const shareNavigator = navigator as Navigator & {
-        canShare?: (data?: ShareData) => boolean;
-        share?: (data?: ShareData) => Promise<void>;
-      };
-
-      if (
-        shareNavigator.share &&
-        shareNavigator.canShare?.({ files: [pdfFile] })
-      ) {
-        await shareNavigator.share({
-          title: `Invoice ${invoiceNumber}`,
-          text: message,
-          files: [pdfFile],
-        });
-        setSuccessMessage("Invoice PDF and message are ready to share. Select WhatsApp in the share sheet.");
-        return;
-      }
-
-      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message.replace("📎 Invoice PDF: Attached", "📎 Invoice PDF: Please attach the downloaded PDF"))}`;
-      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
-
+      // Web browsers cannot reliably attach a generated file to a WhatsApp
+      // chat through wa.me. Download the PDF and open WhatsApp with the text.
       const downloadUrl = URL.createObjectURL(pdfBlob);
       const anchor = document.createElement("a");
       anchor.href = downloadUrl;
@@ -745,21 +737,20 @@ export default function InvoiceDetailsPage() {
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 60000);
+
+      if (whatsappTab && !whatsappTab.closed) {
+        whatsappTab.location.href = whatsappUrl;
+      } else {
+        window.location.href = whatsappUrl;
+      }
 
       setSuccessMessage("WhatsApp opened with the formatted message. The invoice PDF is downloading; attach it to the WhatsApp chat before sending.");
     } catch (err) {
-      // Web Share API rejects with AbortError when the user dismisses the share sheet.
-      // This is a user cancellation, not a failure to prepare the invoice.
-      if (
-        err instanceof DOMException &&
-        (err.name === "AbortError" || err.message.toLowerCase().includes("share canceled"))
-      ) {
-        setError("");
-        setSuccessMessage("Sharing was canceled. Your invoice is still available.");
-      } else {
-        setError(err instanceof Error ? err.message : "Unable to prepare WhatsApp invoice sharing.");
+      if (whatsappTab && !whatsappTab.closed) {
+        whatsappTab.close();
       }
+      setError(err instanceof Error ? err.message : "Unable to prepare WhatsApp invoice sharing.");
     } finally {
       setIsPdfLoading(false);
     }
