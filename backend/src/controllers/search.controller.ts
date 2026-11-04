@@ -24,7 +24,8 @@ export async function globalSearch(req: AuthenticatedRequest, res: Response) {
   }
   const query = raw.trim().slice(0, 80);
   if (query.length < 2) {
-    return res.status(200).json({ success: true, data: { results: [], query } });
+    res.status(200).json({ success: true, data: { results: [], query } });
+    return;
   }
   // Escape regex metacharacters so user text is treated as literal search input.
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
