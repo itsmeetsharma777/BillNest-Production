@@ -96,6 +96,11 @@ const navigationItems: NavigationItem[] = [
     href: "/shopkeeper/ocr",
     icon: ScanLine,
   },
+  {
+    label: "Audit Logs",
+    href: "/shopkeeper/audit-logs",
+    icon: ShieldCheck,
+  },
 ];
 
 const secondaryNavigationItems: NavigationItem[] = [
