@@ -25,6 +25,7 @@ import type {
 } from "../middleware/auth.middleware";
 
 import { ApiError } from "../utils/api-error";
+import { writeAuditLog } from "../services/audit-log.service";
 
 function getProductId(
   req: AuthenticatedRequest,
@@ -63,6 +64,8 @@ export async function createProduct(
       req.user.id,
       input,
     );
+
+  await writeAuditLog(req, "product_created", "product", (product as any)?._id?.toString(), { name: (product as any)?.name });
 
   res.status(201).json({
     success: true,
@@ -167,6 +170,8 @@ export async function updateProduct(
       input,
     );
 
+  await writeAuditLog(req, "product_updated", "product", (product as any)?._id?.toString(), { name: (product as any)?.name });
+
   res.status(200).json({
     success: true,
 
@@ -188,6 +193,8 @@ export async function deleteProduct(
       req.user.id,
       getProductId(req),
     );
+
+  await writeAuditLog(req, "product_deactivated", "product", (product as any)?._id?.toString(), { name: (product as any)?.name });
 
   res.status(200).json({
     success: true,
