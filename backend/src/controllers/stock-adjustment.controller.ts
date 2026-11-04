@@ -59,6 +59,8 @@ export async function adjustStock(
       input,
     );
 
+  await writeAuditLog(req, input.type === "in" ? "stock_added" : "stock_removed", "product", getProductId(req), { quantity: input.quantity, type: input.type });
+
   res.status(200).json({
     success: true,
 
