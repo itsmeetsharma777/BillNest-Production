@@ -33,6 +33,7 @@ import publicWarrantyRoutes from "./routes/public-warranty.routes";
 import ocrRoutes from "./routes/ocr.routes";
 import customerBillRoutes from "./routes/customer-bill.routes";
 import auditLogRoutes from "./routes/audit-log.routes";
+import searchRoutes from "./routes/search.routes";
 
 import { errorMiddleware } from "./middleware/error.middleware";
 import { csrfProtection } from "./middleware/csrf.middleware";
@@ -205,6 +206,7 @@ app.use(
 );
 
 app.use("/api/audit-logs", auditLogRoutes);
+app.use("/api/search", searchRoutes);
 
 app.use(
   "/api/customers",
