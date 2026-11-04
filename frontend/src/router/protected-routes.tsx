@@ -37,6 +37,7 @@ import WarrantyDetailsPage from "@/pages/shopkeeper/WarrantyDetailsPage";
 import WarrantiesPage from "@/pages/shopkeeper/WarrantiesPage";
 import CategoriesPage from "@/pages/shopkeeper/CategoriesPage";
 import BrandsPage from "@/pages/shopkeeper/BrandsPage";
+import AuditLogsPage from "@/pages/shopkeeper/AuditLogsPage";
 
 export function ProtectedRoutes() {
   return (
@@ -197,6 +198,11 @@ export function ProtectedRoutes() {
               element={
                 <SettingsPage />
               }
+            />
+
+            <Route
+              path="/shopkeeper/audit-logs"
+              element={<AuditLogsPage />}
             />
           </Route>
         </Route>
