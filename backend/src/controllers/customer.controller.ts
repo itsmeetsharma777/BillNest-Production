@@ -22,6 +22,7 @@ import type {
 } from "../middleware/auth.middleware";
 
 import { ApiError } from "../utils/api-error";
+import { writeAuditLog } from "../services/audit-log.service";
 
 /*
  * =========================================================
@@ -72,6 +73,8 @@ export async function createCustomer(
       req.user.id,
       input,
     );
+
+  await writeAuditLog(req, "customer_created", "customer", customer?._id?.toString(), { name: customer?.name });
 
   res.status(201).json({
     success: true,
@@ -208,6 +211,8 @@ export async function updateCustomer(
       input,
     );
 
+  await writeAuditLog(req, "customer_updated", "customer", customer?._id?.toString(), { name: customer?.name });
+
   res.status(200).json({
     success: true,
 
@@ -234,6 +239,8 @@ export async function deleteCustomer(
     req.user.id,
     getCustomerId(req),
   );
+
+  await writeAuditLog(req, "customer_deactivated", "customer", getCustomerId(req));
 
   res.status(200).json({
     success: true,
