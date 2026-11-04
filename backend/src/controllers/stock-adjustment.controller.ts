@@ -20,6 +20,8 @@ import {
   adjustStockForOwner,
 } from "../services/stock-adjustment.service";
 
+import { writeAuditLog } from "../services/audit-log.service";
+
 function getProductId(
   req: AuthenticatedRequest,
 ) {
