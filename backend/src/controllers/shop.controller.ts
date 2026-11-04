@@ -9,6 +9,7 @@ import {
   updateShopSchema,
 } from "../validators/shop.validator";
 import type { AuthenticatedRequest } from "../middleware/auth.middleware";
+import { writeAuditLog } from "../services/audit-log.service";
 
 export async function createShop(
   req: AuthenticatedRequest,
@@ -20,6 +21,8 @@ export async function createShop(
     req.user.id,
     input,
   );
+
+  await writeAuditLog(req, "shop_created", "shop", shop?._id?.toString());
 
   res.status(201).json({
     success: true,
@@ -54,6 +57,8 @@ export async function updateMyShop(
     req.user.id,
     input,
   );
+
+  await writeAuditLog(req, "shop_updated", "shop", shop?._id?.toString(), { name: shop?.name });
 
   res.status(200).json({
     success: true,
