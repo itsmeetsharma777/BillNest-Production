@@ -703,12 +703,13 @@ export default function InvoiceDetailsPage() {
         "",
         "📎 Invoice PDF: Attached",
         "",
-        "Thank you for shopping with us!",
+        `Thank you for shopping with ${shopName}!`,
         "We appreciate your trust.",
         "Please visit again! 😊",
         "",
         "Regards,",
-        shopName,\n        "Powered by BillNest",
+        shopName,
+        "Powered by BillNest",
       ].join("\n");
 
       const fileName = `${invoiceNumber}.pdf`;
