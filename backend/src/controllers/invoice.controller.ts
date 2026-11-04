@@ -22,6 +22,7 @@ import type {
 } from "../middleware/auth.middleware";
 
 import { ApiError } from "../utils/api-error";
+import { writeAuditLog } from "../services/audit-log.service";
 
 const markInvoicePaidSchema =
   z.object({
@@ -68,6 +69,8 @@ export async function createInvoice(
       req.user.id,
       input,
     );
+
+  await writeAuditLog(req, "invoice_created", "invoice", (result as any)?._id?.toString(), { total: (result as any)?.total, status: (result as any)?.status });
 
   res.status(201).json({
     success: true,
@@ -136,6 +139,8 @@ export async function updateInvoice(
       input,
     );
 
+  await writeAuditLog(req, "invoice_updated", "invoice", invoice._id?.toString(), { status: invoice.status });
+
   res.status(200).json({
     success: true,
     message:
@@ -162,6 +167,8 @@ export async function markInvoiceAsPaid(
       input.paymentMethod,
     );
 
+  await writeAuditLog(req, "invoice_marked_paid", "invoice", invoice._id?.toString(), { status: invoice.status });
+
   res.status(200).json({
     success: true,
     message:
@@ -181,6 +188,8 @@ export async function cancelInvoice(
       req.user.id,
       getInvoiceId(req),
     );
+
+  await writeAuditLog(req, "invoice_cancelled", "invoice", invoice._id?.toString(), { status: invoice.status });
 
   res.status(200).json({
     success: true,
