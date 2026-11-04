@@ -39,17 +39,22 @@ export function csrfProtection(
   }
 
   /**
-   * Requests without an Origin header can be
-   * legitimate server-to-server requests,
-   * curl requests, CLI requests, etc.
-   *
-   * Browser cross-origin requests normally
-   * include Origin.
+   * All state-changing endpoints in this API are
+   * browser-session endpoints. Reject requests that
+   * omit Origin rather than treating a missing header
+   * as a CSRF bypass. Server-to-server integrations
+   * must use a dedicated signed endpoint.
    */
   const origin = req.get("origin");
 
   if (!origin) {
-    return next();
+    return next(
+      new ApiError(
+        403,
+        "Origin header is required for state-changing requests.",
+        "CSRF_ORIGIN_REQUIRED",
+      ),
+    );
   }
 
   const configuredOrigin =
