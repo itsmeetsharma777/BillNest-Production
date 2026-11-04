@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   Bell,
@@ -16,6 +16,7 @@ import {
   PanelLeftOpen,
   PieChart,
   ScanLine,
+  Search,
   Settings,
   ShieldCheck,
   Sun,
@@ -155,6 +156,35 @@ export function ShopkeeperLayout() {
     profileOpen,
     setProfileOpen,
   ] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<Array<{ id: string; type: "product" | "customer" | "invoice" | "warranty"; title: string; subtitle: string; href: string }>>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement | null>(null);
+  const searchRequestRef = useRef(0);
+  useEffect(() => {
+    const query = globalSearch.trim();
+    if (query.length < 2) { setSearchResults([]); setSearchLoading(false); return; }
+    const requestId = ++searchRequestRef.current;
+    const timer = window.setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const apiUrl = import.meta.env.PROD ? "/api" : (import.meta.env.VITE_API_URL ?? "http://localhost:5001/api");
+        const response = await fetch(apiUrl + "/search?q=" + encodeURIComponent(query), { credentials: "include" });
+        const payload = await response.json();
+        if (requestId !== searchRequestRef.current) return;
+        setSearchResults(response.ok && payload?.success === true && Array.isArray(payload.data?.results) ? payload.data.results : []);
+      } catch { if (requestId === searchRequestRef.current) setSearchResults([]); }
+      finally { if (requestId === searchRequestRef.current) setSearchLoading(false); }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [globalSearch]);
+  useEffect(() => {
+    const onOutsideClick = (event: MouseEvent) => { if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) setSearchOpen(false); };
+    document.addEventListener("mousedown", onOutsideClick);
+    return () => document.removeEventListener("mousedown", onOutsideClick);
+  }, []);
+
 
   const firstName =
     user?.name?.split(" ")[0] ??
@@ -603,6 +633,13 @@ export function ShopkeeperLayout() {
 
           </div>
 
+          <div ref={searchContainerRef} className="relative hidden w-full max-w-xs flex-1 md:block lg:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input type="search" value={globalSearch} onChange={(event) => { setGlobalSearch(event.target.value); setSearchOpen(true); }} onFocus={() => setSearchOpen(true)} onKeyDown={(event) => { if (event.key === "Escape") setSearchOpen(false); if (event.key === "Enter" && searchResults[0]) { setSearchOpen(false); navigate(searchResults[0].href); } }} placeholder="Search customers, invoices, products..." aria-label="Global search" aria-expanded={searchOpen} className="h-9 w-full rounded-lg border bg-muted/30 pl-9 pr-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20" />
+            {searchOpen && globalSearch.trim().length >= 2 && <div className="absolute left-0 right-0 top-full z-[60] mt-2 max-h-[min(70vh,420px)] overflow-y-auto rounded-xl border bg-popover p-1.5 shadow-xl">
+              {searchLoading ? <p className="px-3 py-4 text-center text-sm text-muted-foreground">Searching BillNest...</p> : searchResults.length ? searchResults.map((result) => <button key={result.type + ":" + result.id} type="button" onClick={() => { setSearchOpen(false); setGlobalSearch(""); navigate(result.href); }} className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-accent"><span className="mt-0.5 rounded-md bg-primary/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary">{result.type}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{result.title}</span><span className="block truncate text-xs text-muted-foreground">{result.subtitle}</span></span></button>) : <p className="px-3 py-4 text-center text-sm text-muted-foreground">No matching records found.</p>}
+            </div>}
+          </div>
           <div className="flex items-center gap-1 sm:gap-2">
 
             {/* ================================================= */}
