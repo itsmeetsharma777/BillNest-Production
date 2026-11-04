@@ -23,6 +23,7 @@ import type {
 } from "../middleware/auth.middleware";
 
 import { ApiError } from "../utils/api-error";
+import { writeAuditLog } from "../services/audit-log.service";
 
 function getWarrantyId(
   req: AuthenticatedRequest,
@@ -60,6 +61,8 @@ export async function createWarranty(
       req.user.id,
       input,
     );
+
+  await writeAuditLog(req, "warranty_created", "warranty", warranty?._id?.toString());
 
   res.status(201).json({
     success: true,
@@ -142,6 +145,8 @@ export async function updateWarranty(
       input,
     );
 
+  await writeAuditLog(req, "warranty_updated", "warranty", warranty?._id?.toString());
+
   res.status(200).json({
     success: true,
 
@@ -163,6 +168,8 @@ export async function deactivateWarranty(
       req.user.id,
       getWarrantyId(req),
     );
+
+  await writeAuditLog(req, "warranty_deactivated", "warranty", warranty?._id?.toString());
 
   res.status(200).json({
     success: true,
