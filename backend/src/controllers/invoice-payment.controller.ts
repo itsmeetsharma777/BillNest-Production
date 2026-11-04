@@ -15,6 +15,7 @@ import type {
 } from "../middleware/auth.middleware";
 
 import { ApiError } from "../utils/api-error";
+import { writeAuditLog } from "../services/audit-log.service";
 
 function getInvoiceId(
   req: AuthenticatedRequest,
@@ -53,6 +54,8 @@ export async function recordInvoicePayment(
       getInvoiceId(req),
       input,
     );
+
+  await writeAuditLog(req, "payment_recorded", "invoice", getInvoiceId(req), { amount: input.amount, paymentMethod: input.paymentMethod, invoiceStatus: result.invoice.status });
 
   res.status(201).json({
     success: true,
