@@ -749,7 +749,17 @@ export default function InvoiceDetailsPage() {
 
       setSuccessMessage("WhatsApp opened with the formatted message. The invoice PDF is downloading; attach it to the WhatsApp chat before sending.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to prepare WhatsApp invoice sharing.");
+      // Web Share API rejects with AbortError when the user dismisses the share sheet.
+      // This is a user cancellation, not a failure to prepare the invoice.
+      if (
+        err instanceof DOMException &&
+        (err.name === "AbortError" || err.message.toLowerCase().includes("share canceled"))
+      ) {
+        setError("");
+        setSuccessMessage("Sharing was canceled. Your invoice is still available.");
+      } else {
+        setError(err instanceof Error ? err.message : "Unable to prepare WhatsApp invoice sharing.");
+      }
     } finally {
       setIsPdfLoading(false);
     }
