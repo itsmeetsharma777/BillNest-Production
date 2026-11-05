@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
+import PreferencesPanel from "@/components/settings/PreferencesPanel";
 
 const API_URL = import.meta.env.PROD ? "/api" : (import.meta.env.VITE_API_URL ?? "http://localhost:5001/api");
 
@@ -941,6 +942,7 @@ export default function CustomerSettingsPage() {
           </button>
         </div>
       </form>
+      <PreferencesPanel role="customer" />
     </div>
   );
 }
