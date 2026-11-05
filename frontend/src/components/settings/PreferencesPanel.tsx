@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Loader2, Save, Settings2 } from "lucide-react";
+import { Check, Loader2, Save, Settings2, Palette, Trash2 } from "lucide-react";\nimport { useTheme } from "@/context/theme-context";
 
 const API_URL = import.meta.env.PROD ? "/api" : (import.meta.env.VITE_API_URL ?? "http://localhost:5001/api");
 
@@ -87,7 +87,7 @@ const defaults: Record<string, string | boolean> = {
 };
 
 export default function PreferencesPanel({ role }: { role: "shopkeeper" | "customer" }) {
-  const sections = role === "shopkeeper" ? shopkeeperSections : customerSections;
+  const sections = role === "shopkeeper" ? shopkeeperSections : customerSections;\n  const { customThemes, activeCustomThemeId, saveCustomTheme, applyCustomTheme, deleteCustomTheme } = useTheme();\n  const [customThemeName, setCustomThemeName] = useState("");\n  const [customThemeMode, setCustomThemeMode] = useState<"light" | "dark">("dark");\n  const [customPrimary, setCustomPrimary] = useState("#3b82f6");\n  const [customBackground, setCustomBackground] = useState("#09090b");\n  const [customSurface, setCustomSurface] = useState("#18181b");
   const [values, setValues] = useState<Record<string, string | boolean>>(defaults);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -132,6 +132,24 @@ export default function PreferencesPanel({ role }: { role: "shopkeeper" | "custo
   if (loading) return <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin"/>Loading preferences…</div>;
 
   return <div className="mt-8 space-y-5">
+    <section className="rounded-2xl border bg-card p-5">
+      <div className="mb-4 flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><Palette className="size-4"/></span><div><h3 className="font-semibold">Appearance & Theme Studio</h3><p className="text-xs text-muted-foreground">Choose a saved custom theme or create your own colors. Themes are stored in this browser.</p></div></div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => applyCustomTheme(null)} className="rounded-lg border px-3 py-2 text-sm">Use standard theme</button>
+        {customThemes.map((item) => <div key={item.id} className="flex items-center gap-1 rounded-lg border p-1">
+          <button type="button" onClick={() => applyCustomTheme(item.id)} aria-pressed={activeCustomThemeId === item.id} className="rounded-md px-3 py-1.5 text-sm" style={{ backgroundColor: item.background, color: item.primary, border: "1px solid " + item.primary }}>{item.name}</button>
+          <button type="button" onClick={() => deleteCustomTheme(item.id)} aria-label={"Delete " + item.name} className="rounded-md p-2 text-muted-foreground hover:text-destructive"><Trash2 className="size-3.5"/></button>
+        </div>)}
+      </div>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="space-y-1.5 text-sm">Theme name<input value={customThemeName} onChange={(e) => setCustomThemeName(e.target.value)} maxLength={32} placeholder="Midnight Blue" className="h-10 w-full rounded-lg border bg-background px-3"/></label>
+        <label className="space-y-1.5 text-sm">Base mode<select value={customThemeMode} onChange={(e) => setCustomThemeMode(e.target.value as "light" | "dark")} className="h-10 w-full rounded-lg border bg-background px-3"><option value="dark">Dark</option><option value="light">Light</option></select></label>
+        <label className="space-y-1.5 text-sm">Primary color<input type="color" value={customPrimary} onChange={(e) => setCustomPrimary(e.target.value)} className="h-10 w-full rounded-lg border bg-background p-1"/></label>
+        <label className="space-y-1.5 text-sm">Background color<input type="color" value={customBackground} onChange={(e) => setCustomBackground(e.target.value)} className="h-10 w-full rounded-lg border bg-background p-1"/></label>
+        <label className="space-y-1.5 text-sm">Card / surface color<input type="color" value={customSurface} onChange={(e) => setCustomSurface(e.target.value)} className="h-10 w-full rounded-lg border bg-background p-1"/></label>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-3"><div className="flex h-10 flex-1 items-center gap-3 rounded-xl border p-2" style={{ background: customBackground, color: customPrimary }}><span className="size-5 rounded-md" style={{ background: customPrimary }}/><span className="text-sm font-semibold">{customThemeName.trim() || "Your theme preview"}</span><span className="ml-auto rounded-md px-2 py-1 text-xs" style={{ background: customSurface }}>Surface preview</span></div><button type="button" disabled={!customThemeName.trim()} onClick={() => { saveCustomTheme({ name: customThemeName.trim(), mode: customThemeMode, primary: customPrimary, background: customBackground, surface: customSurface }); setCustomThemeName(""); }} className="h-10 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-40">Create & apply theme</button></div>
+    </section>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="text-2xl font-bold">Preferences</h2><p className="text-sm text-muted-foreground">Manage your BillNest experience.</p></div>
       <button onClick={save} disabled={saving} className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50">{saving ? <Loader2 className="size-4 animate-spin"/> : <Save className="size-4"/>}{saving ? "Saving…" : "Save preferences"}</button>
