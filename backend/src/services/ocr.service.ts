@@ -755,110 +755,115 @@ Return this exact structure:
 }
 `;
 
-  const endpoint =
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-      model,
-    )}:generateContent`;
+  const modelsToTry = [
+    model,
+    "gemini-3.1-flash-lite",
+  ].filter((candidate, index, all) => all.indexOf(candidate) === index);
 
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
+  for (const candidateModel of modelsToTry) {
+    const endpoint =
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+        candidateModel,
+      )}:generateContent`;
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
+          },
+          body: JSON.stringify({
+            contents: [
               {
-                inline_data: {
-                  mime_type: normalizedMimeType,
-                  data: createBase64(input.buffer),
-                },
-              },
-              {
-                text: prompt,
+                role: "user",
+                parts: [
+                  {
+                    inline_data: {
+                      mime_type: normalizedMimeType,
+                      data: createBase64(input.buffer),
+                    },
+                  },
+                  { text: prompt },
+                ],
               },
             ],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: "application/json",
-        },
-      }),
-    });
+            generationConfig: {
+              responseMimeType: "application/json",
+            },
+          }),
+        });
 
-    const payload =
-      (await response.json()) as GeminiResponse;
+        const payload = (await response.json()) as GeminiResponse;
 
-    if (!response.ok) {
-      const message =
-        payload.error?.message ??
-        "Unknown Gemini API error.";
+        if (!response.ok) {
+          const message =
+            payload.error?.message ?? "Unknown Gemini API error.";
+          const transient =
+            response.status === 429 ||
+            response.status === 500 ||
+            response.status === 502 ||
+            response.status === 503 ||
+            response.status === 504;
 
-      console.error(
-        "OCR request failed:",
-        {
-          status: response.status,
-          code:
-            payload.error?.code ??
-            "unknown",
-          geminiStatus:
-            payload.error?.status ??
-            "unknown",
-          message,
-          model,
-        },
-      );
+          console.error("OCR provider request failed:", {
+            status: response.status,
+            code: payload.error?.code ?? "unknown",
+            geminiStatus: payload.error?.status ?? "unknown",
+            model: candidateModel,
+            attempt: attempt + 1,
+          });
 
-      throw new ApiError(
-        502,
-        `Gemini OCR request failed [${response.status}]: ${message}`,
-        "OCR_PROCESSING_FAILED",
-      );
+          if (transient && attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 800));
+            continue;
+          }
+
+          if (transient) {
+            break;
+          }
+
+          throw new ApiError(
+            502,
+            `Gemini OCR request failed [${response.status}]: ${message}`,
+            "OCR_PROCESSING_FAILED",
+          );
+        }
+
+        const outputText =
+          payload.candidates?.[0]?.content?.parts
+            ?.map((part) => part.text ?? "")
+            .join("")
+            .trim();
+
+        if (!outputText) {
+          throw new ApiError(
+            502,
+            "OCR service returned no text.",
+            "OCR_EMPTY_RESPONSE",
+          );
+        }
+
+        return normalizeOcrResult(extractJson(outputText));
+      } catch (error) {
+        if (error instanceof ApiError) {
+          throw error;
+        }
+
+        if (attempt === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          continue;
+        }
+
+        break;
+      }
     }
-
-    const outputText =
-      payload.candidates?.[0]?.content?.parts
-        ?.map((part) => part.text ?? "")
-        .join("")
-        .trim();
-
-    if (!outputText) {
-      throw new ApiError(
-        502,
-        "OCR service returned no text.",
-        "OCR_EMPTY_RESPONSE",
-      );
-    }
-
-    const parsed = extractJson(outputText);
-
-    return normalizeOcrResult(parsed);
-  } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
-    }
-
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Unknown Gemini API error.";
-
-    console.error(
-      "Gemini OCR request failed:",
-      {
-        message,
-        model,
-      },
-    );
-
-    throw new ApiError(
-      502,
-      `Gemini OCR request failed: ${message}`,
-      "OCR_PROCESSING_FAILED",
-    );
   }
+
+  throw new ApiError(
+    503,
+    "OCR provider is temporarily busy. Please try again in a moment.",
+    "OCR_PROVIDER_BUSY",
+  );
 }
