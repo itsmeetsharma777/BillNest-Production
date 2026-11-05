@@ -90,7 +90,7 @@ const defaults: Record<string, string | boolean> = {
 export default function PreferencesPanel({ role }: { role: "shopkeeper" | "customer" }) {
   const sections = role === "shopkeeper" ? shopkeeperSections : customerSections;
   const { customThemes, activeCustomThemeId, saveCustomTheme, applyCustomTheme, deleteCustomTheme } = useTheme();
-  const [customThemeName, setCustomThemeName] = useState("");
+  const [activeCategory, setActiveCategory] = useState("Appearance");\n  const [customThemeName, setCustomThemeName] = useState("");
   const [customThemeMode, setCustomThemeMode] = useState<"light" | "dark">("dark");
   const [customPrimary, setCustomPrimary] = useState("#3b82f6");
   const [customBackground, setCustomBackground] = useState("#09090b");
@@ -138,7 +138,14 @@ export default function PreferencesPanel({ role }: { role: "shopkeeper" | "custo
 
   if (loading) return <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin"/>Loading preferences…</div>;
 
+  const categoryNames = ["Appearance", ...sections.map((section) => section.title)];
+  const activeSection = sections.find((section) => section.title === activeCategory);
+
   return <div className="mt-8 space-y-5">
+    <div><h2 className="text-2xl font-bold">Settings</h2><p className="text-sm text-muted-foreground">Choose a category to open its dedicated settings.</p></div>
+    <nav aria-label="Settings categories" className="flex gap-2 overflow-x-auto rounded-2xl border bg-card p-2">
+      {categoryNames.map((category) => <button key={category} type="button" onClick={() => setActiveCategory(category)} aria-current={activeCategory === category ? "page" : undefined} className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition-colors ${activeCategory === category ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>{category === "Appearance" ? <Palette className="size-4"/> : <Settings2 className="size-4"/>}{category}</button>)}
+    </nav>
     <section className="rounded-2xl border bg-card p-5">
       <div className="mb-4 flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><Palette className="size-4"/></span><div><h3 className="font-semibold">Appearance & Theme Studio</h3><p className="text-xs text-muted-foreground">Choose a saved custom theme or create your own colors. Themes are stored in this browser.</p></div></div>
       <div className="flex flex-wrap items-center gap-2">
