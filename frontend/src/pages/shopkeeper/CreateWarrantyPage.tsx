@@ -17,8 +17,10 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API_URL =
-  import.meta.env.VITE_API_URL ?? "http://localhost:5001/api";
+// Keep production requests same-origin so the authenticated session cookie is sent through the Vercel API proxy.
+const API_URL = import.meta.env.PROD
+  ? "/api"
+  : (import.meta.env.VITE_API_URL ?? "http://localhost:5001/api");
 
 interface Customer {
   id: string;
