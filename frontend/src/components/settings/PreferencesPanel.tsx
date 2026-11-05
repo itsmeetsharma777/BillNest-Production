@@ -170,7 +170,7 @@ export default function PreferencesPanel({ role }: { role: "shopkeeper" | "custo
       const response = await fetch(`${API_URL}/user-preferences`, {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ preferences: categoryValues }),
+        body: JSON.stringify({ preferences: Object.fromEntries(categories.flatMap((category) => (category.section?.fields ?? []).map((field) => [field.key, values[field.key] ?? defaults[field.key]]))) }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message ?? "Unable to save preferences.");
