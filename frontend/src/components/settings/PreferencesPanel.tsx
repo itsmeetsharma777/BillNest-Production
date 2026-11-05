@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Bell, Check, ChevronRight, CircleUserRound, Download, FileText, HelpCircle,
   Loader2, Palette, Settings2, Shield, SlidersHorizontal, Store, Trash2, Wallet,
@@ -10,7 +11,7 @@ const API_URL = import.meta.env.PROD ? "/api" : (import.meta.env.VITE_API_URL ??
 
 type Field = { key: string; label: string; kind: "toggle" | "select"; options?: string[]; description?: string };
 type Section = { title: string; description: string; fields: Field[] };
-type Category = { title: string; description: string; icon: typeof Settings2; section?: Section };
+type Category = { title: string; description: string; icon: typeof Settings2; section?: Section; routeTo?: string };
 
 const shopkeeperCategories: Category[] = [
   { title: "General", description: "Shop preferences and everyday defaults.", icon: Settings2, section: { title: "General", description: "Set common defaults for your BillNest workspace.", fields: [
@@ -53,10 +54,8 @@ const shopkeeperCategories: Category[] = [
     { key: "warrantyExpiryAlerts", label: "Warranty expiry notifications", kind: "toggle" },
     { key: "warrantyTerms", label: "Include default warranty terms", kind: "toggle" },
   ]}},
-  { title: "Shop / Account", description: "Business profile and account information.", icon: Store, section: { title: "Shop / Account", description: "Your business profile is managed in the Shop Settings form above.", fields: [
-    { key: "integrationWhatsapp", label: "Enable WhatsApp sharing preference", kind: "toggle" },
-    { key: "integrationOcr", label: "Enable AI OCR workflow preference", kind: "toggle" },
-  ]}},
+  { title: "Business Information", description: "Shop name, GST details and contact information.", icon: Store, routeTo: "/shopkeeper/settings?step=business" },
+  { title: "Business Address", description: "Shop address used on invoices and business records.", icon: Store, routeTo: "/shopkeeper/settings?step=address" },
   { title: "Help & Support", description: "Find help and support resources.", icon: HelpCircle, section: { title: "Help & Support", description: "Support resources for your BillNest workspace.", fields: [
     { key: "personalizedNotices", label: "Show helpful in-app guidance", kind: "toggle" },
   ]}},
@@ -123,6 +122,7 @@ const presets = [
 
 export default function PreferencesPanel({ role }: { role: "shopkeeper" | "customer" }) {
   const categories = role === "shopkeeper" ? shopkeeperCategories : customerCategories;
+  const navigate = useNavigate();
   const { theme, setTheme, customThemes, activeCustomThemeId, saveCustomTheme, applyCustomTheme, deleteCustomTheme } = useTheme();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [customThemeName, setCustomThemeName] = useState("");
@@ -193,7 +193,7 @@ export default function PreferencesPanel({ role }: { role: "shopkeeper" | "custo
         {!activeEntry ? <div>
           <div className="mb-6 border-b pb-5"><h3 className="text-xl font-semibold">All settings</h3><p className="mt-1 text-sm text-muted-foreground">Choose a category to view its full settings.</p></div>
           <div className="divide-y rounded-xl border">
-            {categories.map((category) => { const Icon = category.icon; return <button key={category.title} type="button" onClick={() => { setActiveCategory(category.title); setError(""); setSuccess(""); }} className="group flex w-full items-center gap-4 px-4 py-4 text-left transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-primary/5">
+            {categories.map((category) => { const Icon = category.icon; return <button key={category.title} type="button" onClick={() => { if (category.routeTo) { navigate(category.routeTo); return; } setActiveCategory(category.title); setError(""); setSuccess(""); }} className="group flex w-full items-center gap-4 px-4 py-4 text-left transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-primary/5">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon className="size-4"/></span><span className="min-w-0 flex-1"><span className="block font-medium">{category.title}</span><span className="mt-1 block text-sm leading-relaxed text-muted-foreground">{category.description}</span></span><ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"/>
             </button>; })}
           </div>
