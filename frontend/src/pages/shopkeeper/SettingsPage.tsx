@@ -14,7 +14,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import PreferencesPanel from "@/components/settings/PreferencesPanel";
+import PreferencesPanel from "@/components/settings/PreferencesPanel";\nimport { useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -223,7 +223,7 @@ const inputClassName =
 const selectClassName =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring";
 
-export default function SettingsPage() {
+export default function SettingsPage() {\n  const navigate = useNavigate();\n  const settingsStepParam = new URLSearchParams(window.location.search).get("step");\n  const isBusinessSettingsView = settingsStepParam === "business" || settingsStepParam === "address";
   const [form, setForm] =
     useState<ShopForm>(EMPTY_FORM);
 
@@ -237,7 +237,7 @@ export default function SettingsPage() {
     useState(false);
 
   const [shopSettingsStep, setShopSettingsStep] =
-    useState<0 | 1>(0);
+    useState<0 | 1>(() => settingsStepParam === "address" ? 1 : 0);
 
   const [error, setError] =
     useState("");
@@ -1313,7 +1313,7 @@ export default function SettingsPage() {
         </Card>
         )}
       </form>
-      <PreferencesPanel role="shopkeeper" />
+      {!isBusinessSettingsView && <PreferencesPanel role="shopkeeper" />}
     </div>
   );
 }
