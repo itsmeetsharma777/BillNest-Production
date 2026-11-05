@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Check, Loader2, Save, Settings2, Palette, Trash2 } from "lucide-react";\nimport { useTheme } from "@/context/theme-context";
+import { Check, Loader2, Save, Settings2, Palette, Trash2 } from "lucide-react";
+import { useTheme } from "@/context/theme-context";
 
 const API_URL = import.meta.env.PROD ? "/api" : (import.meta.env.VITE_API_URL ?? "http://localhost:5001/api");
 
@@ -87,7 +88,13 @@ const defaults: Record<string, string | boolean> = {
 };
 
 export default function PreferencesPanel({ role }: { role: "shopkeeper" | "customer" }) {
-  const sections = role === "shopkeeper" ? shopkeeperSections : customerSections;\n  const { customThemes, activeCustomThemeId, saveCustomTheme, applyCustomTheme, deleteCustomTheme } = useTheme();\n  const [customThemeName, setCustomThemeName] = useState("");\n  const [customThemeMode, setCustomThemeMode] = useState<"light" | "dark">("dark");\n  const [customPrimary, setCustomPrimary] = useState("#3b82f6");\n  const [customBackground, setCustomBackground] = useState("#09090b");\n  const [customSurface, setCustomSurface] = useState("#18181b");
+  const sections = role === "shopkeeper" ? shopkeeperSections : customerSections;
+  const { customThemes, activeCustomThemeId, saveCustomTheme, applyCustomTheme, deleteCustomTheme } = useTheme();
+  const [customThemeName, setCustomThemeName] = useState("");
+  const [customThemeMode, setCustomThemeMode] = useState<"light" | "dark">("dark");
+  const [customPrimary, setCustomPrimary] = useState("#3b82f6");
+  const [customBackground, setCustomBackground] = useState("#09090b");
+  const [customSurface, setCustomSurface] = useState("#18181b");
   const [values, setValues] = useState<Record<string, string | boolean>>(defaults);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
