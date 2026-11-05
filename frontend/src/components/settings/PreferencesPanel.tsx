@@ -124,7 +124,7 @@ const presets = [
 export default function PreferencesPanel({ role }: { role: "shopkeeper" | "customer" }) {
   const categories = role === "shopkeeper" ? shopkeeperCategories : customerCategories;
   const { theme, setTheme, customThemes, activeCustomThemeId, saveCustomTheme, applyCustomTheme, deleteCustomTheme } = useTheme();
-  const [activeCategory, setActiveCategory] = useState("General");
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [customThemeName, setCustomThemeName] = useState("");
   const [customThemeMode, setCustomThemeMode] = useState<"light" | "dark">("dark");
   const [customPrimary, setCustomPrimary] = useState("#3b82f6");
@@ -149,8 +149,8 @@ export default function PreferencesPanel({ role }: { role: "shopkeeper" | "custo
     return () => { active = false; };
   }, []);
 
-  const activeEntry = categories.find((item) => item.title === activeCategory) ?? categories[0];
-  const activeSection = activeEntry.section;
+  const activeEntry = activeCategory ? categories.find((item) => item.title === activeCategory) : undefined;
+  const activeSection = activeEntry?.section;
 
   const categoryValues = useMemo(() => {
     if (!activeSection) return {};
