@@ -14,6 +14,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
+import PreferencesPanel from "@/components/settings/PreferencesPanel";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1275,6 +1276,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </form>
+      <PreferencesPanel role="shopkeeper" />
     </div>
   );
 }
