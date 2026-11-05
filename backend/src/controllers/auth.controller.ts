@@ -55,9 +55,7 @@ function setSessionCookie(
         : "lax",
       path: "/",
 
-      ...(process.env.COOKIE_DOMAIN && {
-        domain: process.env.COOKIE_DOMAIN,
-      }),
+      // Omit Domain so the session cookie is host-only for the Vercel frontend.
     },
   );
 }
@@ -128,9 +126,7 @@ export async function logout(
         : "lax",
       path: "/",
 
-      ...(process.env.COOKIE_DOMAIN && {
-        domain: process.env.COOKIE_DOMAIN,
-      }),
+      // Omit Domain so the session cookie is host-only for the Vercel frontend.
     },
   );
 
