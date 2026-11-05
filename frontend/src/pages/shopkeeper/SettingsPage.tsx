@@ -15,7 +15,6 @@ import {
   type FormEvent,
 } from "react";
 import PreferencesPanel from "@/components/settings/PreferencesPanel";
-import { useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -225,7 +224,6 @@ const selectClassName =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring";
 
 export default function SettingsPage() {
-  const navigate = useNavigate();
   const settingsStepParam = new URLSearchParams(window.location.search).get("step");
   const isBusinessSettingsView = settingsStepParam === "business" || settingsStepParam === "address";
   const [form, setForm] =
