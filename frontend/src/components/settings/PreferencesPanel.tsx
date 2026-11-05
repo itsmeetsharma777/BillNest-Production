@@ -205,7 +205,16 @@ export default function PreferencesPanel({ role }: { role: "shopkeeper" | "custo
       </aside>
 
       <main className="min-w-0 rounded-2xl border bg-card p-5 sm:p-6">
+        {!activeEntry ? <div>
+          <div className="mb-6 border-b pb-5"><h3 className="text-xl font-semibold">All settings</h3><p className="mt-1 text-sm text-muted-foreground">Choose a category to view its full settings.</p></div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {categories.map((category) => { const Icon = category.icon; return <button key={category.title} type="button" onClick={() => { setActiveCategory(category.title); setError(""); setSuccess(""); }} className="group flex min-h-[100px] items-start gap-3 rounded-xl border p-4 text-left transition-colors hover:border-primary/50 hover:bg-primary/5">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon className="size-4"/></span><span className="min-w-0 flex-1"><span className="block font-medium">{category.title}</span><span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{category.description}</span></span><ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"/>
+            </button>; })}
+          </div>
+        </div> : <>
         <div className="mb-6 border-b pb-5">
+          <button type="button" onClick={() => { setActiveCategory(null); setError(""); setSuccess(""); }} className="mb-3 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">← All settings</button>
           <h3 className="text-xl font-semibold">{activeEntry.title}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{activeEntry.description}</p>
         </div>
@@ -252,6 +261,8 @@ export default function PreferencesPanel({ role }: { role: "shopkeeper" | "custo
           </div>)}
           <div className="flex justify-end border-t pt-4"><button onClick={save} disabled={saving} className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50">{saving ? <Loader2 className="size-4 animate-spin"/> : <Save className="size-4"/>}{saving ? "Saving…" : "Save changes"}</button></div>
         </div> : <div className="text-sm text-muted-foreground">Settings are available from the profile section of this page.</div>}
+
+        </>}
 
         {error && <p role="alert" className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
         {success && <p role="status" className="mt-4 flex items-center gap-2 rounded-xl border border-green-500/30 bg-green-500/5 p-3 text-sm text-green-700 dark:text-green-400"><Check className="size-4"/>{success}</p>}
