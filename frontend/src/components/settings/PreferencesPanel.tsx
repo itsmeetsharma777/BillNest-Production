@@ -189,27 +189,12 @@ export default function PreferencesPanel({ role }: { role: "shopkeeper" | "custo
       <p className="mt-1 text-sm text-muted-foreground">Manage your {role === "shopkeeper" ? "business workspace" : "customer account"} preferences.</p>
     </header>
 
-    <div className="grid gap-5 lg:grid-cols-[230px_minmax(0,1fr)]">
-      <aside className="rounded-2xl border bg-card p-2" aria-label="Settings categories">
-        <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Settings menu</div>
-        <nav className="space-y-1">
-          {categories.map((category) => {
-            const Icon = category.icon;
-            const selected = activeCategory === category.title;
-            return <button key={category.title} type="button" onClick={() => { setActiveCategory(category.title); setError(""); setSuccess(""); }} aria-current={selected ? "page" : undefined}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${selected ? "bg-primary/10 font-semibold text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
-              <Icon className="size-4 shrink-0"/><span className="min-w-0 flex-1">{category.title}</span>{selected && <ChevronRight className="size-4"/>}
-            </button>;
-          })}
-        </nav>
-      </aside>
-
-      <main className="min-w-0 rounded-2xl border bg-card p-5 sm:p-6">
+    <main className="min-w-0 rounded-2xl border bg-card p-5 sm:p-6">
         {!activeEntry ? <div>
           <div className="mb-6 border-b pb-5"><h3 className="text-xl font-semibold">All settings</h3><p className="mt-1 text-sm text-muted-foreground">Choose a category to view its full settings.</p></div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {categories.map((category) => { const Icon = category.icon; return <button key={category.title} type="button" onClick={() => { setActiveCategory(category.title); setError(""); setSuccess(""); }} className="group flex min-h-[100px] items-start gap-3 rounded-xl border p-4 text-left transition-colors hover:border-primary/50 hover:bg-primary/5">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon className="size-4"/></span><span className="min-w-0 flex-1"><span className="block font-medium">{category.title}</span><span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{category.description}</span></span><ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"/>
+          <div className="divide-y rounded-xl border">
+            {categories.map((category) => { const Icon = category.icon; return <button key={category.title} type="button" onClick={() => { setActiveCategory(category.title); setError(""); setSuccess(""); }} className="group flex w-full items-center gap-4 px-4 py-4 text-left transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-primary/5">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon className="size-4"/></span><span className="min-w-0 flex-1"><span className="block font-medium">{category.title}</span><span className="mt-1 block text-sm leading-relaxed text-muted-foreground">{category.description}</span></span><ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"/>
             </button>; })}
           </div>
         </div> : <>
