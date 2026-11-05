@@ -236,6 +236,9 @@ export default function SettingsPage() {
   const [hasShop, setHasShop] =
     useState(false);
 
+  const [shopSettingsStep, setShopSettingsStep] =
+    useState<0 | 1>(0);
+
   const [error, setError] =
     useState("");
 
@@ -652,6 +655,17 @@ export default function SettingsPage() {
     return "";
   };
 
+  const handleShopSettingsNext = () => {
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setError("");
+    setSuccessMessage("");
+    setShopSettingsStep(1);
+  };
+
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
@@ -875,6 +889,16 @@ export default function SettingsPage() {
         onSubmit={handleSubmit}
         className="space-y-6"
       >
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[{ title: "Business information", desc: "Shop identity, GST and contact details" }, { title: "Business address", desc: "Address used on invoices and records" }].map((step, index) => (
+            <button key={step.title} type="button" onClick={() => setShopSettingsStep(index as 0 | 1)} className={`flex items-center gap-3 rounded-xl border p-4 text-left transition-colors ${shopSettingsStep === index ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`}>
+              <span className={`flex size-8 items-center justify-center rounded-full text-sm font-semibold ${shopSettingsStep === index ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{index + 1}</span>
+              <span><span className="block text-sm font-medium">{step.title}</span><span className="mt-0.5 block text-xs text-muted-foreground">{step.desc}</span></span>
+              {shopSettingsStep === index && <CheckCircle2 className="ml-auto size-4 text-primary"/>}
+            </button>
+          ))}
+        </div>
+        {shopSettingsStep === 0 && (
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
@@ -1030,7 +1054,9 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+        )}
 
+        {shopSettingsStep === 1 && (
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
@@ -1238,7 +1264,14 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+        )}
 
+        {shopSettingsStep === 0 ? (
+          <Card><CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <div><p className="font-medium">Step 1 of 2 · Business information</p><p className="mt-1 text-sm text-muted-foreground">Next, add the address for your invoices and business records.</p></div>
+            <Button type="button" onClick={handleShopSettingsNext} className="sm:min-w-36">Continue <MapPin className="ml-2 size-4"/></Button>
+          </CardContent></Card>
+        ) : (
         <Card>
           <CardContent className="p-5 sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1255,6 +1288,8 @@ export default function SettingsPage() {
                 </p>
               </div>
 
+              <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => { setShopSettingsStep(0); setError(""); }} className="sm:min-w-28">Back</Button>
               <Button
                 type="submit"
                 isDisabled={isSaving}
@@ -1272,9 +1307,11 @@ export default function SettingsPage() {
                   </>
                 )}
               </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
+        )}
       </form>
       <PreferencesPanel role="shopkeeper" />
     </div>
