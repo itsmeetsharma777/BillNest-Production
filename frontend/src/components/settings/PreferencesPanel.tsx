@@ -252,6 +252,5 @@ export default function PreferencesPanel({ role }: { role: "shopkeeper" | "custo
         {error && <p role="alert" className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
         {success && <p role="status" className="mt-4 flex items-center gap-2 rounded-xl border border-green-500/30 bg-green-500/5 p-3 text-sm text-green-700 dark:text-green-400"><Check className="size-4"/>{success}</p>}
       </main>
-    </div>
   </div>;
 }
